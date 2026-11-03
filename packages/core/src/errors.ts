@@ -1,0 +1,13 @@
+export type DomainErrorCode =
+  | 'REASON_REQUIRED' | 'FORBIDDEN' | 'INVALID_STATE' | 'NOT_FOUND' | 'VERSION_CONFLICT' | 'INVALID_INPUT';
+
+export class DomainError extends Error {
+  constructor(public readonly code: DomainErrorCode, message: string) {
+    super(message);
+    this.name = 'DomainError';
+  }
+}
+
+export function fail(code: DomainErrorCode, message: string): never {
+  throw new DomainError(code, message);
+}

@@ -1,0 +1,13 @@
+{
+  "name": "attivita",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "npm test -w @attivita/core --"
+  }
+}
