@@ -13,9 +13,10 @@ import { useWs } from '../workspace/useWorkspace.js';
 export type Tab = 'agenda' | 'drafts' | 'groups' | 'me';
 
 export function Shell() {
-  const { engine, outbox } = useSession();
+  const { primary: engine, outbox } = useSession();
   const ws = useWs();
-  const [tab, setTab] = useState<Tab>('agenda');
+  // An invite link to a Google group opens the Groups tab, where the wizard waits.
+  const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).has('firebase') ? 'groups' : 'agenda'));
   const [open, setOpen] = useState<OpenTarget | null>(null);
   const [capturing, setCapturing] = useState(() => new URLSearchParams(window.location.search).has('capture'));
 
@@ -33,6 +34,7 @@ export function Shell() {
     <div className="app">
       <main className="content">
         {ws.error && <p className="error" role="alert">{ws.error} <button className="link" onClick={ws.clearError}>Chiudi</button></p>}
+        {ws.notices.map(n => <p key={n} className="muted small" role="status">{n}</p>)}
         {open ? (
           <ActivityDetail key={`${open.activityId}|${open.occurrenceKey ?? ''}`} activityId={open.activityId} occurrenceKey={open.occurrenceKey} onClose={() => setOpen(null)} />
         ) : (

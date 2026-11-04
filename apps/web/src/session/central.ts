@@ -2,8 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CentralEngine } from '@attivita/engine-central';
 import { idbOutboxStore } from '../offline/idb-store.js';
+import { forgetGoogleProjects } from './google-config.js';
 import { chooseStartup, offlineIdentity, resolveOnboarding } from './onboarding.js';
-import type { Session } from './session.js';
+import type { OpenedSession } from './session.js';
 
 /** The only module that knows the app runs on Supabase. */
 let client: SupabaseClient | null = null;
@@ -22,7 +23,7 @@ function rememberEmail(email: string | null): void {
   try { if (email) localStorage.setItem(LAST_ACCOUNT, email); else localStorage.removeItem(LAST_ACCOUNT); } catch { /* storage unavailable */ }
 }
 
-export async function openCentralSession(): Promise<Session | null> {
+export async function openCentralSession(): Promise<OpenedSession | null> {
   const db = supabase();
   const { data } = await db.auth.getSession();
   const start = chooseStartup({ sessionEmail: data.session?.user.email ?? null, cachedEmail: cachedEmail(), online: navigator.onLine });
@@ -31,8 +32,8 @@ export async function openCentralSession(): Promise<Session | null> {
   const identity = start.kind === 'offline' ? offlineIdentity(start.email) : await resolveOnboarding(start.email, () => engine.onboard());
   rememberEmail(start.email);
   if (identity.offline) window.addEventListener('online', () => window.location.reload(), { once: true });
-  const signOut = async () => { rememberEmail(null); await db.auth.signOut(); };
-  return { account: identity.account, engine, personalGroupId: identity.personalGroupId, outbox: idbOutboxStore(), signOut };
+  const signOut = async () => { rememberEmail(null); await forgetGoogleProjects(); await db.auth.signOut(); };
+  return { account: identity.account, primary: engine, engines: [engine], personalGroupId: identity.personalGroupId, outbox: idbOutboxStore(), signOut };
 }
 
 export async function sendMagicLink(email: string): Promise<string | null> {

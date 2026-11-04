@@ -20,10 +20,10 @@ test('testGuestSeesOnlyTheirGroups', async () => {
 /** Two tabs: the other one saved first, so ours must reload and explain instead of overwriting. */
 test('testConflictReloadsAndExplains', async () => {
   const s = memorySession();
-  const { result } = renderHook(() => useWorkspace(s.engine));
+  const { result } = renderHook(() => useWorkspace(s.engines));
   await waitFor(() => expect(result.current.activities.length).toBeGreaterThan(0));
   const a = result.current.activities.find(x => x.id === 'sal')!;
-  await s.engine.saveActivity({ ...a, title: 'other tab' }, a.version);
+  await s.primary.saveActivity({ ...a, title: 'other tab' }, a.version);
   await act(() => result.current.save({ ...a, title: 'mine' }).catch(() => undefined));
   expect(result.current.error).toMatch(/Qualcun altro/);
   expect(result.current.activities.find(x => x.id === 'sal')?.title).toBe('other tab');

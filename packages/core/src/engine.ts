@@ -25,6 +25,8 @@ export interface Engine {
   readonly kind: string;
   readonly limits: EngineLimits;
   readonly account: AccountId;
+  /** False when the engine keeps only group data: drafts then live on the primary engine. */
+  readonly drafts: boolean;
   getGroup(id: GroupId): Promise<Group>;
   listGroups(): Promise<Group[]>;
   /** expectedVersion null creates; returns the new version. */

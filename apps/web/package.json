@@ -13,7 +13,9 @@
   "dependencies": {
     "@attivita/core": "0.1.0",
     "@attivita/engine-central": "0.1.0",
+    "@attivita/engine-google": "0.1.0",
     "@supabase/supabase-js": "^2.118.0",
+    "firebase": "13.1.0",
     "idb": "^8.0.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

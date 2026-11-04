@@ -29,6 +29,7 @@ export class InMemoryBackend {
 /** Reference engine; stores deep copies, and check-and-write runs without awaiting in between. */
 export class InMemoryEngine implements Engine {
   readonly kind = 'memory';
+  readonly drafts = true;
 
   constructor(private readonly store: InMemoryBackend, readonly account: AccountId) {}
 

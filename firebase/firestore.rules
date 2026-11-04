@@ -1,0 +1,172 @@
+rules_version = '2';
+// memo-land, Google engine: one Firebase project holds invite groups and their activities. Drafts stay
+// on the central engine: private drafts would let anyone holding the project config use the owner's quota.
+// These rules repeat on the server what supabase/migrations/0004_security.sql checks for the central engine.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Only Google accounts with a verified email; the account id is the email in lowercase.
+    function verified() {
+      return request.auth != null && request.auth.token.email_verified == true && request.auth.token.email is string;
+    }
+    function me() { return request.auth.token.email.lower(); }
+
+    function groupPath(gid) { return /databases/$(database)/documents/groups/$(gid); }
+    function isMember(gid) { return gid is string && exists(groupPath(gid)) && me() in get(groupPath(gid)).data.members; }
+    function roleIn(gid) { return get(groupPath(gid)).data.members[me()]; }
+    function isGuestIn(gid) { return gid != null && isMember(gid) && roleIn(gid) == 'guest'; }
+    // Every activity is in a group, and group data belongs to the group's members.
+    function canSee(gid) { return isMember(gid); }
+
+    function activityPath(id) { return /databases/$(database)/documents/activities/$(id); }
+    function canSeeActivity(id) {
+      return id is string && exists(activityPath(id))
+        && canSee(get(activityPath(id)).data.groupId);
+    }
+
+    // ---- change feed bookkeeping ------------------------------------------------------------------
+    function counterPath() { return /databases/$(database)/documents/meta/counter; }
+    function counterBefore() { return exists(counterPath()) ? get(counterPath()).data.value : 0; }
+    // Change ids are the seq padded to 12 digits.
+    function changePath(seq) { return /databases/$(database)/documents/changes/$(string(seq + 1000000000000).replace('^1', '')); }
+    // Every group or activity write carries its change row as the first new seq, so no write goes unseen.
+    function logged(id) {
+      return getAfter(counterPath()).data.value > counterBefore()
+        && getAfter(changePath(counterBefore() + 1)).data.id == id;
+    }
+
+    // A write is "real" when it creates the doc at version 2 or moves it exactly one version up.
+    function writtenNow(path) {
+      return existsAfter(path)
+        && getAfter(path).data.version == (exists(path) ? get(path).data.version + 1 : 2);
+    }
+
+    // ---- groups: only invite groups live here -------------------------------------------------------
+    function validGroup(d, gid) {
+      return d.keys().hasOnly(['id', 'kind', 'name', 'ownerId', 'timeZone', 'members', 'memberIds', 'version'])
+        && d.id == gid && d.kind == 'invite' && d.name is string && d.timeZone is string && d.version is int
+        && d.members is map && d.members.values().hasOnly(['owner', 'member', 'guest'])
+        // Exactly one owner, and it is ownerId.
+        && d.members.values().removeAll(['member', 'guest']).size() == 1
+        && d.ownerId is string && d.members.get(d.ownerId, null) == 'owner'
+        // memberIds mirrors the member keys, so list queries can use array-contains.
+        && d.memberIds is list && d.memberIds.size() == d.members.size() && d.memberIds.hasAll(d.members.keys());
+    }
+
+    function ownerChange(d, old) {
+      return d.ownerId == old.ownerId || d.ownerId in old.members;
+    }
+    function memberChange(d, old) {
+      let diff = d.members.diff(old.members);
+      return d.diff(old).affectedKeys().hasOnly(['members', 'memberIds', 'version'])
+        && diff.changedKeys().size() == 0
+        && !(old.ownerId in diff.removedKeys());
+    }
+    function guestChange(d, old) {
+      let diff = d.members.diff(old.members);
+      // Leaving is the only change: hasOnly() on an empty set would also let a guest change its own role.
+      return d.diff(old).affectedKeys().hasOnly(['members', 'memberIds', 'version'])
+        && diff.addedKeys().size() == 0 && diff.changedKeys().size() == 0 && diff.removedKeys() == [me()].toSet();
+    }
+
+    match /groups/{gid} {
+      allow get: if verified() && (resource == null || me() in resource.data.members);
+      allow list: if verified() && me() in resource.data.memberIds;
+      allow create: if verified() && validGroup(request.resource.data, gid)
+        && request.resource.data.members.size() == 1 && request.resource.data.ownerId == me()
+        && request.resource.data.version == 2 && logged(gid);
+      allow update: if verified() && me() in resource.data.members && logged(gid)
+        && validGroup(request.resource.data, gid)
+        && request.resource.data.version == resource.data.version + 1
+        && (resource.data.members[me()] == 'owner' ? ownerChange(request.resource.data, resource.data)
+          : resource.data.members[me()] == 'member' ? memberChange(request.resource.data, resource.data)
+          : guestChange(request.resource.data, resource.data));
+    }
+
+    // ---- activities --------------------------------------------------------------------------------
+    function validActivity(d, id) {
+      return d.id == id && d.accountId is string && d.version is int && d.groupId is string;
+    }
+    // Guests may only act on what is assigned to them, inside the same group.
+    function guestMayUpdate(d, old) {
+      return !isGuestIn(old.groupId)
+        || (d.groupId == old.groupId && old.props.get('assignment', {}).get('assignee', null) == me());
+    }
+
+    match /activities/{id} {
+      allow get: if verified() && (resource == null || canSee(resource.data.groupId));
+      allow list: if verified() && canSee(resource.data.groupId);
+      allow create: if verified() && validActivity(request.resource.data, id)
+        && request.resource.data.version == 2
+        && canSee(request.resource.data.groupId)
+        && !isGuestIn(request.resource.data.groupId) && logged(id);
+      allow update: if verified() && validActivity(request.resource.data, id) && logged(id)
+        && request.resource.data.version == resource.data.version + 1
+        && request.resource.data.accountId == resource.data.accountId
+        && canSee(resource.data.groupId)
+        && canSee(request.resource.data.groupId)
+        && guestMayUpdate(request.resource.data, resource.data)
+        && (request.resource.data.groupId == resource.data.groupId || !isGuestIn(request.resource.data.groupId));
+    }
+
+    // ---- attachments, split in chunks of at most 900 KB -------------------------------------------
+    match /blobs/{ref} {
+      allow get: if verified() && canSeeActivity(resource.data.activityId);
+      allow create: if verified()
+        && request.resource.data.keys().hasOnly(['activityId', 'name', 'mimeType', 'size', 'chunks'])
+        && request.resource.data.size is int && request.resource.data.chunks is int
+        && canSeeActivity(request.resource.data.activityId);
+
+      match /chunks/{n} {
+        allow read: if verified() && canSeeActivity(get(/databases/$(database)/documents/blobs/$(ref)).data.activityId);
+        allow create: if verified()
+          && request.resource.data.keys().hasOnly(['data'])
+          && request.resource.data.data is bytes && request.resource.data.data.size() <= 921600
+          && canSeeActivity(getAfter(/databases/$(database)/documents/blobs/$(ref)).data.activityId);
+      }
+    }
+
+    // ---- change feed: one doc per write, id = seq padded to 12 digits -----------------------------
+
+    function activityChange(d) {
+      let after = getAfter(activityPath(d.id)).data;
+      return d.type == 'activity' && writtenNow(activityPath(d.id))
+        && ((d.groupId == after.groupId && d.accountId == after.accountId)
+          // A move to another group also tells the old one.
+          || (exists(activityPath(d.id)) && d.groupId == get(activityPath(d.id)).data.groupId
+              && d.accountId == get(activityPath(d.id)).data.accountId));
+    }
+    function groupChange(d) {
+      return d.type == 'group' && d.groupId == d.id && writtenNow(groupPath(d.id))
+        && (d.accountId == null
+          // A removed member gets its own row, so its app drops the group.
+          || (exists(groupPath(d.id)) && d.accountId in get(groupPath(d.id)).data.members
+              && !(d.accountId in getAfter(groupPath(d.id)).data.members)));
+    }
+
+    match /changes/{cid} {
+      allow read: if verified() && (
+        isMember(resource.data.groupId)
+        || (resource.data.type == 'group' && resource.data.accountId == me()));
+      allow create: if verified()
+        && request.resource.data.keys().hasOnly(['type', 'id', 'groupId', 'accountId', 'seq', 'at'])
+        && request.resource.data.at == request.time
+        && request.resource.data.seq is int && cid.size() == 12 && int(cid) == request.resource.data.seq
+        && request.resource.data.seq > counterBefore()
+        && request.resource.data.seq <= getAfter(counterPath()).data.value
+        && (activityChange(request.resource.data) || groupChange(request.resource.data));
+    }
+
+    // Per-project sequence for the change feed: it grows by the rows of one write (at most 32), never jumps,
+    // so a stranger cannot push it past 12 digits and lock every later write out.
+    match /meta/counter {
+      allow get: if verified();
+      allow create, update: if verified()
+        && request.resource.data.keys().hasOnly(['value']) && request.resource.data.value is int
+        && request.resource.data.value > counterBefore()
+        && request.resource.data.value <= counterBefore() + 32
+        && existsAfter(changePath(counterBefore() + 1))
+        && existsAfter(changePath(request.resource.data.value));
+    }
+  }
+}

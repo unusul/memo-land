@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { AccountId, Engine, Group } from '../src/index.js';
+import type { AccountId, Activity, Engine, Group } from '../src/index.js';
 import { draft } from './fixtures.js';
 
 /** An invite group every engine can create: domain and personal groups come from onboarding. */
@@ -12,33 +12,40 @@ export type SessionFactory = (account: AccountId) => Engine;
 export function engineContract(name: string, makeBackend: () => Promise<SessionFactory>): void {
   const groupActivity = { ...draft, id: 'g-act', accountId: 'pippo', groupId: 'team' };
 
-  async function withTeam(): Promise<SessionFactory> {
-    const open = await makeBackend();
+  async function withTeam(backend?: SessionFactory): Promise<SessionFactory> {
+    const open = backend ?? await makeBackend();
     const v = await open('pippo').saveGroup(team, null);
     await open('pippo').saveGroup({ ...team, members: { pippo: 'owner', pluto: 'member' }, version: v }, v);
     return open;
   }
 
+  /** What most tests write: a draft of pippo, or a team activity on engines that keep no drafts. */
+  async function subject(): Promise<{ open: SessionFactory; e: Engine; a: Activity }> {
+    const open = await makeBackend();
+    if (open('pippo').drafts) return { open, e: open('pippo'), a: { ...draft, accountId: 'pippo' } };
+    return { open: await withTeam(open), e: open('pippo'), a: groupActivity };
+  }
+
   describe(name, () => {
     test('testCreateThenReadRoundTrip', async () => {
-      const e = (await makeBackend())('u1');
-      const saved = await e.saveActivity(draft, null);
+      const { e, a } = await subject();
+      const saved = await e.saveActivity(a, null);
       expect(saved.version).toBe(2);
-      expect((await e.getActivity(draft.id)).activity).toEqual(saved);
+      expect((await e.getActivity(a.id)).activity).toEqual(saved);
     });
 
     test('testCreateExistingIdConflicts', async () => {
-      const e = (await makeBackend())('u1');
-      await e.saveActivity(draft, null);
-      await expect(e.saveActivity(draft, null)).rejects.toMatchObject({ code: 'VERSION_CONFLICT' });
+      const { e, a } = await subject();
+      await e.saveActivity(a, null);
+      await expect(e.saveActivity(a, null)).rejects.toMatchObject({ code: 'VERSION_CONFLICT' });
     });
 
     test('testConcurrentSaveFromSameVersionConflicts', async () => {
-      const e = (await makeBackend())('u1');
-      const v = await e.saveActivity(draft, null);
+      const { e, a } = await subject();
+      const v = await e.saveActivity(a, null);
       await e.saveActivity({ ...v, title: 'pippo edit' }, v.version);
       await expect(e.saveActivity({ ...v, title: 'pluto edit' }, v.version)).rejects.toMatchObject({ code: 'VERSION_CONFLICT' });
-      expect((await e.getActivity(draft.id)).activity.title).toBe('pippo edit');
+      expect((await e.getActivity(a.id)).activity.title).toBe('pippo edit');
     });
 
     /** Engines must make check-and-write atomic: of two truly parallel saves exactly one wins. */
@@ -60,6 +67,11 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
 
     test('testDraftsArePrivateToTheirAccount', async () => {
       const open = await makeBackend();
+      if (!open('u1').drafts) {
+        await expect(open('u1').saveActivity(draft, null)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+        expect(await open('u1').listActivities(null)).toEqual([]);
+        return;
+      }
       await open('u1').saveActivity(draft, null);
       expect((await open('u1').listActivities(null)).map(a => a.id)).toEqual([draft.id]);
       expect(await open('u2').listActivities(null)).toEqual([]);
@@ -89,31 +101,30 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
     });
 
     test('testChangesSinceReturnsOnlyNewChanges', async () => {
-      const e = (await makeBackend())('u1');
+      const { e, a } = await subject();
       const { cursor } = await e.changesSince(null);
-      await e.saveActivity(draft, null);
+      await e.saveActivity(a, null);
       const r = await e.changesSince(cursor);
-      expect(r.changes.map(c => c.id)).toEqual([draft.id]);
+      expect(r.changes.map(c => c.id)).toEqual([a.id]);
       expect((await e.changesSince(r.cursor)).changes).toEqual([]);
     });
 
     test('testAttachmentRoundTripAndLimit', async () => {
-      const open = await makeBackend();
-      const e = open('u1');
-      await e.saveActivity(draft, null);
-      const ref = await e.putAttachment(draft.id, { name: 'shot.png', mimeType: 'image/png', bytes: new Uint8Array([1, 2, 3]) });
+      const { open, e, a } = await subject();
+      await e.saveActivity(a, null);
+      const ref = await e.putAttachment(a.id, { name: 'shot.png', mimeType: 'image/png', bytes: new Uint8Array([1, 2, 3]) });
       expect(ref).toMatchObject({ name: 'shot.png', mimeType: 'image/png', size: 3 });
       expect(Array.from(await e.getAttachment(ref))).toEqual([1, 2, 3]);
-      await expect(open('u2').getAttachment(ref)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(open('stranger').getAttachment(ref)).rejects.toMatchObject({ code: 'FORBIDDEN' });
       const big = new Uint8Array(e.limits.maxAttachmentBytes + 1);
-      await expect(e.putAttachment(draft.id, { name: 'x.bin', mimeType: 'application/octet-stream', bytes: big })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+      await expect(e.putAttachment(a.id, { name: 'x.bin', mimeType: 'application/octet-stream', bytes: big })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     });
 
     test('testReturnedObjectsAreCopies', async () => {
-      const e = (await makeBackend())('u1');
-      const s = await e.saveActivity(draft, null);
+      const { e, a } = await subject();
+      const s = await e.saveActivity(a, null);
       s.title = 'mutated';
-      expect((await e.getActivity(draft.id)).activity.title).toBe('app gestione core');
+      expect((await e.getActivity(a.id)).activity.title).toBe('app gestione core');
     });
   });
 }

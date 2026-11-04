@@ -34,8 +34,8 @@ test('testSaveQueuesDraftThenSendsIt', async () => {
   await screen.findByText('foto.jpg');
   userClick('Salva');
   await waitFor(() => expect(onSaved).toHaveBeenCalled());
-  await waitFor(async () => expect((await s.engine.listActivities(null)).map(a => a.title)).toContain('chiamare il fornitore'));
-  const saved = (await s.engine.listActivities(null)).find(a => a.title === 'chiamare il fornitore')!;
+  await waitFor(async () => expect((await s.primary.listActivities(null)).map(a => a.title)).toContain('chiamare il fornitore'));
+  const saved = (await s.primary.listActivities(null)).find(a => a.title === 'chiamare il fornitore')!;
   expect(saved.accountId).toBe(PIPPO);
   expect(saved.attachments.map(f => f.name)).toEqual(['foto.jpg']);
   expect(await s.outbox.list(PIPPO)).toEqual([]);
