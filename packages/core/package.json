@@ -8,11 +8,12 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p ."
   },
-  "devDependencies": {
-    "typescript": "^7.0.2",
-    "vitest": "^3.2.7"
-  },
   "dependencies": {
     "rrule": "^2.8.1"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./test/engine-contract": "./test/engine-contract.ts",
+    "./test/fixtures": "./test/fixtures.ts"
   }
 }
