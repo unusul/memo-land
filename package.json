@@ -19,5 +19,8 @@
     "typescript": "^7.0.2",
     "vitest": "^3.2.7",
     "firebase-tools": "15.34.1"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.7"
   }
 }

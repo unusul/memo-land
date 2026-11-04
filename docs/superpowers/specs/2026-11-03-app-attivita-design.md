@@ -76,7 +76,8 @@ Vive nell'account Google di chi apre il gruppo, in due pezzi:
 - **Dati in Firestore**, nel progetto Firebase gratuito (piano Spark, senza carta) di chi apre il gruppo:
   - accesso con Firebase Auth (login Google) e **regole di sicurezza Firestore** che applicano membri e ruoli;
   - aggiornamenti in tempo reale e cache offline forniti da Firestore;
-  - allegati: **[scelta di Claude]** da decidere nel piano. Firebase Storage gratuito richiede ora il piano a consumo, quindi l'alternativa è il Drive del proprietario tramite lo script.
+  - allegati: **[scelta di Claude, nel piano]** dentro Firestore, divisi in pezzi da 900 KB (un documento Firestore regge al massimo 1 MiB), fino a 5 MB per file. Firebase Storage gratuito richiede ora il piano a consumo;
+  - **niente bozze** [deciso con l'utente, dopo la revisione]: ogni attività sta in un gruppo, le bozze restano sul motore centrale. Bozze private permetterebbero a chiunque abbia la configurazione del progetto (che viaggia nei link d'invito) di occupare la quota gratuita del proprietario. Resta possibile che uno sconosciuto si crei un gruppo suo: rischio accettato per gruppi piccoli.
 - **Apps Script solo come server sempre acceso**, collegato allo stesso progetto: timer (scadenze, promemoria, rimandi, ricorrenze), invio Telegram ed email, indirizzo web per il webhook Telegram e il feed iCal. Legge e scrive Firestore tramite la sua API REST.
 - **Configurazione**: procedimento guidato dall'app. Chi apre il gruppo crea il progetto Firebase, incolla la sua configurazione pubblica nell'app, pubblica le regole fornite dall'app e installa lo script.
 - **Ripristino**: se il proprietario se ne va, il progetto Firebase resta suo. La cessione del gruppo richiede che aggiunga un altro membro come proprietario del progetto. **[scelta di Claude]** La procedura va descritta nel piano.
