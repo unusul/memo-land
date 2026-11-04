@@ -8,6 +8,14 @@ export class DomainError extends Error {
   }
 }
 
+/** The engine could not be reached (network down, server unreachable): callers may retry or work offline. */
+export class EngineUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EngineUnavailableError';
+  }
+}
+
 export function fail(code: DomainErrorCode, message: string): never {
   throw new DomainError(code, message);
 }

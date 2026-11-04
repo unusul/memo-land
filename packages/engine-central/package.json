@@ -1,0 +1,15 @@
+{
+  "name": "@attivita/engine-central",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@attivita/core": "0.1.0",
+    "@supabase/supabase-js": "^2.118.0"
+  }
+}

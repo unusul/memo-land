@@ -1,17 +1,21 @@
 import { describe, expect, test } from 'vitest';
-import type { AccountId, Engine } from '../src/index.js';
-import { domainGroup, draft } from './fixtures.js';
+import type { AccountId, Engine, Group } from '../src/index.js';
+import { draft } from './fixtures.js';
+
+/** An invite group every engine can create: domain and personal groups come from onboarding. */
+const team: Group = { id: 'team', kind: 'invite', name: 'team', ownerId: 'pippo', timeZone: 'Europe/Rome', members: { pippo: 'owner' }, version: 1 };
 
 /** Opens a session on one shared backend for the given account. */
 export type SessionFactory = (account: AccountId) => Engine;
 
 /** Behaviour every engine (memory, Supabase, Google) must provide; later engines import this suite. */
 export function engineContract(name: string, makeBackend: () => Promise<SessionFactory>): void {
-  const groupActivity = { ...draft, id: 'g-act', accountId: 'pippo', groupId: 'd1' };
+  const groupActivity = { ...draft, id: 'g-act', accountId: 'pippo', groupId: 'team' };
 
-  async function withDomainGroup(): Promise<SessionFactory> {
+  async function withTeam(): Promise<SessionFactory> {
     const open = await makeBackend();
-    await open('pippo').saveGroup(domainGroup, null);
+    const v = await open('pippo').saveGroup(team, null);
+    await open('pippo').saveGroup({ ...team, members: { pippo: 'owner', pluto: 'member' }, version: v }, v);
     return open;
   }
 
@@ -39,7 +43,7 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
 
     /** Engines must make check-and-write atomic: of two truly parallel saves exactly one wins. */
     test('testParallelSavesExactlyOneWins', async () => {
-      const open = await withDomainGroup();
+      const open = await withTeam();
       const v = await open('pippo').saveActivity(groupActivity, null);
       const results = await Promise.allSettled([
         open('pippo').saveActivity({ ...v, title: 'pippo edit' }, v.version),
@@ -65,10 +69,10 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
     });
 
     test('testGroupActivitiesVisibleOnlyToMembers', async () => {
-      const open = await withDomainGroup();
+      const open = await withTeam();
       await open('pippo').saveActivity(groupActivity, null);
-      expect((await open('pluto').listActivities('d1')).map(a => a.id)).toEqual(['g-act']);
-      await expect(open('stranger').listActivities('d1')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect((await open('pluto').listActivities('team')).map(a => a.id)).toEqual(['g-act']);
+      await expect(open('stranger').listActivities('team')).rejects.toMatchObject({ code: 'FORBIDDEN' });
       await expect(open('stranger').getActivity('g-act')).rejects.toMatchObject({ code: 'FORBIDDEN' });
       await expect(open('stranger').saveActivity({ ...groupActivity, id: 'x' }, null)).rejects.toMatchObject({ code: 'FORBIDDEN' });
       expect((await open('stranger').changesSince(null)).changes).toEqual([]);
@@ -76,12 +80,12 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
 
     test('testGroupsSavedAndListedByMember', async () => {
       const open = await makeBackend();
-      expect(await open('pippo').saveGroup(domainGroup, null)).toBe(2);
-      expect((await open('pippo').listGroups()).map(g => g.id)).toEqual(['d1']);
+      expect(await open('pippo').saveGroup(team, null)).toBe(2);
+      expect((await open('pippo').listGroups()).map(g => g.id)).toEqual(['team']);
       expect(await open('stranger').listGroups()).toEqual([]);
-      await expect(open('stranger').getGroup('d1')).rejects.toMatchObject({ code: 'FORBIDDEN' });
-      await expect(open('pippo').saveGroup(domainGroup, 1)).rejects.toMatchObject({ code: 'VERSION_CONFLICT' });
-      await expect(open('stranger').saveGroup({ ...domainGroup, id: 'd2' }, null)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(open('stranger').getGroup('team')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(open('pippo').saveGroup(team, 1)).rejects.toMatchObject({ code: 'VERSION_CONFLICT' });
+      await expect(open('stranger').saveGroup({ ...team, id: 't2' }, null)).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
 
     test('testChangesSinceReturnsOnlyNewChanges', async () => {

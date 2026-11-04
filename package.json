@@ -2,12 +2,19 @@
   "name": "attivita",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "test": "npm test -w @attivita/core --"
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db": "bash scripts/vm-supabase.sh"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^3.2.7"
   }
 }
