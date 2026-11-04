@@ -71,26 +71,21 @@ Il problema che risolve: nessuna app esistente fa insieme tutto quello che serve
 - **Account Microsoft**: possono usare i gruppi su questo motore. È il motore naturale per chi non ha Google.
 - Limiti noti: il piano free va in pausa dopo 7 giorni senza attività (serve un ping pianificato), 500 MB di database e 1 GB di storage.
 
-### Motore Google
-Vive interamente nell'account Google di chi apre il gruppo (o nel Drive condiviso aziendale per i gruppi di dominio):
-- **Dati**: Fogli Google e/o file JSON nel Drive, a scelta di chi costruisce. Allegati come file nel Drive.
-- **Server sempre acceso**: un progetto **Apps Script** installato nello stesso account, che fornisce:
-  - **timer** per scadenze, promemoria, rimandi e ricorrenze;
-  - **invio** di email e messaggi Telegram;
-  - un **indirizzo web**, usato dall'app, dal webhook Telegram e dal feed iCal.
-- **Accesso**: lo decide la condivisione Google. Un membro è un account Google che ha accesso ai dati del gruppo; gli inviti passano da lì.
-- **Configurazione**: procedimento guidato dall'app (crea i file, installa lo script, autorizza i permessi). **[scelta di Claude]** L'app fornisce lo script già pronto, da copiare o installare dal link.
-- **Ripristino**: se chi ha installato lo script se ne va, un altro membro autorizzato può reinstallarlo dal proprio account senza perdere dati.
+### Motore Google (deciso dopo la prova del 2026-11-04)
+Vive nell'account Google di chi apre il gruppo, in due pezzi:
+- **Dati in Firestore**, nel progetto Firebase gratuito (piano Spark, senza carta) di chi apre il gruppo:
+  - accesso con Firebase Auth (login Google) e **regole di sicurezza Firestore** che applicano membri e ruoli;
+  - aggiornamenti in tempo reale e cache offline forniti da Firestore;
+  - allegati: **[scelta di Claude, nel piano]** dentro Firestore, divisi in pezzi da 900 KB (un documento Firestore regge al massimo 1 MiB), fino a 5 MB per file. Firebase Storage gratuito richiede ora il piano a consumo;
+  - **niente bozze** [deciso con l'utente, dopo la revisione]: ogni attività sta in un gruppo, le bozze restano sul motore centrale. Bozze private permetterebbero a chiunque abbia la configurazione del progetto (che viaggia nei link d'invito) di occupare la quota gratuita del proprietario. Resta possibile che uno sconosciuto si crei un gruppo suo: rischio accettato per gruppi piccoli.
+- **Apps Script solo come server sempre acceso**, collegato allo stesso progetto: timer (scadenze, promemoria, rimandi, ricorrenze), invio Telegram ed email, indirizzo web per il webhook Telegram e il feed iCal. Legge e scrive Firestore tramite la sua API REST.
+- **Configurazione**: procedimento guidato dall'app. Chi apre il gruppo crea il progetto Firebase, incolla la sua configurazione pubblica nell'app, pubblica le regole fornite dall'app e installa lo script.
+- **Ripristino**: se il proprietario se ne va, il progetto Firebase resta suo. La cessione del gruppo richiede che aggiunga un altro membro come proprietario del progetto. **[scelta di Claude]** La procedura va descritta nel piano.
 
-### Accesso ai dati: lo script è il backend [scelta di Claude, dopo la revisione]
-- Il client **non legge il Drive direttamente**. Ogni lettura e scrittura passa dall'indirizzo web dello script del gruppo, che gira come chi l'ha installato e quindi è l'unico ad avere accesso ai file.
-- Il client prova solo chi è: login Google con i soli permessi di identità (openid, email), che non richiedono la verifica di Google né hanno il tetto di 100 utenti. Lo script verifica il token Google contro l'elenco dei membri e rilascia un **proprio token di sessione a lunga durata**, così l'app si apre già autenticata, anche su iOS.
-- Conseguenze accettate:
-  - i ruoli li applica davvero lo script, quindi il rischio "aggirare i ruoli dal Drive" sparisce;
-  - ogni chiamata costa 1–3 secondi, compensati da cache locale e interfaccia ottimistica;
-  - c'è un limite di circa 30 esecuzioni contemporanee per script, abbondante per 10 persone.
-- Lo script va pubblicato come "esegui come me, accessibile a chiunque" e controlla da sé ogni richiesta. Serve anche al webhook Telegram e al feed iCal.
-- Ogni copia pubblicata dell'app ha un proprio client OAuth Google (solo identità). Lo crea chi pubblica la copia, una tantum. Il connettore Claude locale usa lo stesso meccanismo.
+### Perché Firestore e non il foglio (misurato il 2026-11-04)
+- Apps Script come backend dei dati costa circa 1,5 secondi per chiamata, più il tempo del foglio: circa 2 secondi per lettura o scrittura. Va contro il requisito di un'app veloce.
+- Apps Script regge le chiamate in parallelo (LockService atomico, 20 su 20 riuscite) e risponde al browser senza preflight CORS. Resta quindi adatto per timer e notifiche.
+- Dettagli: `.superpowers/spikes/google-engine/findings.md` (locale, non nel repository).
 
 ### Interfaccia programmabile unica
 L'app, il connettore Claude e il futuro bot Telegram usano le stesse operazioni dell'interfaccia motore. Nessuna operazione è disponibile solo dalla UI.
@@ -194,7 +189,7 @@ Creazione, cambi di forma, assegnazioni, rifiuti con motivo, sostituzioni, compl
 - **Chi spedisce**: lo script del motore di ciascun gruppo. Quando entri in un gruppo, gli comunichi dove vuoi ricevere le sue notifiche. Il predefinito viene dalle tue preferenze di persona, e lo puoi sostituire per gruppo (es. gruppo 1 → email1, gruppo 2 → email2).
 - I messaggi indicano gruppo e account. Una persona presente nello stesso gruppo con due account riceve una notifica sola.
 - **Email**: inviata dallo script con l'account del motore. Quote Google: circa 100 al giorno per account personali, 1500 per Workspace.
-- **Push**: **[scelta di Claude]** va verificata la fattibilità da Apps Script (cifratura Web Push, oppure Firebase Cloud Messaging). Se non regge, la prima versione usa solo Telegram, email e notifiche in app.
+- **Push**: Apps Script non ha gli algoritmi per Web Push. Dai gruppi sul motore Google la prima versione notifica solo via Telegram, email e in app; le push restano sul motore centralizzato. **[scelta di Claude]** Si potranno aggiungere più avanti tramite Firebase Cloud Messaging.
 - **Ogni categoria è attivabile per ogni canale.** Valori iniziali **[scelta di Claude]**:
 
 | Categoria | Predefinito |
@@ -213,12 +208,12 @@ Creazione, cambi di forma, assegnazioni, rifiuti con motivo, sostituzioni, compl
 
 - **App**: PWA in React + TypeScript, pubblicata su GitHub Pages. Archivio offline nel browser (IndexedDB) con coda di invio per bozze e allegati.
 - **Login**: Google Identity Services nel client, con i permessi Drive/Fogli minimi necessari.
-- **Motore Google**: Fogli/Drive per i dati e Apps Script per timer, invio e indirizzo web. Aggiornamenti fra membri tramite interrogazione periodica (non c'è tempo reale).
+- **Motore Google**: Firestore (SDK web di Firebase) per dati, permessi, tempo reale e offline; Apps Script per timer, invio e indirizzo web.
 - **Motore centralizzato**: Supabase free (vedi §6). Login nel client con Supabase Auth per i gruppi su questo motore.
 - **Telegram [scelta di Claude, dopo la revisione]**: **un bot per persona**, creato una tantum con BotFather durante la configurazione del gruppo personale. Il suo token e il webhook stanno nello script del motore personale. Gli script degli altri gruppi non conoscono il token: consegnano la notifica all'indirizzo dello script personale del destinatario, che la inoltra. Così il futuro "crea bozza da Telegram" finisce direttamente nelle bozze, che vivono nel gruppo personale. Un bot unico pubblico non è possibile senza server centrale: Telegram ammette un solo webhook per bot, e il token sarebbe leggibile da chiunque installi lo script.
 - **Puntualità dei timer**: sul motore Google un promemoria può arrivare fino a ~10 minuti dopo (controllo periodico ogni 5–10 minuti). Sul motore centralizzato è puntuale al minuto.
 - **Limiti in configurazione**: intervallo dei controlli, quote (esecuzione, email, chiamate esterne), dimensioni massime degli allegati e riduzione delle immagini, intervallo di aggiornamento fra membri sono **parametri di configurazione per motore**, mai valori scritti nel codice, così si adeguano se Google o Supabase cambiano i limiti.
-- **Limiti noti**: quote di Apps Script (tempo di esecuzione giornaliero, chiamate esterne, email), latenza di Fogli, nessun tempo reale. Per ≤10 persone dovrebbero bastare, ma vanno misurati presto.
+- **Limiti noti**: quote di Apps Script (tempo di esecuzione giornaliero, chiamate esterne, email) e quote gratuite di Firestore (letture e scritture giornaliere, 1 GiB). Per ≤10 persone dovrebbero bastare, ma vanno misurate presto.
 
 ## 13. Lasciato a chi costruisce
 

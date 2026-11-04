@@ -1,0 +1,18 @@
+{
+  "name": "@attivita/engine-google",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@attivita/core": "0.1.0",
+    "firebase": "13.1.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "6.0.0"
+  }
+}

@@ -18,7 +18,7 @@ test('testCreateInviteGroupAndInvite', async () => {
   userType(within(card).getByLabelText('Email'), 'Pluto@Altereos.com');
   userClick('Invia invito');
   await waitFor(async () => {
-    const g = (await s.engine.listGroups()).find(x => x.name === 'famiglia')!;
+    const g = (await s.primary.listGroups()).find(x => x.name === 'famiglia')!;
     expect(g.members).toEqual({ [PIPPO]: 'owner', [PLUTO]: 'member' });
   });
 });
@@ -47,7 +47,7 @@ test('testLeaveDomainGroupReleasesAssignments', async () => {
   await screen.findByRole('article', { name: 'altereos.com' });
   userClick(/Esci da altereos.com/);
   userClick('Conferma uscita');
-  await waitFor(async () => expect((await s.engine.listGroups()).map(g => g.id)).not.toContain('domain:altereos.com'));
+  await waitFor(async () => expect((await s.primary.listGroups()).map(g => g.id)).not.toContain('domain:altereos.com'));
 });
 
 test('testMeShowsAccountAndQueuedDrafts', async () => {

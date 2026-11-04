@@ -3,8 +3,8 @@ import type { ReactElement } from 'react';
 import { InMemoryBackend, newActivity } from '@attivita/core';
 import type { Activity, EngineLimits, Group } from '@attivita/core';
 import { memoryOutboxStore } from '../src/offline/outbox.js';
-import { SessionProvider } from '../src/session/SessionContext.js';
-import type { Session } from '../src/session/session.js';
+import { SessionHost } from '../src/session/SessionContext.js';
+import type { OpenedSession } from '../src/session/session.js';
 import { WorkspaceProvider } from '../src/workspace/useWorkspace.js';
 
 export const PIPPO = 'pippo@altereos.com';
@@ -42,15 +42,16 @@ export function benchBackend(limits: Partial<EngineLimits> = {}): InMemoryBacken
   return backend;
 }
 
-export function memorySession(account: string = PIPPO, limits: Partial<EngineLimits> = {}, backend = benchBackend(limits)): Session {
+export function memorySession(account: string = PIPPO, limits: Partial<EngineLimits> = {}, backend = benchBackend(limits)): OpenedSession {
+  const engine = backend.session(account);
   return {
-    account, engine: backend.session(account), personalGroupId: `personal:${account}`,
+    account, primary: engine, engines: [engine], personalGroupId: `personal:${account}`,
     outbox: memoryOutboxStore(), signOut: async () => undefined,
   };
 }
 
-export function renderWithSession(ui: ReactElement, session: Session) {
-  return render(<SessionProvider value={session}><WorkspaceProvider>{ui}</WorkspaceProvider></SessionProvider>);
+export function renderWithSession(ui: ReactElement, session: OpenedSession) {
+  return render(<SessionHost session={session}><WorkspaceProvider>{ui}</WorkspaceProvider></SessionHost>);
 }
 
 export function userClick(name: string | RegExp): void {

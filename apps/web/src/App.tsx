@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { LoginScreen } from './session/LoginScreen.js';
 import type { LoginActions } from './session/LoginScreen.js';
-import { SessionProvider } from './session/SessionContext.js';
-import type { OpenSession, Session } from './session/session.js';
+import { SessionHost } from './session/SessionContext.js';
+import type { OpenSession, OpenedSession } from './session/session.js';
 import { Shell } from './shell/Shell.js';
 import { WorkspaceProvider } from './workspace/useWorkspace.js';
 
 export function App({ open, login }: { open: OpenSession; login: LoginActions }) {
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [session, setSession] = useState<OpenedSession | null | undefined>(undefined);
   const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,8 +17,8 @@ export function App({ open, login }: { open: OpenSession; login: LoginActions })
   if (session === undefined) return <p className="muted center">Apro memo-land…</p>;
   if (session === null) return <>{failure && <p className="error" role="alert">Accesso non riuscito: {failure}</p>}<LoginScreen actions={login} /></>;
   return (
-    <SessionProvider value={session}>
+    <SessionHost session={session}>
       <WorkspaceProvider><Shell /></WorkspaceProvider>
-    </SessionProvider>
+    </SessionHost>
   );
 }

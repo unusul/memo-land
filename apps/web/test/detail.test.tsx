@@ -33,7 +33,7 @@ test('testRejectNeedsReason', async () => {
   userType(screen.getByLabelText('Motivo'), 'non ho tempo');
   userClick('Rifiuta');
   expect(await screen.findByText(/pluto ha rifiutato: non ho tempo/)).toBeTruthy();
-  expect((await s.engine.getActivity('costi')).activity.props.assignment).toBeUndefined();
+  expect((await s.primary.getActivity('costi')).activity.props.assignment).toBeUndefined();
 });
 
 test('testChipsFollowUsage', async () => {
@@ -51,7 +51,7 @@ test('testAddDueDateTurnsIdeaIntoTask', async () => {
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick('+ Gruppo');
   userClick('Aggiungi');
-  await waitFor(async () => expect((await s.engine.getActivity('idea')).activity.groupId).toBe(`personal:${PIPPO}`));
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.groupId).toBe(`personal:${PIPPO}`));
   userClick(/^\+ Scadenza/);
   userType(screen.getByLabelText('Scadenza'), '2026-11-20');
   userClick('Aggiungi');
@@ -63,8 +63,8 @@ test('testCoverOccurrenceKeepsSeries', async () => {
   renderWithSession(<ActivityDetail activityId="backup" occurrenceKey="2026-11-05T09:00" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Controllo backup' });
   userClick('Copro io questa');
-  await waitFor(async () => expect((await s.engine.getActivity('backup')).activity.overrides['2026-11-05T09:00']?.assignee).toBe(PLUTO));
-  expect((await s.engine.getActivity('backup')).activity.props.assignment?.assignee).toBe(PIPPO);
+  await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.overrides['2026-11-05T09:00']?.assignee).toBe(PLUTO));
+  expect((await s.primary.getActivity('backup')).activity.props.assignment?.assignee).toBe(PIPPO);
 });
 
 /** Found in the manual offline check: a draft still in the outbox was missing from the list, as if lost. */

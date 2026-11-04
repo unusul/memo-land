@@ -3,3 +3,4 @@ dist/
 .superpowers/
 .env.local
 .env.*.local
+*-debug.log

@@ -22,7 +22,7 @@ function readBytes(f: Blob): Promise<Uint8Array> {
 
 /** Quick capture: text plus pasted, dropped or picked files; saved to the outbox first, so it works offline. */
 export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage }: { onSaved(): void; onClose(): void; shrink?: Shrink }) {
-  const { account, engine, outbox } = useSession();
+  const { account, primary: engine, outbox } = useSession();
   const ws = useWs();
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);

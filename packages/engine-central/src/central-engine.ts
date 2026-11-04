@@ -22,6 +22,7 @@ export interface Onboarding {
 /** Engine on a Supabase project; RLS filters reads, SQL functions do atomic, checked writes. */
 export class CentralEngine implements Engine {
   readonly kind = 'central';
+  readonly drafts = true;
   readonly limits: EngineLimits;
   private readonly delivered = new Set<string>();
 

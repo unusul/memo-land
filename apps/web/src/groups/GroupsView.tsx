@@ -5,7 +5,9 @@ import { KIND_COLOR } from '../agenda/AgendaView.js';
 import { instantNow, newId } from '../dates.js';
 import { KIND_LABEL, errorText, shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
+import { configFromInvite, googleConfigOf, inviteLink } from '../session/google-config.js';
 import { useWs } from '../workspace/useWorkspace.js';
+import { GoogleGroupWizard, InviteLink, appBase } from './GoogleGroupWizard.js';
 
 export const groupName = (g: Group) => (g.kind === 'personal' ? 'Idee personali' : g.name);
 
@@ -15,6 +17,8 @@ export function GroupsView() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  const [invite] = useState(() => configFromInvite(window.location.search));
+  const [wizard, setWizard] = useState(invite !== null);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -36,7 +40,11 @@ export function GroupsView() {
           <button className="btn primary" type="submit" disabled={!name.trim()}>Crea</button>
           <button className="btn" type="button" onClick={() => setCreating(false)}>Annulla</button>
         </form>
-      ) : <button className="btn" onClick={() => setCreating(true)}>Nuovo gruppo</button>}
+      ) : <div className="btns">
+        <button className="btn" onClick={() => setCreating(true)}>Nuovo gruppo</button>
+        {!wizard && <button className="btn" onClick={() => setWizard(true)}>Nuovo gruppo su Google</button>}
+      </div>}
+      {wizard && <GoogleGroupWizard invite={invite ?? undefined} onDone={() => setWizard(false)} />}
       {problem && <p className="error" role="alert">{problem}</p>}
     </section>
   );
@@ -44,7 +52,11 @@ export function GroupsView() {
 
 function GroupCard({ group: g }: { group: Group }) {
   const ws = useWs();
-  const { account } = useSession();
+  const session = useSession();
+  const engine = ws.engineOf(g.id);
+  // On a Google project the identity is the Google account that signed in there.
+  const account = engine?.account ?? session.account;
+  const google = googleConfigOf(engine);
   const [inviting, setInviting] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('member');
@@ -91,6 +103,7 @@ function GroupCard({ group: g }: { group: Group }) {
           <button className="btn primary" type="submit" disabled={!email.trim()}>Invia invito</button>
         </form>
       )}
+      {google && can(g, account, 'invite') && <InviteLink link={inviteLink(google, appBase())} />}
       {problem && <p className="error" role="alert">{problem}</p>}
     </article>
   );

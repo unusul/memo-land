@@ -11,10 +11,16 @@
   "scripts": {
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "db": "bash scripts/vm-supabase.sh"
+    "db": "bash scripts/vm-supabase.sh",
+    "emu": "bash scripts/firebase-emu.sh start",
+    "test:google": "bash scripts/firebase-emu.sh test"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "firebase-tools": "15.34.1"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.7"
   }
 }
