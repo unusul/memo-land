@@ -1,9 +1,10 @@
-import { buildAgenda, resumeIfDue } from '@attivita/core';
-import type { AgendaItem, GroupKind, LocalDate } from '@attivita/core';
-import { addDays, dayParts, instantNow, localNow, today } from '../dates.js';
+import { buildAgenda, needsAttention } from '@attivita/core';
+import type { Activity, AgendaItem, GroupKind, LocalDate } from '@attivita/core';
+import { addDays, dayParts, today } from '../dates.js';
 import { shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
+import { useAgendaSources } from './sources.js';
 
 export const KIND_COLOR: Record<GroupKind, string> = { domain: 'var(--acc-dom)', invite: 'var(--acc-inv)', personal: 'var(--acc-per)' };
 
@@ -15,17 +16,23 @@ export interface OpenTarget {
 export function AgendaView({ from = today(), days = 14, onOpen }: { from?: LocalDate; days?: number; onOpen(t: OpenTarget): void }) {
   const { account } = useSession();
   const ws = useWs();
-  const now = localNow();
-  const sources = ws.groups.map(group => ({
-    group, activities: ws.activities.filter(a => a.groupId === group.id).map(a => resumeIfDue(a, now, instantNow())),
-  }));
+  const sources = useAgendaSources();
+  const attention = needsAttention(sources, account, today());
   const agenda = buildAgenda(sources, `${from}T00:00`, `${addDays(from, days - 1)}T23:59`);
   const groupOf = (id: string) => ws.groups.find(g => g.id === id);
 
   if (!ws.loaded) return <p className="muted">Carico l'agenda…</p>;
   return (
     <section aria-labelledby="agenda-h" className="stack">
-      <h2 id="agenda-h">Agenda</h2>
+      <h2 id="agenda-h" className="sr-only">Agenda</h2>
+      {attention.overdue.length > 0 && (
+        <AttentionList label="Scadute" rows={attention.overdue.map(o => ({ activity: o.activity, groupId: o.groupId, note: `scaduta ${onDay(o.since)}` }))}
+          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} />
+      )}
+      {attention.proposed.length > 0 && (
+        <AttentionList label="Proposte a te" rows={attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}` }))}
+          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} />
+      )}
       {Object.keys(agenda.days).length === 0 && <p className="muted">Niente in agenda nelle prossime due settimane. Premi + per catturare un'idea.</p>}
       {Object.entries(agenda.days).map(([day, items]) => {
         const p = dayParts(day);
@@ -69,5 +76,31 @@ function Item({ it, kind, group, me, onOpen }: { it: AgendaItem; kind: GroupKind
       </span>
       <span className="time">{it.start.length > 10 ? it.start.slice(11) : 'giorno'}</span>
     </button>
+  );
+}
+
+/** "il 6 nov", but "l'8 nov" and "l'11 nov": the article follows the sound of the number. */
+const onDay = (day: LocalDate) => { const p = dayParts(day); return `${p.day === 8 || p.day === 11 ? "l'" : 'il '}${p.day} ${p.month}`; };
+
+interface AttentionRow { activity: Activity; groupId: string; note: string }
+
+/** A titled card of rows for what waits for the account (overdue, proposals), above the days. */
+function AttentionList({ label, rows, kindOf, nameOf, onOpen }: {
+  label: string; rows: AttentionRow[]; kindOf(id: string): GroupKind | undefined; nameOf(id: string): string | undefined; onOpen(t: OpenTarget): void;
+}) {
+  return (
+    <div className="attention">
+      <h3>{label}</h3>
+      <ul className="items" aria-label={label}>
+        {rows.map(r => (
+          <li key={r.activity.id}>
+            <button className="item" style={{ '--grp': KIND_COLOR[kindOf(r.groupId) ?? 'personal'] } as React.CSSProperties} onClick={() => onOpen({ activityId: r.activity.id })}>
+              <span className="bar" /><span><span className="t">{r.activity.title}</span><br /><span className="meta">{r.note} · {nameOf(r.groupId)}</span></span>
+              <span className="time" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

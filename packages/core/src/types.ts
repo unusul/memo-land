@@ -42,7 +42,7 @@ export interface OccurrenceOverride {
 export type HistoryKind =
   | 'created' | 'propSet' | 'propRemoved' | 'assigned' | 'accepted' | 'rejected'
   | 'claimed' | 'conditionMet' | 'completed' | 'occurrenceTaken' | 'unassignedOnLeave'
-  | 'snoozed' | 'resumed' | 'archived' | 'movedToGroup' | 'decomposed';
+  | 'snoozed' | 'resumed' | 'archived' | 'movedToGroup' | 'decomposed' | 'textEdited';
 
 export interface HistoryEntry {
   at: Instant;
@@ -56,6 +56,22 @@ export interface AttachmentRef {
   name: string;
   mimeType: string;
   size: number;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+export interface Checklist {
+  items: ChecklistItem[];
+  /** A fixed list keeps its items when a recurring activity is completed, only unticked; otherwise ticked items go. */
+  fixed: boolean;
+  /** Every text the list has seen, with how many times it was added: the suggestions while typing. */
+  known: Record<string, number>;
+  /** Last item number handed out, so item ids never repeat within the list. */
+  seq: number;
 }
 
 export type Status = 'open' | 'done' | 'archived';
@@ -73,6 +89,8 @@ export interface Activity {
   /** Last completion, used by fromCompletion recurrences. */
   lastCompletedAt?: LocalDate | LocalDateTime;
   overrides: Record<OccurrenceKey, OccurrenceOverride>;
+  /** A list of things to tick inside the activity (shopping, packing). */
+  checklist?: Checklist;
   history: HistoryEntry[];
   createdAt: Instant;
   updatedAt: Instant;

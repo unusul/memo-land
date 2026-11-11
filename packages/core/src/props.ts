@@ -23,6 +23,16 @@ export function setProp<K extends PropKey>(a: Activity, key: K, value: NonNullab
   return changeProps(a, { ...a.props, [key]: structuredClone(value) }, key, { key, value }, by, now);
 }
 
+/** Changes title and/or text; returns the same activity when nothing changed, so callers can skip the save. */
+export function editText(a: Activity, text: { title?: string; body?: string }, by: AccountId, now: Instant): Activity {
+  const title = text.title === undefined ? a.title : text.title.trim();
+  const body = text.body ?? a.body;
+  if (title === '') fail('INVALID_INPUT', 'the title cannot be empty');
+  const fields = [...(title !== a.title ? ['title'] : []), ...(body !== a.body ? ['body'] : [])];
+  if (fields.length === 0) return a;
+  return touch({ ...a, title, body }, { kind: 'textEdited', detail: { fields } }, by, now);
+}
+
 export function removeProp(a: Activity, key: PropKey, by: AccountId, now: Instant): Activity {
   const { [key]: _removed, ...rest } = a.props;
   return changeProps(a, rest, key, { key }, by, now);
@@ -32,6 +42,7 @@ function changeProps(a: Activity, props: Props, key: PropKey, detail: Record<str
   const kind = 'value' in detail ? 'propSet' : 'propRemoved';
   const updated = withProps(a, props);
   if (!TIMING_KEYS.has(key)) return touch(updated, { kind, detail }, by, now);
+  if (props.repeat && props.due === undefined && props.schedule === undefined) fail('INVALID_STATE', 'a repeating activity needs a date to start from');
   const { activity, dropped } = reconcileCovers(updated);
   return touch(activity, { kind, detail: dropped.length ? { ...detail, droppedCovers: dropped } : detail }, by, now);
 }

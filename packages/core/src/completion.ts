@@ -1,3 +1,4 @@
+import { resetForNextRound } from './checklist.js';
 import { addUnits, asDateTime, endOfDay } from './dates.js';
 import { fail } from './errors.js';
 import { anchorOf, isOccurrence, occurrencesBetween } from './occurrences.js';
@@ -12,12 +13,12 @@ export function complete(a: Activity, by: AccountId, doneOn: LocalDate | LocalDa
   const repeat = a.props.repeat;
   if (!repeat) return touch({ ...a, status: 'done' }, { kind: 'completed', detail: { doneOn } }, by, now);
   if (repeat.mode === 'fromCompletion') {
-    return touch({ ...a, lastCompletedAt: doneOn }, { kind: 'completed', detail: { doneOn } }, by, now);
+    return touch({ ...resetForNextRound(a), lastCompletedAt: doneOn }, { kind: 'completed', detail: { doneOn } }, by, now);
   }
   if (key !== undefined && !isOccurrence(a, key)) fail('INVALID_INPUT', `"${key}" is not an occurrence of this activity`);
   const target = key ?? currentPendingOccurrence(a, doneOn);
   if (target === undefined) fail('INVALID_STATE', 'no pending occurrence to complete');
-  return touch(a, { kind: 'completed', detail: { key: target, doneOn } }, by, now);
+  return touch(resetForNextRound(a), { kind: 'completed', detail: { key: target, doneOn } }, by, now);
 }
 
 /** Next due date of a fromCompletion recurrence: last completion + interval, or the anchor if never completed. */

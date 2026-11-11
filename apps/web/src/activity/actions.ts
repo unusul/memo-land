@@ -14,7 +14,8 @@ export function availableActions(a: Activity, occ: Occurrence | null, group: Gro
   const mine = (occ?.assignee ?? asg?.assignee) === me;
   const out: ActionKind[] = [];
   if (asg?.state === 'proposed' && asg.assignee === me && can(group, me, 'respondToOwnAssignment')) out.push('accept', 'reject');
-  if (!asg && can(group, me, 'claim')) out.push('claim');
+  // In the personal group everything is already the account's own.
+  if (!asg && group.kind !== 'personal' && can(group, me, 'claim')) out.push('claim');
   if (occ && a.props.repeat?.mode === 'calendar' && occ.assignee !== me && !occ.done && can(group, me, 'takeOccurrence')) out.push('cover');
   const waiting = shapeOf(a, group.id) === 'waiting';
   if (!waiting && !occ?.done && (can(group, me, 'editActivity') || (mine && can(group, me, 'completeOwn')))) out.push('complete');

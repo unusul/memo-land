@@ -7,6 +7,7 @@ export * from './triage.js';
 export * from './dates.js';
 export * from './occurrences.js';
 export * from './completion.js';
+export * from './checklist.js';
 export * from './public-domains.js';
 export * from './groups.js';
 export * from './limits.js';

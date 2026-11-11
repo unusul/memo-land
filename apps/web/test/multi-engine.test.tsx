@@ -68,6 +68,44 @@ test('testDraftMovedToOtherEngineIsCopiedAndArchived', async () => {
   expect(result.current.activities.filter(x => x.id === 'idea')).toEqual([expect.objectContaining({ groupId: 'famiglia' })]);
 });
 
+/**
+ * The copy used to keep the source engine's attachment refs: the files stayed on the source engine, so the moved
+ * activity listed attachments nobody could open on the destination. The files now travel with the copy.
+ */
+test('testDraftMovedToOtherEngineKeepsItsAttachments', async () => {
+  const a = benchBackend().session(PIPPO);
+  const b = googleLike().session(PIPPO);
+  const bytes = new Uint8Array([1, 2, 3, 4, 5]);
+  const ref = await a.putAttachment('idea', { name: 'foto.png', mimeType: 'image/png', bytes });
+  const stored = (await a.getActivity('idea')).activity;
+  await a.saveActivity({ ...stored, attachments: [ref] }, stored.version);
+  const { result } = renderHook(() => useWorkspace([a, b]));
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  const idea = result.current.drafts.find(x => x.id === 'idea')!;
+  await act(async () => { await result.current.save(moveToGroup(idea, 'famiglia', PIPPO, T0)); });
+  const copy = (await b.getActivity('idea')).activity;
+  expect(copy.attachments).toEqual([expect.objectContaining({ name: 'foto.png', mimeType: 'image/png', size: 5 })]);
+  expect(await b.getAttachment(copy.attachments[0]!)).toEqual(bytes);
+});
+
+test('testMoveAcrossRefusesAttachmentsOverTheTargetLimit', async () => {
+  const a = benchBackend().session(PIPPO);
+  const tight = new InMemoryBackend({ maxAttachmentBytes: 3 });
+  tight.groups.set(famiglia.id, structuredClone(famiglia));
+  const b = tight.session(PIPPO);
+  const ref = await a.putAttachment('idea', { name: 'foto.png', mimeType: 'image/png', bytes: new Uint8Array(5) });
+  const stored = (await a.getActivity('idea')).activity;
+  await a.saveActivity({ ...stored, attachments: [ref] }, stored.version);
+  const { result } = renderHook(() => useWorkspace([a, b]));
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  const idea = result.current.drafts.find(x => x.id === 'idea')!;
+  await act(async () => {
+    await expect(result.current.save(moveToGroup(idea, 'famiglia', PIPPO, T0))).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  });
+  await expect(b.getActivity('idea')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  expect((await a.getActivity('idea')).activity).toMatchObject({ groupId: null, status: 'open' });
+});
+
 test('testOneEngineDownKeepsTheOtherUsable', async () => {
   const a = benchBackend().session(PIPPO);
   const { result } = renderHook(() => useWorkspace([a, unreachable()]));

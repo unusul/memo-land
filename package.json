@@ -13,7 +13,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db": "bash scripts/vm-supabase.sh",
     "emu": "bash scripts/firebase-emu.sh start",
-    "test:google": "bash scripts/firebase-emu.sh test"
+    "test:google": "bash scripts/firebase-emu.sh test",
+    "seed": "node scripts/seed-sample.mjs"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

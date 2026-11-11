@@ -1,3 +1,4 @@
+import { nextDue } from './completion.js';
 import { asDateTime, isDateOnly } from './dates.js';
 import type { Group } from './groups.js';
 import { occurrencesBetween } from './occurrences.js';
@@ -54,4 +55,49 @@ function groupByDay(items: AgendaItem[]): Record<LocalDate, AgendaItem[]> {
   const days: Record<LocalDate, AgendaItem[]> = {};
   for (const item of items) (days[item.start.slice(0, 10)] ??= []).push(item);
   return days;
+}
+
+export interface Overdue {
+  activity: Activity;
+  groupId: GroupId;
+  /** The date it was due. */
+  since: LocalDate;
+}
+
+export interface Attention {
+  /** Past their date, open, and either free or the account's own; oldest first. */
+  overdue: Overdue[];
+  /** Assignments proposed to the account, waiting for accept or reject. */
+  proposed: Array<{ activity: Activity; groupId: GroupId }>;
+  /** Activities that need the account, each counted once even when both overdue and proposed. */
+  count: number;
+}
+
+/**
+ * What waits for the account: overdue tasks and proposals to answer. A calendar series is never overdue, its past
+ * occurrences are events that went by; a series from completion is, once its next date has passed.
+ */
+export function needsAttention(sources: AgendaSource[], me: AccountId, today: LocalDate): Attention {
+  const overdue: Overdue[] = [];
+  const proposed: Attention['proposed'] = [];
+  for (const { group, activities } of sources) {
+    for (const a of activities) {
+      const shape = shapeOf(a, group.id);
+      // A blocked memo waits for its condition, not for the account.
+      if (HIDDEN.has(shape) || shape === 'waiting') continue;
+      const asg = a.props.assignment;
+      if (asg?.state === 'proposed' && asg.assignee === me) proposed.push({ activity: a, groupId: group.id });
+      const since = dueDateOf(a);
+      if (since !== undefined && since < today && (asg === undefined || asg.assignee === me)) overdue.push({ activity: a, groupId: group.id, since });
+    }
+  }
+  overdue.sort((x, y) => x.since.localeCompare(y.since));
+  const count = new Set([...overdue, ...proposed].map(x => x.activity.id)).size;
+  return { overdue, proposed, count };
+}
+
+function dueDateOf(a: Activity): LocalDate | undefined {
+  if (a.props.repeat?.mode === 'calendar') return undefined;
+  const due = a.props.repeat?.mode === 'fromCompletion' ? nextDue(a) : a.props.due;
+  return due?.slice(0, 10);
 }

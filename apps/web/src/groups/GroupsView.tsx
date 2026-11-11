@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { addMember, can, leaveGroup } from '@attivita/core';
-import type { Group, Role } from '@attivita/core';
+import { shapeOf } from '@attivita/core';
+import type { Activity, Group, Role, Shape } from '@attivita/core';
 import { KIND_COLOR } from '../agenda/AgendaView.js';
+import type { OpenTarget } from '../agenda/AgendaView.js';
+import { orderGroups } from './order.js';
 import { instantNow, newId } from '../dates.js';
 import { KIND_LABEL, errorText, shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
@@ -11,7 +14,8 @@ import { GoogleGroupWizard, InviteLink, appBase } from './GoogleGroupWizard.js';
 
 export const groupName = (g: Group) => (g.kind === 'personal' ? 'Idee personali' : g.name);
 
-export function GroupsView() {
+/** All groups, the most used first; `onOpenGroup` opens a group's page with its activities. */
+export function GroupsView({ onOpenGroup = () => undefined }: { onOpenGroup?(groupId: string): void } = {}) {
   const ws = useWs();
   const { account } = useSession();
   const [creating, setCreating] = useState(false);
@@ -32,7 +36,7 @@ export function GroupsView() {
   return (
     <section aria-labelledby="groups-h" className="stack">
       <h2 id="groups-h">Gruppi</h2>
-      {ws.groups.map(g => <GroupCard key={g.id} group={g} />)}
+      {orderGroups(ws.groups, account).map(g => <GroupCard key={g.id} group={g} onOpenGroup={onOpenGroup} />)}
       {creating ? (
         <form className="form" onSubmit={create}>
           <label htmlFor="new-group">Nome</label>
@@ -50,7 +54,7 @@ export function GroupsView() {
   );
 }
 
-function GroupCard({ group: g }: { group: Group }) {
+function GroupCard({ group: g, onOpenGroup }: { group: Group; onOpenGroup(groupId: string): void }) {
   const ws = useWs();
   const session = useSession();
   const engine = ws.engineOf(g.id);
@@ -61,6 +65,7 @@ function GroupCard({ group: g }: { group: Group }) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('member');
   const [leaving, setLeaving] = useState(false);
+  const open = ws.activities.filter(a => a.groupId === g.id && a.status === 'open');
   const [problem, setProblem] = useState<string | null>(null);
   const label = groupName(g);
   const canLeave = g.kind !== 'personal' && g.ownerId !== account;
@@ -85,6 +90,7 @@ function GroupCard({ group: g }: { group: Group }) {
       <header className="row"><h3>{label}</h3><span className="pill">{KIND_LABEL[g.kind]}</span></header>
       <p className="muted small">{Object.entries(g.members).map(([m, r]) => `${m === account ? 'tu' : shortName(m)}${r === 'member' ? '' : ` (${r === 'owner' ? 'proprietario' : 'ospite'})`}`).join(' · ')}</p>
       <div className="btns">
+        <button className="btn" aria-label={`Elenco di ${label}`} onClick={() => onOpenGroup(g.id)}>Elenco ({open.length})</button>
         {can(g, account, 'invite') && <button className="btn" aria-label={`Invita in ${label}`} onClick={() => setInviting(v => !v)}>Invita</button>}
         {canLeave && !leaving && <button className="btn" aria-label={`Esci da ${label}`} onClick={() => setLeaving(true)}>Esci</button>}
         {leaving && <>
@@ -106,5 +112,39 @@ function GroupCard({ group: g }: { group: Group }) {
       {google && can(g, account, 'invite') && <InviteLink link={inviteLink(google, appBase())} />}
       {problem && <p className="error" role="alert">{problem}</p>}
     </article>
+  );
+}
+
+/** Section titles of a group's list, in the order they are shown. */
+const LIST_SECTIONS: Array<[Shape, string]> = [
+  ['task', 'Cose da fare'], ['recurring', 'Ricorrenti'], ['event', 'Eventi'], ['idea', 'Idee'], ['waiting', 'In attesa'], ['snoozed', 'Rimandate'],
+];
+
+/** Every open activity of the group, dated or not, by form: the way to reach ideas and tasks with no date. */
+export function GroupList({ label, group: g, activities, onOpen }: { label: string; group: Group; activities: Activity[]; onOpen(t: OpenTarget): void }) {
+  const byShape = new Map<Shape, Activity[]>();
+  for (const a of activities) {
+    const shape = shapeOf(a, g.id);
+    byShape.set(shape, [...(byShape.get(shape) ?? []), a]);
+  }
+  return (
+    <section aria-label={`Elenco di ${label}`} className="group-list">
+      {activities.length === 0 && <p className="muted small">Nessuna attività aperta.</p>}
+      {LIST_SECTIONS.filter(([shape]) => byShape.has(shape)).map(([shape, title]) => (
+        <div key={shape} className="attention">
+          <h4>{title}</h4>
+          <ul className="items">
+            {byShape.get(shape)!.map(a => (
+              <li key={a.id}>
+                <button className="item" style={{ '--grp': KIND_COLOR[g.kind] } as React.CSSProperties} onClick={() => onOpen({ activityId: a.id })}>
+                  <span className="bar" /><span><span className="t">{a.title}</span>{a.checklist && a.checklist.items.length > 0 && <><br /><span className="meta">lista {a.checklist.items.filter(i => i.done).length}/{a.checklist.items.length}</span></>}</span>
+                  <span className="time">{a.props.due ?? a.props.schedule?.start.replace('T', ' ') ?? ''}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
   );
 }

@@ -12,7 +12,8 @@ test('testShowsLoginWithoutSession', async () => {
 
 test('testShowsAgendaWithSession', async () => {
   render(<App open={async () => memorySession()} login={noLogin} />);
-  const nav = await screen.findByRole('navigation');
-  expect(nav.textContent).toMatch(/Agenda.*Bozze.*Gruppi.*Io/);
+  const nav = await screen.findByRole('navigation', { name: 'Sezioni' });
+  expect(nav.textContent).toMatch(/Gruppi.*Bozze.*Io/);
+  expect(screen.getByRole('button', { name: /^Agenda/ })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Nuova bozza' })).toBeTruthy();
 });
