@@ -32,11 +32,18 @@ export async function resolveOnboarding(email: string, onboard: () => Promise<{ 
 export type Startup = { kind: 'session'; email: string } | { kind: 'offline'; email: string } | { kind: 'login' };
 
 /**
- * Offline, an expired access token cannot be refreshed and the auth client reports no session:
- * the last signed-in account still opens the app, so capture keeps working.
+ * Without network, or with the server down, an expired access token cannot be refreshed and the auth client
+ * reports no session: the last signed-in account still opens the app, so capture keeps working.
  */
-export function chooseStartup(s: { sessionEmail: string | null; cachedEmail: string | null; online: boolean }): Startup {
+export function chooseStartup(s: { sessionEmail: string | null; cachedEmail: string | null; online: boolean; serverUnreachable: boolean }): Startup {
   if (s.sessionEmail) return { kind: 'session', email: s.sessionEmail };
-  if (!s.online && s.cachedEmail) return { kind: 'offline', email: s.cachedEmail };
+  if ((!s.online || s.serverUnreachable) && s.cachedEmail) return { kind: 'offline', email: s.cachedEmail };
   return { kind: 'login' };
+}
+
+export const TIMED_OUT = Symbol('timed out');
+
+/** Opening the app must stay fast: the server gets `ms` to answer, then the app opens without it. */
+export function withinStartupWait<T>(work: Promise<T>, ms: number): Promise<T | typeof TIMED_OUT> {
+  return Promise.race([work, new Promise<typeof TIMED_OUT>(resolve => setTimeout(() => resolve(TIMED_OUT), ms))]);
 }

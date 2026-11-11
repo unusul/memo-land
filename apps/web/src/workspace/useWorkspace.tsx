@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { DomainError, EngineUnavailableError, archive } from '@attivita/core';
-import type { Activity, ActivityId, Engine, Group, GroupId } from '@attivita/core';
+import { DomainError, EngineUnavailableError, archive, fail } from '@attivita/core';
+import type { Activity, ActivityId, AttachmentRef, AttachmentUpload, Engine, Group, GroupId } from '@attivita/core';
 import { instantNow } from '../dates.js';
 import { errorText } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
@@ -50,6 +50,13 @@ function useSameList<T>(list: T[]): T[] {
   const ref = useRef(list);
   if (list.length !== ref.current.length || list.some((x, i) => x !== ref.current[i])) ref.current = list;
   return ref.current;
+}
+
+/** The files of an activity leaving `from`, checked against the limit of `to` before anything is written there. */
+async function readAttachments(refs: AttachmentRef[], from: Engine, to: Engine): Promise<AttachmentUpload[]> {
+  const big = refs.find(f => f.size > to.limits.maxAttachmentBytes);
+  if (big) fail('INVALID_INPUT', `attachment ${big.name} exceeds the size limit of the destination engine`);
+  return Promise.all(refs.map(async f => ({ name: f.name, mimeType: f.mimeType, bytes: await from.getAttachment(f) })));
 }
 
 const replaceIn = (s: Slice, a: Activity): Slice => ({ ...s, activities: [...s.activities.filter(x => x.id !== a.id), a] });
@@ -131,7 +138,12 @@ export function useWorkspace(engineList: Engine[]): Workspace {
   /** A draft moved into a group of another engine: a copy there (same id, history kept), then archive here. */
   const moveAcross = useCallback(async (a: Activity, from: Engine, to: Engine) => {
     const original = slices.get(from)?.activities.find(x => x.id === a.id) ?? a;
-    const copy = await to.saveActivity({ ...a, version: 1 }, null);
+    const files = await readAttachments(a.attachments, from, to);
+    let copy = await to.saveActivity({ ...a, attachments: [], version: 1 }, null);
+    if (files.length) {
+      const refs = await Promise.all(files.map(f => to.putAttachment(a.id, f)));
+      copy = await to.saveActivity({ ...copy, attachments: refs }, copy.version);
+    }
     updateSlice(to, s => replaceIn(s, copy));
     const archived = await from.saveActivity(archive(original, from.account, instantNow()), original.version);
     updateSlice(from, s => replaceIn(s, archived));

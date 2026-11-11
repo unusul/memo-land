@@ -22,6 +22,9 @@ const ERROR_LABEL: Record<DomainErrorCode, string> = {
   VERSION_CONFLICT: 'Qualcun altro l\'ha appena modificata: ho ricaricato la versione aggiornata.',
 };
 
+/** The text for an error code stored earlier (e.g. by the outbox); an unknown code is shown as it is. */
+export const errorCodeText = (code: string): string => ERROR_LABEL[code as DomainErrorCode] ?? code;
+
 export function errorText(e: unknown): string {
   if (e instanceof DomainError) return ERROR_LABEL[e.code];
   return 'Qualcosa non ha funzionato: controlla la connessione e riprova.';
@@ -49,6 +52,7 @@ export function historyText(h: HistoryEntry): string {
     case 'archived': return `${who} l'ha archiviata`;
     case 'movedToGroup': return `${who} l'ha spostata in un gruppo`;
     case 'decomposed': return `${who} l'ha scomposta`;
+    case 'textEdited': return `${who} ha modificato ${(d['fields'] as string[] | undefined)?.includes('title') ? 'il titolo' : 'il testo'}`;
   }
 }
 
