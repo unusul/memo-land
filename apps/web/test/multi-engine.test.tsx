@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { expect, test } from 'vitest';
-import { EngineUnavailableError, InMemoryBackend, moveToGroup, newActivity } from '@attivita/core';
+import { EngineUnavailableError, InMemoryBackend, backToDraft, moveToGroup, newActivity } from '@attivita/core';
 import type { Engine, Group } from '@attivita/core';
 import { EngineRouter } from '../src/workspace/routing.js';
 import { useWorkspace } from '../src/workspace/useWorkspace.js';
@@ -66,6 +66,19 @@ test('testDraftMovedToOtherEngineIsCopiedAndArchived', async () => {
   expect((await a.getActivity('idea')).activity).toMatchObject({ groupId: null, status: 'archived' });
   expect(result.current.drafts.filter(d => d.status === 'open').map(d => d.id)).not.toContain('idea');
   expect(result.current.activities.filter(x => x.id === 'idea')).toEqual([expect.objectContaining({ groupId: 'famiglia' })]);
+});
+
+/** The way back: an activity of a group on another engine becomes a draft on the primary one; the group keeps it archived. */
+test('testActivityBackToDraftFromOtherEngineIsCopiedAndArchived', async () => {
+  const a = benchBackend().session(PIPPO);
+  const b = googleLike().session(PIPPO);
+  const { result } = renderHook(() => useWorkspace([a, b]));
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  const spesa = result.current.activities.find(x => x.id === 'spesa')!;
+  await act(async () => { await result.current.save(backToDraft(spesa, PIPPO, T0)); });
+  expect((await a.getActivity('spesa')).activity).toMatchObject({ groupId: null, status: 'open', title: 'Fare la spesa' });
+  expect((await b.getActivity('spesa')).activity).toMatchObject({ groupId: 'famiglia', status: 'archived' });
+  expect(result.current.drafts.filter(d => d.status === 'open').map(d => d.id)).toContain('spesa');
 });
 
 /**

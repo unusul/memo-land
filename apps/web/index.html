@@ -10,6 +10,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&display=swap" />
     <title>memo-land</title>
+    <!-- The theme chosen in the settings, applied before the first paint (see src/settings/theme.ts). -->
+    <script>
+      try {
+        var t = localStorage.getItem('attivita:theme');
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.dataset.theme = t;
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.content = t === 'dark' ? '#1b1e28' : '#ffffff'; });
+        }
+      } catch (e) { /* storage unavailable: the system theme */ }
+    </script>
   </head>
   <body>
     <div id="root"></div>

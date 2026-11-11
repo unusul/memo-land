@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fail, resolveLimits } from '@attivita/core';
 import type {
-  AccountId, Activity, ActivityId, AttachmentRef, AttachmentUpload, Change, Engine, EngineLimits, Group, GroupId, Role,
+  AccountId, Activity, ActivityId, AttachmentRef, AttachmentUpload, Change, Engine, EngineLimits, Group, GroupId, GroupType, Role,
 } from '@attivita/core';
 import { toDomainError } from './errors.js';
 
-interface GroupRow { id: string; kind: Group['kind']; name: string; domain: string | null; owner_id: string | null; time_zone: string; version: number }
+interface GroupRow { id: string; kind: Group['kind']; type: GroupType; name: string; domain: string | null; owner_id: string | null; time_zone: string; version: number }
 interface MemberRow { group_id: string; account_id: string; role: Role }
 
 const BUCKET = 'attachments';
@@ -131,6 +131,7 @@ function toGroup(r: GroupRow, members: MemberRow[]): Group {
     id: r.id, kind: r.kind, name: r.name, timeZone: r.time_zone, version: r.version,
     members: Object.fromEntries(members.filter(m => m.group_id === r.id).map(m => [m.account_id, m.role])),
   };
+  if (r.type === 'list') g.type = 'list';
   if (r.domain !== null) g.domain = r.domain;
   if (r.owner_id !== null) g.ownerId = r.owner_id;
   return g;

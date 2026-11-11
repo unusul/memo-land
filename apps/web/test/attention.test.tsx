@@ -24,8 +24,7 @@ test('testBadgesShowOnlyWhatNeedsYou', async () => {
   renderWithSession(<Shell />, memorySession(PLUTO));
   await screen.findAllByText('Analisi costi');
   expect(screen.getByRole('button', { name: /^Agenda/ }).querySelector('.urgent')?.textContent).toBe('1 scaduta · 1 proposta');
-  expect(await badge('Bozze')).toBeNull();
-  expect(await badge('Gruppi')).toBeNull();
+  expect(await badge('Noi')).toBeNull();
   expect(await badge('Io')).toBeNull();
 });
 
@@ -33,7 +32,7 @@ test('testDraftsBadgeAndNoZeroCount', async () => {
   // Pippo: one draft to sort; the proposal is pluto's, so nothing waits for pippo in the agenda.
   renderWithSession(<Shell />, memorySession(PIPPO));
   await screen.findByRole('heading', { name: 'Agenda' });
-  expect(await badge('Bozze')).toBe('1');
+  expect(await badge('Io')).toBe('1');
   expect(screen.getByRole('button', { name: /^Agenda/ }).querySelector('.urgent')).toBeNull();
   expect(screen.queryByText(/\(0\)/)).toBeNull();
 });
@@ -53,7 +52,8 @@ test('testRefusedCaptureShowsInIoWithItsReason', async () => {
   await s.outbox.put({ id: 'q1', account: PIPPO, activity: newActivity({ id: 'q1', accountId: 'altro@esterno.it', title: 'foto scontrino' }, '2026-11-10T08:00:00Z'),
     files: [], createdAt: '2026-11-10T08:00:00Z' });
   renderWithSession(<Shell />, s);
-  await waitFor(async () => expect(await badge('Io')).toBe('1'));
+  // Io counts it beside pippo's draft to sort.
+  await waitFor(async () => expect(await badge('Io')).toBe('2'));
   renderWithSession(<MeView />, s);
   const refused = await screen.findByRole('list', { name: 'Non accettate dal server' });
   expect(within(refused).getByText('foto scontrino')).toBeTruthy();

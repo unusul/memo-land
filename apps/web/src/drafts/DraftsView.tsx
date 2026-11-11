@@ -19,7 +19,7 @@ export function DraftsView({ onOpen }: { onOpen(t: OpenTarget): void }) {
   const drafts = ws.drafts.filter(d => d.status === 'open').sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return (
     <section aria-labelledby="drafts-h" className="stack">
-      <h2 id="drafts-h">Bozze</h2>
+      <h3 id="drafts-h">Bozze</h3>
       <p className="muted">Le vedi solo tu. Aprine una per smistarla: spostala in un gruppo, scomponila o rimandala.</p>
       {drafts.length === 0 && waiting.length === 0 ? <p className="muted">Nessuna bozza da smistare. Premi + per catturare un'idea.</p> : (
         <ul className="items">

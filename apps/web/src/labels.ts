@@ -1,10 +1,13 @@
 import { DomainError } from '@attivita/core';
-import type { DomainErrorCode, GroupKind, HistoryEntry, PropKey, Shape } from '@attivita/core';
+import type { DomainErrorCode, GroupKind, HistoryEntry, PropKey, Role, Shape } from '@attivita/core';
 
 export const SHAPE_LABEL: Record<Shape, string> = {
   draft: 'bozza', idea: 'idea', waiting: 'in attesa', snoozed: 'rimandata', recurring: 'ricorrente',
   event: 'evento', task: 'cosa da fare', archived: 'archiviata', done: 'fatta',
 };
+
+/** A member's role in a group, as the group cards already say it. */
+export const ROLE_LABEL: Record<Role, string> = { owner: 'proprietario', member: 'membro', guest: 'ospite' };
 
 export const PROP_LABEL: Record<PropKey, string> = {
   due: 'Scadenza', schedule: 'Data e ora', repeat: 'Ripeti', assignment: 'Assegna',
@@ -43,6 +46,7 @@ export function historyText(h: HistoryEntry): string {
     case 'accepted': return `${who} ha accettato`;
     case 'rejected': return `${who} ha rifiutato: ${d['reason']}`;
     case 'claimed': return `${who} se l'è presa`;
+    case 'released': return `${who} l'ha lasciata${d['reason'] ? `: ${d['reason']}` : ''}`;
     case 'conditionMet': return `${who} ha segnato la condizione come avverata`;
     case 'completed': return `${who} l'ha segnata come fatta`;
     case 'occurrenceTaken': return `${who} copre l'occorrenza ${String(d['key']).replace('T', ' ')}`;
@@ -50,7 +54,9 @@ export function historyText(h: HistoryEntry): string {
     case 'snoozed': return `${who} l'ha rimandata al ${d['until']}`;
     case 'resumed': return 'è tornata dal rimando';
     case 'archived': return `${who} l'ha archiviata`;
+    case 'reopened': return `${who} l'ha riaperta`;
     case 'movedToGroup': return `${who} l'ha spostata in un gruppo`;
+    case 'movedToDrafts': return `${who} l'ha rimessa fra le bozze`;
     case 'decomposed': return `${who} l'ha scomposta`;
     case 'textEdited': return `${who} ha modificato ${(d['fields'] as string[] | undefined)?.includes('title') ? 'il titolo' : 'il testo'}`;
   }

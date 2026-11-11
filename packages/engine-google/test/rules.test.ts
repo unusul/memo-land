@@ -143,6 +143,18 @@ describe('firestore rules', () => {
     await assertSucceeds(write(as(OWNER), 'groups/team', group(TEAM, { name: 'renamed', version: 4 })));
   });
 
+  /** The group's type (activities or list) is the owner's, like its name; nothing else is a type. */
+  test('testOnlyTheOwnerChangesTheGroupType', async () => {
+    await seedTeam();
+    await assertFails(write(as(MEMBER), 'groups/team', group(TEAM, { type: 'list', version: 4 })));
+    await assertFails(write(as(OWNER), 'groups/team', group(TEAM, { type: 'calendar', version: 4 })));
+    await assertSucceeds(write(as(OWNER), 'groups/team', group(TEAM, { type: 'list', version: 4 })));
+  });
+
+  test('testNewGroupCanBeAList', async () => {
+    await assertSucceeds(write(as(OWNER), 'groups/team', group({ [OWNER]: 'owner' }, { type: 'list', version: 2 })));
+  });
+
   test('testMemberCanInviteGuest', async () => {
     await seedTeam();
     await assertSucceeds(write(as(MEMBER), 'groups/team', group({ ...TEAM, [STRANGER]: 'guest' }, { version: 4 })));

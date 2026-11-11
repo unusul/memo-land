@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { archive, decompose, keepAsIdea, markConditionMet, moveToGroup, resumeIfDue, setProp, shapeOf, snooze } from '../src/index.js';
+import { archive, backToDraft, complete, decompose, moveBetweenGroups, keepAsIdea, markConditionMet, moveToGroup, resumeIfDue, setProp, shapeOf, reopen, snooze } from '../src/index.js';
 import { draft, movedIdea, t1, t2, task } from './fixtures.js';
 
 test('testDecomposeLinksChildrenToParent', () => {
@@ -41,4 +41,50 @@ test('testMoveToGroupOnlyFromDraft', () => {
 
 test('testArchive', () => {
   expect(shapeOf(archive(task, 'u1', t1), 'p1')).toBe('archived');
+});
+
+/** Reopening brings an archived or done activity back among the open ones, and says so in the history. */
+test('testReopenArchivedAndDone', () => {
+  const back = reopen(archive(task, 'u1', t1), 'u2', t2);
+  expect(back.status).toBe('open');
+  expect(back.history.at(-1)).toMatchObject({ kind: 'reopened', by: 'u2', at: t2 });
+  expect(shapeOf(back, 'p1')).toBe('task');
+  expect(reopen(complete(task, 'u1', '2026-11-03', t1), 'u1', t2).status).toBe('open');
+});
+
+test('testReopenAnOpenActivityFails', () => {
+  expect(() => reopen(task, 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
+});
+
+/** Back among the drafts: the group goes, and so does the assignment, since a draft is only its author's. */
+test('testBackToDraftDropsGroupAndAssignment', () => {
+  const assigned = { ...task, props: { ...task.props, assignment: { state: 'proposed' as const, assignee: 'u2', assignedBy: 'u1' } } };
+  const d = backToDraft(assigned, 'u1', t1);
+  expect(d.groupId).toBeNull();
+  expect(d.accountId).toBe('u1');
+  expect(d.props).toEqual({ due: '2026-11-10' });
+  expect(d.history.at(-1)).toMatchObject({ kind: 'movedToDrafts', by: 'u1', detail: { groupId: 'g1' } });
+  expect(shapeOf(d, 'p1')).toBe('draft');
+});
+
+test('testBackToDraftOnlyByItsAuthorAndFromAGroup', () => {
+  expect(() => backToDraft(task, 'u2', t1)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+  expect(() => backToDraft(draft, 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
+});
+
+/** Its author moves an activity from one group to another; assignment and occurrence takeovers stay with the old group. */
+test('testMoveBetweenGroupsDropsWhatBelongedToTheOldGroup', () => {
+  const busy = { ...task, props: { ...task.props, assignment: { state: 'accepted' as const, assignee: 'u2', assignedBy: 'u1' } },
+    overrides: { '2026-11-05T09:00': { assignee: 'u3', takenBy: 'u3' } } };
+  const moved = moveBetweenGroups(busy, 'g2', 'u1', t1);
+  expect(moved.groupId).toBe('g2');
+  expect(moved.props).toEqual({ due: '2026-11-10' });
+  expect(moved.overrides).toEqual({});
+  expect(moved.history.at(-1)).toMatchObject({ kind: 'movedToGroup', detail: { groupId: 'g2', from: 'g1' } });
+});
+
+test('testMoveBetweenGroupsOnlyByItsAuthorAndToAnotherGroup', () => {
+  expect(() => moveBetweenGroups(task, 'g2', 'u2', t1)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+  expect(() => moveBetweenGroups(task, 'g1', 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
+  expect(() => moveBetweenGroups(draft, 'g1', 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
 });

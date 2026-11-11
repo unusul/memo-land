@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { addMember, can, domainGroupNameFor, joinDomainGroup, leaveGroup, removeMember, roleIn, takeOccurrence } from '../src/index.js';
+import { addMember, can, domainGroupNameFor, groupTypeOf, listActivityId, joinDomainGroup, leaveGroup, removeMember, roleIn, takeOccurrence } from '../src/index.js';
 import { domainGroup, inviteGroup, personalGroup, seriesForPippo, t1, t2, unrelated } from './fixtures.js';
 
 test('testPublicDomainHasNoDomainGroup', () => {
@@ -50,4 +50,11 @@ test('testInviteMemberCanRemoveGuestButGuestCannotRemove', () => {
   expect(r.group.members['guest1']).toBeUndefined();
   expect(() => removeMember(inviteGroup, 'u3', 'guest1', [], 'x', t1)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
   expect(() => removeMember(inviteGroup, 'u1', 'u3', [], 'x', t1)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+});
+
+/** A group with no type is a group of activities, as every group made before types existed. */
+test('testGroupTypeDefaultsToActivities', () => {
+  expect(groupTypeOf(inviteGroup)).toBe('activities');
+  expect(groupTypeOf({ ...inviteGroup, type: 'list' })).toBe('list');
+  expect(listActivityId(inviteGroup)).toBe(`${inviteGroup.id}#list`);
 });

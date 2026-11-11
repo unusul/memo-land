@@ -12,7 +12,8 @@ import { PIPPO, PLUTO, memorySession, renderWithSession, userClick, userType } f
 
 test('testAvailableActionsForGuest', () => {
   const mine: Activity = { ...costTask, props: { ...costTask.props, assignment: { state: 'accepted', assignee: 'guest1', assignedBy: 'u1' } } };
-  expect(availableActions(mine, null, inviteGroup, 'guest1')).toEqual(['complete']);
+  // A guest may let go of what it accepted, as both engines let it update its own assignment.
+  expect(availableActions(mine, null, inviteGroup, 'guest1')).toEqual(['release', 'complete']);
   expect(availableActions(costTask, null, inviteGroup, 'guest1')).toEqual([]);
 });
 

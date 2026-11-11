@@ -40,9 +40,9 @@ export interface OccurrenceOverride {
 }
 
 export type HistoryKind =
-  | 'created' | 'propSet' | 'propRemoved' | 'assigned' | 'accepted' | 'rejected'
+  | 'created' | 'propSet' | 'propRemoved' | 'assigned' | 'accepted' | 'rejected' | 'released'
   | 'claimed' | 'conditionMet' | 'completed' | 'occurrenceTaken' | 'unassignedOnLeave'
-  | 'snoozed' | 'resumed' | 'archived' | 'movedToGroup' | 'decomposed' | 'textEdited';
+  | 'snoozed' | 'resumed' | 'archived' | 'reopened' | 'movedToGroup' | 'movedToDrafts' | 'decomposed' | 'textEdited';
 
 export interface HistoryEntry {
   at: Instant;

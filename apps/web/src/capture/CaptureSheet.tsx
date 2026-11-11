@@ -10,7 +10,7 @@ import { shrinkImage } from './images.js';
 
 type Shrink = (file: File, limits: EngineLimits) => Promise<File>;
 
-function readBytes(f: Blob): Promise<Uint8Array> {
+export function readBytes(f: Blob): Promise<Uint8Array> {
   if (typeof f.arrayBuffer === 'function') return f.arrayBuffer().then(b => new Uint8Array(b));
   return new Promise((resolve, reject) => {
     const r = new FileReader();

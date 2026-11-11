@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Engine, Group } from '@attivita/core';
+import type { Engine, Group, GroupType } from '@attivita/core';
 import { newId } from '../dates.js';
 import { errorText } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
@@ -26,13 +26,13 @@ async function copy(text: string): Promise<boolean> {
  * publish the rules, paste the configuration. With `invite` it only connects to the project of a group
  * the person was invited to.
  */
-export function GoogleGroupWizard({ connect = connectForReal, invite, onDone }: { connect?: ConnectProject; invite?: FirebaseWebConfig; onDone(): void }) {
+export function GoogleGroupWizard({ connect = connectForReal, invite, initialName = '', type = 'activities', onDone }: { connect?: ConnectProject; invite?: FirebaseWebConfig; initialName?: string; type?: GroupType; onDone(): void }) {
   const { account, addEngine, engines } = useSession();
   const ws = useWs();
   const [step, setStep] = useState(invite ? 3 : 0);
   const [text, setText] = useState(invite ? JSON.stringify(invite, null, 2) : '');
   const [engine, setEngine] = useState<{ engine: Engine; config: FirebaseWebConfig } | null>(null);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [link, setLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -61,7 +61,7 @@ export function GoogleGroupWizard({ connect = connectForReal, invite, onDone }: 
     if (!engine) return;
     const me = engine.engine.account;
     const g: Group = {
-      id: `g:${newId()}`, kind: 'invite', name: name.trim(), ownerId: me,
+      id: `g:${newId()}`, kind: 'invite', name: name.trim(), ownerId: me, ...(type === 'list' ? { type } : {}),
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome', members: { [me]: 'owner' }, version: 1,
     };
     setBusy(true); setProblem(null);
@@ -114,7 +114,7 @@ export function GoogleGroupWizard({ connect = connectForReal, invite, onDone }: 
       </>}
       {step === 4 && engine && <>
         <h3>Collegato a {engine.config.projectId}</h3>
-        <p className="small">Sei entrato come {engine.engine.account}.{invite ? ' I gruppi a cui ti hanno invitato compaiono in Gruppi.' : ''}</p>
+        <p className="small">Sei entrato come {engine.engine.account}.{invite ? ' I gruppi a cui ti hanno invitato compaiono in Noi.' : ''}</p>
         {!link && !invite && (
           <form className="form" onSubmit={create}>
             <label htmlFor="g-name">Nome del gruppo</label>

@@ -10,12 +10,41 @@ export function moveToGroup(a: Activity, groupId: GroupId, by: AccountId, now: I
   return touch({ ...a, groupId }, { kind: 'movedToGroup', detail: { groupId } }, by, now);
 }
 
+/**
+ * Its author moves an activity to another group. What belonged to the old group goes: the assignment and the
+ * occurrences covered by its members.
+ */
+export function moveBetweenGroups(a: Activity, groupId: GroupId, by: AccountId, now: Instant): Activity {
+  if (a.groupId === null) fail('INVALID_STATE', 'a draft is moved with moveToGroup');
+  if (a.groupId === groupId) fail('INVALID_STATE', 'the activity is already in that group');
+  if (a.accountId !== by) fail('FORBIDDEN', 'only the author moves it to another group');
+  const { assignment: _gone, ...props } = a.props;
+  return touch(withProps({ ...a, groupId, overrides: {} }, props), { kind: 'movedToGroup', detail: { groupId, from: a.groupId } }, by, now);
+}
+
+/**
+ * The way back from a group to the drafts, for the activity's author only. The assignment goes: a draft is only its
+ * author's. The account does not change (spec §8), only the group.
+ */
+export function backToDraft(a: Activity, by: AccountId, now: Instant): Activity {
+  if (a.groupId === null) fail('INVALID_STATE', 'the activity is already a draft');
+  if (a.accountId !== by) fail('FORBIDDEN', 'only the author can take it back among the drafts');
+  const { assignment: _gone, ...props } = a.props;
+  return touch(withProps({ ...a, groupId: null }, props), { kind: 'movedToDrafts', detail: { groupId: a.groupId } }, by, now);
+}
+
 export function keepAsIdea(a: Activity, personalGroupId: GroupId, by: AccountId, now: Instant): Activity {
   return moveToGroup(a, personalGroupId, by, now);
 }
 
 export function archive(a: Activity, by: AccountId, now: Instant): Activity {
   return touch({ ...a, status: 'archived' }, { kind: 'archived' }, by, now);
+}
+
+/** Brings an archived or done activity back among the open ones. */
+export function reopen(a: Activity, by: AccountId, now: Instant): Activity {
+  if (a.status === 'open') fail('INVALID_STATE', 'the activity is already open');
+  return touch({ ...a, status: 'open' }, { kind: 'reopened' }, by, now);
 }
 
 export function snooze(a: Activity, until: LocalDate | LocalDateTime, by: AccountId, now: Instant): Activity {

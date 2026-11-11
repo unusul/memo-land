@@ -10,7 +10,7 @@ test('testCreateInviteGroupAndInvite', async () => {
   const s = memorySession();
   renderWithSession(<GroupsView />, s);
   await screen.findByRole('article', { name: 'altereos.com' });
-  userClick('Nuovo gruppo');
+  userClick('Nuovo gruppo condiviso');
   userType(screen.getByLabelText('Nome'), 'famiglia');
   userClick('Crea');
   const card = await screen.findByRole('article', { name: 'famiglia' });
@@ -50,10 +50,9 @@ test('testLeaveDomainGroupReleasesAssignments', async () => {
   await waitFor(async () => expect((await s.primary.listGroups()).map(g => g.id)).not.toContain('domain:altereos.com'));
 });
 
-test('testMeShowsAccountAndQueuedDrafts', async () => {
+test('testIoShowsQueuedDrafts', async () => {
   const s = memorySession();
   await enqueueDraft(s.outbox, PIPPO, newActivity({ id: 'q1', accountId: PIPPO, title: 'offline' }, '2026-11-04T08:00:00Z'), [], '2026-11-04T08:00:00Z');
   renderWithSession(<MeView />, s);
-  expect(await screen.findByText(PIPPO)).toBeTruthy();
   expect(await screen.findByText(/1 bozza in attesa di rete/)).toBeTruthy();
 });

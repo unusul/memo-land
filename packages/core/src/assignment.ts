@@ -32,6 +32,19 @@ export function reject(a: Activity, by: AccountId, reason: string, now: Instant)
   return touch(withAssignment(a, undefined), { kind: 'rejected', detail: { reason, assignedBy: current.assignedBy } }, by, now);
 }
 
+/**
+ * Whoever has it accepted gives it back: free in the group again. Unlike a rejection the reason is optional, since
+ * the person took it on. A proposal is answered with accept or reject instead.
+ */
+export function release(a: Activity, by: AccountId, now: Instant, reason = ''): Activity {
+  const current = a.props.assignment;
+  if (!current) fail('INVALID_STATE', 'the activity is not assigned');
+  if (current.assignee !== by) fail('FORBIDDEN', 'only the assignee can let it go');
+  if (current.state !== 'accepted') fail('INVALID_STATE', 'a proposal is accepted or rejected');
+  const why = reason.trim();
+  return touch(withAssignment(a, undefined), { kind: 'released', detail: why ? { assignedBy: current.assignedBy, reason: why } : { assignedBy: current.assignedBy } }, by, now);
+}
+
 export function claim(a: Activity, by: AccountId, byRole: Role, now: Instant): Activity {
   requireNotGuest(byRole, 'claim');
   if (a.props.assignment) fail('INVALID_STATE', 'activity is already assigned');

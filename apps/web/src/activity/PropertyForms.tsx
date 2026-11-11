@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { assign, fromFloating, moveToGroup, roleIn, setProp, toFloating } from '@attivita/core';
+import { assign, fromFloating, groupTypeOf, moveBetweenGroups, moveToGroup, roleIn, setProp, toFloating } from '@attivita/core';
 import type { AccountId, Activity, Group, GroupId, Instant, LocalDateTime, PropKey, Props } from '@attivita/core';
 import { today } from '../dates.js';
 import { shortName } from '../labels.js';
@@ -23,7 +23,9 @@ export interface PropertyFormProps {
 
 /** One small form per property; each turns the input into a core operation. */
 export function PropertyForm({ chip, activity: a, group, groups, me, personalGroupId, now, onApply, onPending }: PropertyFormProps) {
-  const [value, setValue] = useState(() => current(chip, a) ?? initial(chip, personalGroupId, group));
+  // Where it can go: not where it is, not where the person is a guest, not into a list group (it would not be seen).
+  const targets = groups.filter(g => g.id !== a.groupId && roleIn(g, me) !== 'guest' && groupTypeOf(g) !== 'list');
+  const [value, setValue] = useState(() => current(chip, a) ?? (chip === 'groupId' && a.groupId !== null ? targets[0]?.id ?? '' : initial(chip, personalGroupId, group)));
   const editing = current(chip, a) !== undefined;
   const role = group ? roleIn(group, me) ?? 'guest' : 'owner';
   const [start] = useState(value);
@@ -46,7 +48,7 @@ export function PropertyForm({ chip, activity: a, group, groups, me, personalGro
     <form className="form" onSubmit={apply}>
       {chip === 'groupId' && (
         <select aria-label="Gruppo" value={value} onChange={e => setValue(e.target.value)}>
-          {groups.map(g => <option key={g.id} value={g.id}>{g.kind === 'personal' ? 'Idee personali' : g.name}</option>)}
+          {targets.map(g => <option key={g.id} value={g.id}>{g.kind === 'personal' ? 'Idee personali' : g.name}</option>)}
         </select>
       )}
       {chip === 'due' && <input aria-label="Scadenza" type="date" required value={value} onChange={e => setValue(e.target.value)} />}
@@ -57,7 +59,7 @@ export function PropertyForm({ chip, activity: a, group, groups, me, personalGro
         </select>
       ) : <span className="muted">Prima mettila in un gruppo.</span>)}
       {chip === 'waitingFor' && <input aria-label="Condizione" placeholder="es. chiusura della ops 412" required value={value} onChange={e => setValue(e.target.value)} />}
-      <button className="btn primary" type="submit" disabled={chip === 'assignment' && !group}>{editing ? 'Salva' : 'Aggiungi'}</button>
+      <button className="btn primary" type="submit" disabled={chip === 'assignment' && !group}>{chip === 'groupId' && a.groupId !== null ? 'Sposta' : editing ? 'Salva' : 'Aggiungi'}</button>
     </form>
   );
 }
@@ -67,6 +69,7 @@ function current(chip: Chip, a: Activity): string | undefined {
   if (chip === 'due') return a.props.due;
   if (chip === 'schedule') return a.props.schedule?.start;
   if (chip === 'waitingFor') return a.props.waitingFor?.condition;
+  if (chip === 'assignment') return a.props.assignment?.assignee;
   return undefined;
 }
 
@@ -80,7 +83,7 @@ function initial(chip: Chip, personalGroupId: GroupId, group: Group | null): str
 
 function build(chip: Chip, a: Activity, value: string, role: ReturnType<typeof roleIn> & string, me: AccountId, now: Instant): Activity {
   switch (chip) {
-    case 'groupId': return moveToGroup(a, value, me, now);
+    case 'groupId': return a.groupId === null ? moveToGroup(a, value, me, now) : moveBetweenGroups(a, value, me, now);
     case 'due': return setProp(a, 'due', value, me, now);
     case 'schedule': return setProp(a, 'schedule', moved(a.props.schedule, value), me, now);
     case 'assignment': return assign(a, value, me, role, now);

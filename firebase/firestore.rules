@@ -43,7 +43,9 @@ service cloud.firestore {
 
     // ---- groups: only invite groups live here -------------------------------------------------------
     function validGroup(d, gid) {
-      return d.keys().hasOnly(['id', 'kind', 'name', 'ownerId', 'timeZone', 'members', 'memberIds', 'version'])
+      return d.keys().hasOnly(['id', 'kind', 'type', 'name', 'ownerId', 'timeZone', 'members', 'memberIds', 'version'])
+        // A group of activities (no type, as every group made before types) or a list; members cannot change it.
+        && (!('type' in d) || d.type in ['activities', 'list'])
         && d.id == gid && d.kind == 'invite' && d.name is string && d.timeZone is string && d.version is int
         && d.members is map && d.members.values().hasOnly(['owner', 'member', 'guest'])
         // Exactly one owner, and it is ownerId.

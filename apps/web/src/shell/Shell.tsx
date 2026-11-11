@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
+import { groupTypeOf, newActivity } from '@attivita/core';
+import { waitingIn } from '../groups/listGroup.js';
+import type { Activity } from '@attivita/core';
+import { instantNow, newId } from '../dates.js';
 import { ActivityDetail } from '../activity/ActivityDetail.js';
 import { AgendaView, KIND_COLOR } from '../agenda/AgendaView.js';
 import type { OpenTarget } from '../agenda/AgendaView.js';
 import { CaptureSheet } from '../capture/CaptureSheet.js';
-import { DraftsView } from '../drafts/DraftsView.js';
 import { GroupPage } from '../groups/GroupPage.js';
-import { GroupsView, groupName } from '../groups/GroupsView.js';
-import { noteGroupOpened, orderGroups } from '../groups/order.js';
+import { MAX_PINS, MENU_GROUPS, orderSharedGroups, useBarPrefs } from '../groups/barPrefs.js';
+import { GroupIcon } from '../groups/GroupIcon.js';
+import { GroupsView } from '../groups/GroupsView.js';
+import { noteGroupOpened } from '../groups/order.js';
 import { MeView } from '../me/MeView.js';
+import { SettingsView } from '../settings/SettingsView.js';
 import { flushOutbox } from '../offline/outbox.js';
 import type { OutboxEntry } from '../offline/outbox.js';
 import { useSession } from '../session/SessionContext.js';
@@ -15,14 +21,12 @@ import { useWs } from '../workspace/useWorkspace.js';
 import { Icon } from './icons.js';
 import { TodayTitle } from './TodayTitle.js';
 
-export type Tab = 'agenda' | 'drafts' | 'groups' | 'me';
-
-/** Groups shown under Gruppi in the menu; the rest are on the Gruppi page. */
-const MENU_GROUPS = 5;
+export type Tab = 'agenda' | 'groups' | 'me' | 'settings';
 
 export function Shell() {
   const { primary: engine, outbox, account } = useSession();
   const ws = useWs();
+  useBarPrefs();
   // An invite link to a Google group opens the Groups tab, where the wizard waits.
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).has('firebase') ? 'groups' : 'agenda'));
   const [open, setOpen] = useState<OpenTarget | null>(null);
@@ -31,6 +35,8 @@ export function Shell() {
   // One line after Chiudi saved a form left open, e.g. "Ripeti salvato".
   const [flash, setFlash] = useState<string | null>(null);
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(null), 4000); return () => clearTimeout(t); }, [flash]);
+  // The new activity being written on a group's page, not stored until it has a title.
+  const [creating, setCreating] = useState<Activity | null>(null);
   const [capturing, setCapturing] = useState(() => new URLSearchParams(window.location.search).has('capture'));
 
   // What is still in the outbox: drafts waiting for the network, and drafts the server refused.
@@ -51,11 +57,18 @@ export function Shell() {
   const onServer = new Set(ws.drafts.map(d => d.id));
   const waitingDrafts = ws.drafts.filter(d => d.status === 'open').length + queue.filter(e => !e.error && !onServer.has(e.activity.id)).length;
   const refused = queue.filter(e => e.error).length;
-  const go = (id: Tab) => { setTab(id); setGroupId(null); setOpen(null); };
+  // Io holds the drafts to sort and the captures the server refused.
+  const forMe = waitingDrafts + refused;
+  const go = (id: Tab) => { setTab(id); setGroupId(null); setOpen(null); setCreating(null); };
   const openGroup = (id: string) => { noteGroupOpened(account, id); setTab('groups'); setGroupId(id); setOpen(null); };
   const current = (id: Tab) => (tab === id && !groupId && !open ? 'page' : undefined);
-  const openCount = (id: string) => ws.activities.filter(a => a.groupId === id && a.status === 'open').length;
-  const menuGroups = orderGroups(ws.groups, account).slice(0, MENU_GROUPS);
+  const menuGroups = orderSharedGroups(ws.groups, account).slice(0, MENU_GROUPS);
+  // On a group's page the + opens a new activity of that group, in the detail; elsewhere it captures a draft.
+  const here = tab === 'groups' && groupId && !open && !creating ? ws.groups.find(g => g.id === groupId) : undefined;
+  // A list group's page has its own field to add items: no +.
+  const onList = here !== undefined && groupTypeOf(here) === 'list';
+  const newIn = (id: string) => setCreating(newActivity({ id: newId(), accountId: ws.engineOf(id)?.account ?? account, title: '', groupId: id }, instantNow()));
+  const plus = () => (here ? newIn(here.id) : setCapturing(true));
   const entry = (id: Tab, label: string, count: number) => (
     <button key={id} aria-current={current(id)} aria-label={count ? `${label}, ${count} da vedere` : label} onClick={() => go(id)}>
       <span className="tab-icon"><Icon name={id} />{count > 0 && <span className="badge">{count}</span>}</span>{label}
@@ -66,40 +79,43 @@ export function Shell() {
       <header className="top">
         <div className="wrap">
           <TodayTitle current={current('agenda') === 'page'} onClick={() => go('agenda')} />
+          <button className="gear" aria-label="Impostazioni" aria-current={current('settings')} onClick={() => go('settings')}><Icon name="settings" /></button>
         </div>
       </header>
       <main className="content">
         {ws.error && <p className="error" role="alert">{ws.error} <button className="link" onClick={ws.clearError}>Chiudi</button></p>}
         {ws.notices.map(n => <p key={n} className="muted small" role="status">{n}</p>)}
         {flash && <p className="flash" role="status">{flash}</p>}
-        {open ? (
+        {creating ? (
+          <ActivityDetail key={creating.id} activityId={creating.id} fresh={creating} onClose={message => { setCreating(null); refreshQueue(); if (message) setFlash(message); }} />
+        ) : open ? (
           <ActivityDetail key={`${open.activityId}|${open.occurrenceKey ?? ''}`} activityId={open.activityId} occurrenceKey={open.occurrenceKey} onClose={message => { setOpen(null); if (message) setFlash(message); }} />
         ) : (
           <>
             {tab === 'agenda' && <AgendaView onOpen={setOpen} />}
-            {tab === 'drafts' && <DraftsView onOpen={setOpen} />}
-            {tab === 'groups' && (groupId ? <GroupPage groupId={groupId} onOpen={setOpen} /> : <GroupsView onOpenGroup={openGroup} />)}
-            {tab === 'me' && <MeView />}
+            {tab === 'groups' && (groupId ? <GroupPage groupId={groupId} onOpen={setOpen} /> : <GroupsView onOpenGroup={openGroup} onNewActivity={id => { openGroup(id); newIn(id); }} />)}
+            {tab === 'me' && <MeView onOpen={setOpen} />}
+            {tab === 'settings' && <SettingsView />}
           </>
         )}
       </main>
-      {capturing && <CaptureSheet onSaved={() => { setCapturing(false); setTab('drafts'); refreshQueue(); }} onClose={() => setCapturing(false)} />}
-      {!capturing && <button className="fab" aria-label="Nuova bozza" onClick={() => setCapturing(true)}>+</button>}
+      {capturing && <CaptureSheet onSaved={() => { setCapturing(false); go('me'); refreshQueue(); }} onClose={() => setCapturing(false)} />}
+      {!capturing && !creating && !onList && <button className="fab" aria-label={here ? `Nuova attività in ${here.name}` : 'Nuova bozza'} onClick={plus}>+</button>}
       <nav className="tabs" aria-label="Sezioni">
-        {entry('groups', 'Gruppi', 0)}
-        {/* On wide screens the most used groups sit under Gruppi; on phones the Gruppi page lists them. */}
-        {menuGroups.map(g => {
-          const n = openCount(g.id);
+        {entry('groups', 'Noi', 0)}
+        {/* Pinned groups first, then the most opened: three on phones, five on wide screens. */}
+        {menuGroups.map((g, i) => {
+          const { n, words } = waitingIn(g, ws.activities);
           return (
-            <button key={g.id} className="sub" style={{ '--grp': KIND_COLOR[g.kind] } as React.CSSProperties}
-              aria-current={groupId === g.id && !open ? 'page' : undefined} aria-label={n ? `${groupName(g)}, ${n} ${n === 1 ? 'aperta' : 'aperte'}` : groupName(g)}
+            <button key={g.id} className={`sub${i >= MAX_PINS ? ' wide-only' : ''}`} style={{ '--grp': KIND_COLOR[g.kind] } as React.CSSProperties}
+              aria-current={groupId === g.id && !open ? 'page' : undefined} aria-label={n ? `${g.name}, ${words}` : g.name}
               onClick={() => openGroup(g.id)}>
-              <span className="dot" />{groupName(g)}{n > 0 && <span className="n">{n}</span>}
+              <span className="tab-icon grp-icon"><GroupIcon group={g} account={account} />{n > 0 && <span className="badge soft">{n}</span>}</span>
+              <span className="name">{g.name}</span>{n > 0 && <span className="n">{n}</span>}
             </button>
           );
         })}
-        {entry('drafts', 'Bozze', waitingDrafts)}
-        {entry('me', 'Io', refused)}
+        {entry('me', 'Io', forMe)}
       </nav>
     </div>
   );

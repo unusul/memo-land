@@ -4,10 +4,14 @@ import { DEFAULT_PUBLIC_DOMAINS } from './public-domains.js';
 import type { AccountId, Activity, GroupId, Instant, Role } from './types.js';
 
 export type GroupKind = 'personal' | 'domain' | 'invite';
+/** What the group is for: activities with their properties, or one list to tick. Only invite groups are lists. */
+export type GroupType = 'activities' | 'list';
 
 export interface Group {
   id: GroupId;
   kind: GroupKind;
+  /** Absent on groups made before types existed, and on personal and domain groups: activities. */
+  type?: GroupType;
   name: string;
   domain?: string;
   /** Absent for domain groups: nobody owns them. */
@@ -16,6 +20,10 @@ export interface Group {
   members: Record<AccountId, Role>;
   version: number;
 }
+
+export const groupTypeOf = (g: Group): GroupType => g.type ?? 'activities';
+/** The activity that holds a list group's list: one per group, made when the first item is added. */
+export const listActivityId = (g: Group): string => `${g.id}#list`;
 
 export type Action =
   | 'deleteGroup' | 'transferOwnership' | 'invite' | 'removeMember'
