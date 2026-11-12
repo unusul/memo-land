@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { addItem, removeItem, setListFixed, suggestItems, toggleItem } from '@attivita/core';
 import type { Activity } from '@attivita/core';
 import { instantNow } from '../dates.js';
-import { Icon } from '../shell/icons.js';
 
 /**
  * The list inside an activity: tick, add with Enter, remove. While typing, the texts this list has already seen are
@@ -42,8 +41,8 @@ export function ChecklistView({ activity: a, me, editable, change }: {
         <>
           {/* A form, not an Enter keydown: phone keyboards send Enter as "Unidentified" while composing, but submit forms. */}
           <form className="new-item-row" onSubmit={e => { e.preventDefault(); add(text); }}>
-            <input className="new-item" aria-label="Nuova voce" placeholder="Aggiungi una voce…" enterKeyHint="done" value={text} onChange={e => setText(e.target.value)} />
-            <button type="submit" className="icon-choice" aria-label="Aggiungi la voce" title="Aggiungi la voce" disabled={!text.trim()}><Icon name="plus" /></button>
+            {/* The keyboard's return key adds the item and the field keeps the focus for the next one, as in a notes app. */}
+            <input className="new-item" aria-label="Nuova voce" placeholder="Aggiungi una voce…" enterKeyHint="enter" value={text} onChange={e => setText(e.target.value)} />
           </form>
           {suggestions.length > 0 && (
             <ul className="chips suggestions" aria-label="Suggerimenti">

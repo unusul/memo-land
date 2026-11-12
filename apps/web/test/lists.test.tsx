@@ -84,16 +84,18 @@ test('testGroupsPageOpensTheGroup', async () => {
 
 /**
  * Found on a phone: a new item was added only on an Enter keydown, which phone keyboards send as "Unidentified" while
- * a word is being composed, so nothing happened. The field is a form now, and the + button adds without a keyboard.
+ * a word is being composed, so nothing happened. The field is a form now: the keyboard's return key submits it.
  */
-test('testPlusButtonAddsTheItem', async () => {
+test('testReturnKeyOnAPhoneKeyboardAddsTheItem', async () => {
   const s = await openDetail('idea', 'app gestione core');
   userClick('+ Lista');
-  userType(screen.getByLabelText('Nuova voce'), 'uova');
-  fireEvent.keyDown(screen.getByLabelText('Nuova voce'), { key: 'Unidentified' });
-  userClick('Aggiungi la voce');
+  const input = screen.getByLabelText('Nuova voce') as HTMLInputElement;
+  userType(input, 'uova');
+  fireEvent.keyDown(input, { key: 'Unidentified' });
+  fireEvent.submit(input.closest('form')!);
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text)).toEqual(['uova']));
-  expect((screen.getByLabelText('Nuova voce') as HTMLInputElement).value).toBe('');
+  expect(input.value).toBe('');
+  expect(input.getAttribute('enterkeyhint')).toBe('enter');
 });
 
 /** A ticked item sinks to the bottom, struck through, as before the form. */
