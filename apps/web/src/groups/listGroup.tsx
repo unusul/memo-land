@@ -24,7 +24,7 @@ export function ListGroupView({ group: g, account }: { group: Group; account: Ac
   const ws = useWs();
   const id = listActivityId(g);
   const list = ws.activities.find(a => a.id === id);
-  const mayEdit = can(g, account, 'editActivity');
+  const mayEdit = !g.archived && can(g, account, 'editActivity');
   useEffect(() => {
     if (!ws.loaded || list || !mayEdit) return;
     // Two members opening it at once: the second save finds it made, and a reload shows it.

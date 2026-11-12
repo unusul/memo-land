@@ -100,6 +100,39 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
       await expect(open('stranger').saveGroup({ ...team, id: 't2' }, null)).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
 
+    /** A group of activities has no type (as every group made before types); a list keeps it. */
+    test('testGroupTypeRoundTrips', async () => {
+      const open = await withTeam();
+      const stored = await open('pippo').getGroup('team');
+      expect(stored.type).toBeUndefined();
+      const v = await open('pippo').saveGroup({ ...stored, type: 'list' }, stored.version);
+      expect((await open('pluto').getGroup('team')).type).toBe('list');
+      const { type: _t, ...back } = await open('pippo').getGroup('team');
+      await open('pippo').saveGroup(back, v);
+      expect((await open('pippo').getGroup('team')).type).toBeUndefined();
+    });
+
+    /** Name and type are the owner's: a member's change is refused, as the UI already assumes. */
+    test('testOnlyTheOwnerRenamesOrRetypes', async () => {
+      const open = await withTeam();
+      const stored = await open('pluto').getGroup('team');
+      await expect(open('pluto').saveGroup({ ...stored, name: 'mine' }, stored.version)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(open('pluto').saveGroup({ ...stored, type: 'list' }, stored.version)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      expect(await open('pippo').saveGroup({ ...stored, name: 'renamed' }, stored.version)).toBe(stored.version + 1);
+    });
+
+    /** The owner archives the group and reopens it; members still see it, archived; they cannot archive it. */
+    test('testOwnerArchivesAndReopensTheGroup', async () => {
+      const open = await withTeam();
+      const stored = await open('pippo').getGroup('team');
+      await expect(open('pluto').saveGroup({ ...stored, archived: true }, stored.version)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      const v = await open('pippo').saveGroup({ ...stored, archived: true }, stored.version);
+      expect((await open('pluto').listGroups()).find(g => g.id === 'team')?.archived).toBe(true);
+      const { archived: _a, ...back } = await open('pippo').getGroup('team');
+      await open('pippo').saveGroup(back, v);
+      expect((await open('pippo').getGroup('team')).archived).toBeUndefined();
+    });
+
     test('testChangesSinceReturnsOnlyNewChanges', async () => {
       const { e, a } = await subject();
       const { cursor } = await e.changesSince(null);

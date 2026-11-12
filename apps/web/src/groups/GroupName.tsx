@@ -15,7 +15,7 @@ export function GroupName({ group: g, label, account, level }: { group: Group; l
   const [name, setName] = useState(g.name);
   const [problem, setProblem] = useState<string | null>(null);
   const Heading = level;
-  const mayRename = g.kind === 'invite' && roleIn(g, account) === 'owner';
+  const mayRename = g.kind === 'invite' && !g.archived && roleIn(g, account) === 'owner';
 
   async function save(e: React.FormEvent) {
     e.preventDefault();

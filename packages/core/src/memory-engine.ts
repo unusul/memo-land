@@ -48,6 +48,13 @@ export class InMemoryEngine implements Engine {
   async saveGroup(group: Group, expectedVersion: number | null): Promise<number> {
     const stored = this.store.groups.get(group.id);
     if (!(this.account in (stored ?? group).members)) fail('FORBIDDEN', 'not a member of this group');
+    if (group.kind !== 'invite' && group.archived) fail('FORBIDDEN', 'only invite groups are archived');
+    // As save_group and the Firestore rules: in an invite group only the owner changes name, type, archive, owner, time zone.
+    if (stored?.kind === 'invite' && stored.members[this.account] !== 'owner'
+      && (group.name !== stored.name || group.type !== stored.type || group.archived !== stored.archived
+        || group.ownerId !== stored.ownerId || group.timeZone !== stored.timeZone)) {
+      fail('FORBIDDEN', 'only the owner changes the group');
+    }
     checkVersion(stored?.version, expectedVersion);
     const version = (expectedVersion ?? group.version) + 1;
     this.store.groups.set(group.id, structuredClone({ ...group, version }));

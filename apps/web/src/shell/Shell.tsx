@@ -66,7 +66,7 @@ export function Shell() {
   // On a group's page the + opens a new activity of that group, in the detail; elsewhere it captures a draft.
   const here = tab === 'groups' && groupId && !open && !creating ? ws.groups.find(g => g.id === groupId) : undefined;
   // A list group's page has its own field to add items: no +.
-  const onList = here !== undefined && groupTypeOf(here) === 'list';
+  const onList = here !== undefined && (groupTypeOf(here) === 'list' || here.archived === true);
   const newIn = (id: string) => setCreating(newActivity({ id: newId(), accountId: ws.engineOf(id)?.account ?? account, title: '', groupId: id }, instantNow()));
   const plus = () => (here ? newIn(here.id) : setCapturing(true));
   const entry = (id: Tab, label: string, count: number) => (

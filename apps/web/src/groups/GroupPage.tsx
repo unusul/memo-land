@@ -22,9 +22,10 @@ export function GroupPage({ groupId, onOpen }: { groupId: string; onOpen(t: Open
         <GroupName group={g} label={label} account={me} level="h2" />
         <span className="pills"><span className="pill">{KIND_LABEL[g.kind]}</span><ManagedBy groupId={g.id} /></span>
       </header>
+      {g.archived && <p className="muted small">Gruppo archiviato: si legge soltanto. Lo riapre il proprietario, da Noi.</p>}
       {groupTypeOf(g) === 'list' ? <ListGroupView group={g} account={me} /> : <>
         <GroupList label={label} group={g} activities={ws.activities.filter(a => a.groupId === g.id && a.status === 'open')} onOpen={onOpen} />
-        <ClosedLists activities={ws.activities.filter(a => a.groupId === g.id && a.status !== 'open')} onOpen={onOpen} canReopen={() => can(g, me, 'editActivity')} />
+        <ClosedLists activities={ws.activities.filter(a => a.groupId === g.id && a.status !== 'open')} onOpen={onOpen} canReopen={() => !g.archived && can(g, me, 'editActivity')} />
       </>}
     </section>
   );

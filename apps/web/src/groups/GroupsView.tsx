@@ -36,6 +36,12 @@ export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () =
   useBarPrefs();
   const pins = pinsOf(account);
   const shared = orderSharedGroups(ws.groups, account);
+  const archived = ws.groups.filter(g => g.kind !== 'personal' && g.archived).sort((x, y) => x.name.localeCompare(y.name, 'it'));
+  /** Archiving and reopening are the owner's: absent `archived` is a group in use, as on groups made before. */
+  async function setArchived(g: Group, on: boolean) {
+    const { archived: _old, ...rest } = g;
+    try { await ws.saveGroup(on ? { ...rest, archived: true } : rest); setProblem(null); } catch (err) { setProblem(errorText(err)); }
+  }
   const pinned = shared.filter(g => pins.includes(g.id));
   const others = shared.filter(g => !pins.includes(g.id));
   const pinOne = (id: string) => setProblem(pin(account, id) ? null : `In barra ci stanno ${MAX_PINS} gruppi: togline uno prima.`);
@@ -60,7 +66,7 @@ export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () =
           <ul className="pinned" aria-label="In barra">
             {pinned.map((g, i) => (
               <li key={g.id}>
-                <GroupCard group={g} onOpenGroup={onOpenGroup} onNewActivity={onNewActivity} pinControls={<>
+                <GroupCard group={g} onOpenGroup={onOpenGroup} onNewActivity={onNewActivity} onArchive={() => void setArchived(g, true)} pinControls={<>
                   <button className="icon-choice" aria-label={`Sposta su ${g.name}`} title="Sposta su" disabled={i === 0} onClick={() => movePin(account, g.id, -1)}><Icon name="up" /></button>
                   <button className="icon-choice" aria-label={`Sposta giù ${g.name}`} title="Sposta giù" disabled={i === pinned.length - 1} onClick={() => movePin(account, g.id, 1)}><Icon name="down" /></button>
                   <button className="icon-choice" aria-label={`Togli ${g.name} dalla barra`} title="Togli dalla barra" onClick={() => { unpin(account, g.id); setProblem(null); }}><Icon name="unpin" /></button>
@@ -71,9 +77,26 @@ export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () =
         </>
       ) : <p className="muted small">Metti in barra i gruppi che vuoi sempre a portata; gli altri posti li prendono i più usati.</p>}
       {others.map(g => (
-        <GroupCard key={g.id} group={g} onOpenGroup={onOpenGroup} onNewActivity={onNewActivity}
+        <GroupCard key={g.id} group={g} onOpenGroup={onOpenGroup} onNewActivity={onNewActivity} onArchive={() => void setArchived(g, true)}
           pinControls={<button className="icon-choice" aria-label={`Metti ${g.name} in barra`} title="Metti in barra" onClick={() => pinOne(g.id)}><Icon name="pin" /></button>} />
       ))}
+      {archived.length > 0 && (
+        <details className="closed" aria-label={`Archiviati (${archived.length})`}>
+          <summary>Archiviati ({archived.length})</summary>
+          <ul className="items">
+            {archived.map(g => (
+              <li key={g.id} className="closed-row">
+                <button className="item" style={{ '--grp': 'var(--muted)' } as React.CSSProperties} onClick={() => onOpenGroup(g.id)}>
+                  <span className="bar" /><span><span className="t">{g.name}</span></span><span />
+                </button>
+                {roleIn(g, ws.engineOf(g.id)?.account ?? account) === 'owner' && (
+                  <button className="icon-choice small" aria-label={`Riapri ${g.name}`} title="Riapri il gruppo" onClick={() => void setArchived(g, false)}><Icon name="reopen" /></button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {creating ? (
         <form className="card stack new-group" onSubmit={create}>
           <label htmlFor="new-group" className="label">Nome del nuovo gruppo</label>
@@ -104,7 +127,9 @@ export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () =
   );
 }
 
-function GroupCard({ group: g, onOpenGroup, onNewActivity, pinControls }: { group: Group; onOpenGroup(groupId: string): void; onNewActivity(groupId: string): void; pinControls?: React.ReactNode }) {
+function GroupCard({ group: g, onOpenGroup, onNewActivity, onArchive, pinControls }: {
+  group: Group; onOpenGroup(groupId: string): void; onNewActivity(groupId: string): void; onArchive(): void; pinControls?: React.ReactNode;
+}) {
   const ws = useWs();
   const session = useSession();
   const engine = ws.engineOf(g.id);
@@ -180,6 +205,7 @@ function GroupCard({ group: g, onOpenGroup, onNewActivity, pinControls }: { grou
         <button className="icon-choice count" aria-label={`Elenco di ${label}`} title="Elenco" onClick={() => onOpenGroup(g.id)}><Icon name={isList ? 'task' : 'list'} />{waiting.n > 0 && <span>{waiting.n}</span>}</button>
         {can(g, account, 'invite') && <button className="icon-choice" aria-label={`Invita in ${label}`} title="Invita" aria-expanded={inviting} onClick={() => setInviting(v => !v)}><Icon name="invite" /></button>}
         {!isList && can(g, account, 'editActivity') && <button className="icon-choice" aria-label={`Nuova attività in ${label}`} title="Nuova attività" onClick={() => onNewActivity(g.id)}><Icon name="plus" /></button>}
+        {g.kind === 'invite' && roleIn(g, account) === 'owner' && <button className="icon-choice" aria-label={`Archivia ${label}`} title="Archivia il gruppo" onClick={onArchive}><Icon name="archive" /></button>}
         {canLeave && !leaving && <button className="icon-choice" aria-label={`Esci da ${label}`} title="Esci dal gruppo" onClick={() => setLeaving(true)}><Icon name="leave" /></button>}
         {leaving && <>
           <span className="small">Le attività assegnate a te torneranno libere.</span>

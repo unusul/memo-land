@@ -12,6 +12,8 @@ export interface Group {
   kind: GroupKind;
   /** Absent on groups made before types existed, and on personal and domain groups: activities. */
   type?: GroupType;
+  /** Set by the owner of an invite group that is no longer used: out of the bar and the agenda, read only. */
+  archived?: true;
   name: string;
   domain?: string;
   /** Absent for domain groups: nobody owns them. */

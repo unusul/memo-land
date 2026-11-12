@@ -79,5 +79,5 @@ export function orderSharedGroups(groups: Group[], account: AccountId): Group[] 
     const u = used.indexOf(g.id);
     return pins.length + (u >= 0 ? u : used.length);
   };
-  return groups.filter(g => g.kind !== 'personal').sort((x, y) => rank(x) - rank(y) || x.name.localeCompare(y.name, 'it'));
+  return groups.filter(g => g.kind !== 'personal' && !g.archived).sort((x, y) => rank(x) - rank(y) || x.name.localeCompare(y.name, 'it'));
 }

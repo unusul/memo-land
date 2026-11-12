@@ -68,10 +68,11 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const role = group ? roleIn(group, me) ?? 'guest' : 'owner';
   const occ = occurrenceKey ? occurrencesBetween(a, occurrenceKey.length > 10 ? occurrenceKey : `${occurrenceKey}T00:00`, occurrenceKey.length > 10 ? occurrenceKey : `${occurrenceKey}T23:59`)[0] ?? null : null;
   const shape = shapeOf(a, personalGroupId);
-  const actions = (a.status === 'open' ? availableActions(a, occ, group, me) : []).filter(k => !asGroupList || (k !== 'archive' && k !== 'toDraft'));
+  const actions = (a.status === 'open' && !group?.archived ? availableActions(a, occ, group, me) : []).filter(k => !asGroupList || (k !== 'archive' && k !== 'toDraft'));
   // A done or archived activity is read only: it is reopened from the list it sits in.
   const closed = a.status !== 'open';
-  const canEdit = !closed && (a.groupId === null || (group !== null && role !== 'guest'));
+  // An archived group is read only too, until its owner reopens it.
+  const canEdit = !closed && !group?.archived && (a.groupId === null || (group !== null && role !== 'guest'));
 
   // On a list group the button says what completing does: the list ends, or starts again when it repeats.
   const labelOf = (k: ActionKind) => (asGroupList && k === 'complete' ? (a.props.repeat ? 'Completa e ricomincia' : 'Completa la lista') : ACTION_LABEL[k]);
