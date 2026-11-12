@@ -1,6 +1,7 @@
 import { createClient, isAuthRetryableFetchError } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CentralEngine } from '@attivita/engine-central';
+import { appHome } from '../appHome.js';
 import { idbOutboxStore } from '../offline/idb-store.js';
 import { forgetGoogleProjects } from './google-config.js';
 import { TIMED_OUT, chooseStartup, offlineIdentity, resolveOnboarding, withinStartupWait } from './onboarding.js';
@@ -52,14 +53,14 @@ export async function openCentralSession(): Promise<OpenedSession | null> {
 }
 
 export async function sendMagicLink(email: string): Promise<string | null> {
-  const { error } = await supabase().auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
+  const { error } = await supabase().auth.signInWithOtp({ email, options: { emailRedirectTo: appHome() } });
   return error ? error.message : null;
 }
 
 export type OAuthProvider = 'google' | 'azure';
 
 export async function signInWith(provider: OAuthProvider): Promise<void> {
-  await supabase().auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } });
+  await supabase().auth.signInWithOAuth({ provider, options: { redirectTo: appHome() } });
 }
 
 export function configuredProviders(): OAuthProvider[] {

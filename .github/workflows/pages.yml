@@ -1,0 +1,53 @@
+# Builds the web app and publishes it on GitHub Pages at https://unusul.github.io/memo-land/ on every push to master.
+# Needs, in Settings → Secrets and variables → Actions: the secrets VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+# (the project's URL and its publishable/anon key, which ends up in the app anyway); optionally the variable
+# VITE_AUTH_PROVIDERS (google,azure). Settings → Pages → Source must be "GitHub Actions".
+name: Publish to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The tests that need no database (the engines' tests run against local Supabase and the Firebase emulators).
+      - run: npm test -w @attivita/core -w @attivita/web
+      - run: npm run build -w @attivita/web
+        env:
+          BASE_PATH: /memo-land/
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_AUTH_PROVIDERS: ${{ vars.VITE_AUTH_PROVIDERS }}
+      # Pages has no rewrite rules: an address opened directly (a refresh, a shared link) gets the app instead of a 404.
+      - run: cp apps/web/dist/index.html apps/web/dist/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
