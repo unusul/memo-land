@@ -179,6 +179,8 @@ textarea { width: 100%; resize: vertical }
 .check-items label { flex: 1; display: flex; align-items: center; gap: 12px; cursor: pointer }
 .check-items input { width: 22px; height: 22px; min-height: 0; accent-color: var(--accent) }
 .check-items li.done span { text-decoration: line-through; color: var(--muted) }
+.new-item-row { display: flex; gap: 8px; align-items: center }
+.new-item-row .new-item { flex: 1 }
 .suggestions { list-style: none; margin: 0; padding: 0 }
 .fixed-switch { display: flex; gap: 8px; align-items: center }
 .fixed-switch input { min-height: 0 }

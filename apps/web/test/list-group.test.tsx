@@ -33,7 +33,7 @@ test('testListGroupOpensItsListDirectly', async () => {
   expect(screen.queryByRole('region', { name: 'Elenco di spesa' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Nuova attività in spesa' })).toBeNull();
   userType(input, 'latte');
-  fireEvent.keyDown(input, { key: 'Enter' });
+  fireEvent.submit(input.closest('form')!);
   await waitFor(async () => expect((await s.primary.getActivity('inv:spesa#list')).activity.checklist?.items.map(i => i.text)).toEqual(['latte']));
 });
 
