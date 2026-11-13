@@ -107,7 +107,7 @@ export function Shell() {
         ) : (
           <>
             {tab === 'agenda' && <AgendaView onOpen={setOpen} />}
-            {tab === 'groups' && (groupId ? <GroupPage groupId={groupId} onOpen={setOpen} /> : <GroupsView onOpenGroup={openGroup} onNewActivity={id => { openGroup(id); newIn(id); }} />)}
+            {tab === 'groups' && (groupId ? <GroupPage groupId={groupId} onOpen={setOpen} /> : <GroupsView onOpenGroup={openGroup} />)}
             {tab === 'me' && <MeView onOpen={setOpen} />}
             {tab === 'settings' && <SettingsView onHelp={() => go('help')} />}
             {tab === 'help' && <HelpView />}

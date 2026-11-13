@@ -78,7 +78,7 @@ test('testGroupListShowsActivitiesWithoutDates', async () => {
 test('testGroupsPageOpensTheGroup', async () => {
   const opened: string[] = [];
   renderWithSession(<GroupsView onOpenGroup={id => opened.push(id)} />, memorySession());
-  fireEvent.click(await screen.findByRole('button', { name: 'Elenco di altereos.com' }));
+  fireEvent.click(await screen.findByRole('button', { name: /^Apri altereos\.com/ }));
   expect(opened).toEqual(['domain:altereos.com']);
 });
 

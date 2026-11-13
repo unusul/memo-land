@@ -8,7 +8,7 @@ import { MeView } from '../src/me/MeView.js';
 import { Shell } from '../src/shell/Shell.js';
 import { noteChoice } from '../src/usage/choicesStore.js';
 import { seedUsage } from '../src/usage/usageStore.js';
-import { PIPPO, memorySession, renderWithSession, userClick } from './memory-session.js';
+import { PIPPO, groupRow, manage, memorySession, renderWithSession, userClick } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -20,7 +20,9 @@ afterEach(() => vi.useRealTimers());
 const nav = () => screen.findByRole('navigation', { name: 'Sezioni' });
 const groupButtons = (n: HTMLElement) => within(n).getAllByRole('button').filter(b => b.classList.contains('sub'));
 const label = (b: HTMLElement) => (b.getAttribute('aria-label') ?? '').split(',')[0];
-const inBar = () => within(screen.getByRole('list', { name: 'In barra' })).getAllByRole('article').map(a => a.getAttribute('aria-label'));
+const inBar = () => within(screen.getByRole('list', { name: 'In barra' })).getAllByRole('button', { name: /^Apri / }).map(b => b.getAttribute('aria-label')!.slice(5).split(',')[0]);
+/** From a group's page back to the rows of Noi. */
+const backToNoi = () => userClick('Indietro');
 
 async function withFourMoreGroups() {
   const s = memorySession(PIPPO);
@@ -44,30 +46,38 @@ test('testBarIsPinnedInOrderThenMostUsedWithoutPersonal', async () => {
 
 test('testNoiListsSharedGroupsOnly', async () => {
   renderWithSession(<GroupsView />, memorySession(PIPPO));
-  await screen.findByRole('article', { name: 'altereos.com' });
+  await groupRow('altereos.com');
   expect(screen.getByRole('heading', { name: 'Noi' })).toBeTruthy();
-  expect(screen.queryByRole('article', { name: 'Idee personali' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^Apri Idee personali/ })).toBeNull();
 });
 
 test('testPinAndArrowsReorderTheBar', async () => {
   renderWithSession(<Shell />, memorySession(PIPPO));
   fireEvent.click(within(await nav()).getByRole('button', { name: 'Noi' }));
-  await screen.findByRole('article', { name: 'developers' });
+  await manage('developers');
   userClick('Metti developers in barra');
+  expect(screen.getByText('In barra, 1° posto')).toBeTruthy();
+  backToNoi();
+  await manage('altereos.com');
   userClick('Metti altereos.com in barra');
+  backToNoi();
   expect(inBar()).toEqual(['developers', 'altereos.com']);
+  await manage('altereos.com');
   userClick('Sposta su altereos.com');
+  backToNoi();
   expect(inBar()).toEqual(['altereos.com', 'developers']);
   expect(pinsOf(PIPPO)).toEqual(['domain:altereos.com', 'inv:developers']);
   expect(groupButtons(await nav()).map(label)).toEqual(['altereos.com', 'developers']);
+  await manage('developers');
   userClick('Togli developers dalla barra');
+  backToNoi();
   expect(inBar()).toEqual(['altereos.com']);
 });
 
 test('testPinBeyondTheLimitIsRefused', async () => {
   setPins(PIPPO, ['inv:a', 'inv:b', 'inv:c']);
   renderWithSession(<GroupsView />, await withFourMoreGroups());
-  await screen.findByRole('article', { name: 'gruppo d' });
+  await manage('gruppo d');
   userClick('Metti gruppo d in barra');
   expect(screen.getByRole('alert').textContent).toMatch(`In barra ci stanno ${MAX_PINS} gruppi`);
   expect(pinsOf(PIPPO)).toEqual(['inv:a', 'inv:b', 'inv:c']);
@@ -80,6 +90,7 @@ test('testChosenIconShowsInTheMenu', async () => {
   const dev = () => groupButtons(n).find(b => label(b) === 'developers')!;
   await waitFor(() => expect(dev().querySelector('.initial')?.textContent).toBe('D'));
   fireEvent.click(within(n).getByRole('button', { name: 'Noi' }));
+  await manage('developers');
   userClick('Icona di developers');
   userClick('Musica');
   expect(dev().querySelector('svg[data-icon="music"]')).toBeTruthy();
@@ -91,7 +102,7 @@ test('testChosenIconShowsInTheMenu', async () => {
 /** The picker shows the icons by section, so the person finds one by what the group is for. */
 test('testIconPickerIsSplitInSections', async () => {
   renderWithSession(<GroupsView />, memorySession(PIPPO));
-  await screen.findByRole('article', { name: 'developers' });
+  await manage('developers');
   userClick('Icona di developers');
   const picker = screen.getByRole('group', { name: "Scegli l'icona di developers" });
   const sections = within(picker).getAllByRole('group').map(s => s.getAttribute('aria-label'));

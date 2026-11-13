@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { addMember, can, groupTypeOf, leaveGroup, reopen, roleIn } from '@attivita/core';
 import { shapeOf } from '@attivita/core';
 import type { Activity, Group, GroupType, Role, Shape } from '@attivita/core';
@@ -11,19 +11,21 @@ import { GroupName } from './GroupName.js';
 import { ManagedBy } from './ManagedBy.js';
 import { GROUP_ICON_SECTIONS, Icon } from '../shell/icons.js';
 import { instantNow, newId } from '../dates.js';
-import { KIND_LABEL, errorText, shortName } from '../labels.js';
+import { KIND_LABEL, ROLE_LABEL, errorText, shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { configFromInvite, googleConfigOf, inviteLink } from '../session/google-config.js';
 import { useWs } from '../workspace/useWorkspace.js';
+import { useBackLayer } from '../shell/back.js';
 import { GoogleGroupWizard, InviteLink, appBase } from './GoogleGroupWizard.js';
 
 export const groupName = (g: Group) => (g.kind === 'personal' ? 'Idee personali' : g.name);
 
 /**
- * Noi: the shared groups (the personal one is in Io). The pinned ones first, in the bar's order with arrows to move them;
- * then the others, each with its pin. `onOpenGroup` opens a group's page, `onNewActivity` a new activity in it.
+ * Noi: the shared groups (the personal one is in Io), one row each: tapping the row opens the group, ⋯ opens its
+ * management page. The groups in the bar first, in the bar's order, then the others; the archived under a closed row.
+ * Before, each group was a tall card with all its buttons, and the way into the group was an unclear count icon.
  */
-export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () => undefined }: { onOpenGroup?(groupId: string): void; onNewActivity?(groupId: string): void } = {}) {
+export function GroupsView({ onOpenGroup = () => undefined }: { onOpenGroup?(groupId: string): void } = {}) {
   const ws = useWs();
   const { account, demo } = useSession();
   const [creating, setCreating] = useState(false);
@@ -33,6 +35,9 @@ export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () =
   const [problem, setProblem] = useState<string | null>(null);
   const [invite] = useState(() => configFromInvite(window.location.search));
   const [wizard, setWizard] = useState(invite !== null);
+  // The group whose management page is open; the phone's back returns to the rows.
+  const [managing, setManaging] = useState<string | null>(null);
+  useBackLayer(managing !== null, () => setManaging(null));
   useBarPrefs();
   const pins = pinsOf(account);
   const shared = orderSharedGroups(ws.groups, account);
@@ -44,7 +49,9 @@ export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () =
   }
   const pinned = shared.filter(g => pins.includes(g.id));
   const others = shared.filter(g => !pins.includes(g.id));
-  const pinOne = (id: string) => setProblem(pin(account, id) ? null : `In barra ci stanno ${MAX_PINS} gruppi: togline uno prima.`);
+  // A group left, or archived, from its page is no longer one to manage: back to the rows.
+  const managed = managing ? shared.find(g => g.id === managing) : undefined;
+  useEffect(() => { if (managing && !managed) setManaging(null); }, [managing, managed]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -58,46 +65,27 @@ export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () =
     try { await ws.saveGroup(g); setCreating(false); setName(''); setType('activities'); } catch (err) { setProblem(errorText(err)); }
   }
 
+  if (managed) {
+    const at = pinned.findIndex(g => g.id === managed.id);
+    return (
+      <GroupManage group={managed} onBack={() => setManaging(null)} onArchive={() => void setArchived(managed, true)} problem={problem}
+        bar={{
+          at, count: pinned.length,
+          pin: () => setProblem(pin(account, managed.id) ? null : `In barra ci stanno ${MAX_PINS} gruppi: togline uno prima.`),
+          unpin: () => { unpin(account, managed.id); setProblem(null); },
+          move: by => movePin(account, managed.id, by),
+        }} />
+    );
+  }
+
+  const rows = (list: Group[]) => list.map(g => <GroupRow key={g.id} group={g} onOpen={() => onOpenGroup(g.id)} onManage={() => { setProblem(null); setManaging(g.id); }} />);
   return (
     <section aria-labelledby="groups-h" className="stack">
-      <h2 id="groups-h">Noi</h2>
-      {pinned.length > 0 ? (
-        <>
-          <ul className="pinned" aria-label="In barra">
-            {pinned.map((g, i) => (
-              <li key={g.id}>
-                <GroupCard group={g} onOpenGroup={onOpenGroup} onNewActivity={onNewActivity} onArchive={() => void setArchived(g, true)} pinControls={<>
-                  <button className="icon-choice" aria-label={`Sposta su ${g.name}`} title="Sposta su" disabled={i === 0} onClick={() => movePin(account, g.id, -1)}><Icon name="up" /></button>
-                  <button className="icon-choice" aria-label={`Sposta giù ${g.name}`} title="Sposta giù" disabled={i === pinned.length - 1} onClick={() => movePin(account, g.id, 1)}><Icon name="down" /></button>
-                  <button className="icon-choice" aria-label={`Togli ${g.name} dalla barra`} title="Togli dalla barra" onClick={() => { unpin(account, g.id); setProblem(null); }}><Icon name="unpin" /></button>
-                </>} />
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : <p className="muted small">Metti in barra i gruppi che vuoi sempre a portata; gli altri posti li prendono i più usati.</p>}
-      {others.map(g => (
-        <GroupCard key={g.id} group={g} onOpenGroup={onOpenGroup} onNewActivity={onNewActivity} onArchive={() => void setArchived(g, true)}
-          pinControls={<button className="icon-choice" aria-label={`Metti ${g.name} in barra`} title="Metti in barra" onClick={() => pinOne(g.id)}><Icon name="pin" /></button>} />
-      ))}
-      {archived.length > 0 && (
-        <details className="closed" aria-label={`Archiviati (${archived.length})`}>
-          <summary>Archiviati ({archived.length})</summary>
-          <ul className="items">
-            {archived.map(g => (
-              <li key={g.id} className="closed-row">
-                <button className="item" style={{ '--grp': 'var(--muted)' } as React.CSSProperties} onClick={() => onOpenGroup(g.id)}>
-                  <span className="bar" /><span><span className="t">{g.name}</span></span><span />
-                </button>
-                {roleIn(g, ws.engineOf(g.id)?.account ?? account) === 'owner' && (
-                  <button className="icon-choice small" aria-label={`Riapri ${g.name}`} title="Riapri il gruppo" onClick={() => void setArchived(g, false)}><Icon name="reopen" /></button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-      {creating ? (
+      <div className="noi-head">
+        <h2 id="groups-h">Noi</h2>
+        {!creating && !wizard && <button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={18} /> Nuovo gruppo</button>}
+      </div>
+      {creating && (
         <form className="card stack new-group" onSubmit={create}>
           <label htmlFor="new-group" className="label">Nome del nuovo gruppo</label>
           <input id="new-group" aria-label="Nome" required autoFocus value={name} onChange={e => setName(e.target.value)} />
@@ -119,18 +107,66 @@ export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () =
             <button className="btn" type="button" onClick={() => setCreating(false)}>Annulla</button>
           </div>
         </form>
-      ) : !wizard && (
-        <button className="icon-choice" aria-label="Nuovo gruppo condiviso" title="Nuovo gruppo condiviso" onClick={() => setCreating(true)}><Icon name="newGroup" /></button>
       )}
       {wizard && <GoogleGroupWizard invite={invite ?? undefined} initialName={name.trim()} type={type} onDone={() => { setWizard(false); setName(''); setType('activities'); }} />}
+      {pinned.length > 0 && <>
+        <p className="label">In barra</p>
+        <ul className="group-rows" aria-label="In barra">{rows(pinned)}</ul>
+      </>}
+      {others.length > 0 && <>
+        {pinned.length > 0 && <p className="label">Altri gruppi</p>}
+        <ul className="group-rows" aria-label="Altri gruppi">{rows(others)}</ul>
+      </>}
+      {archived.length > 0 && (
+        <details className="closed" aria-label={`Archiviati (${archived.length})`}>
+          <summary>Archiviati ({archived.length})</summary>
+          <ul className="items">
+            {archived.map(g => (
+              <li key={g.id} className="closed-row">
+                <button className="item" style={{ '--grp': 'var(--muted)' } as React.CSSProperties} onClick={() => onOpenGroup(g.id)}>
+                  <span className="bar" /><span><span className="t">{g.name}</span></span><span />
+                </button>
+                {roleIn(g, ws.engineOf(g.id)?.account ?? account) === 'owner' && (
+                  <button className="icon-choice small" aria-label={`Riapri ${g.name}`} title="Riapri il gruppo" onClick={() => void setArchived(g, false)}><Icon name="reopen" /></button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {problem && <p className="error" role="alert">{problem}</p>}
     </section>
   );
 }
 
-function GroupCard({ group: g, onOpenGroup, onNewActivity, onArchive, pinControls }: {
-  group: Group; onOpenGroup(groupId: string): void; onNewActivity(groupId: string): void; onArchive(): void; pinControls?: React.ReactNode;
-}) {
+const people = (n: number) => (n === 1 ? '1 persona' : `${n} persone`);
+
+/** One group in Noi: the row opens it; ⋯ opens its management page. */
+function GroupRow({ group: g, onOpen, onManage }: { group: Group; onOpen(): void; onManage(): void }) {
+  const ws = useWs();
+  const { account } = useSession();
+  const label = groupName(g);
+  const { n, words } = waitingIn(g, ws.activities);
+  const what = groupTypeOf(g) === 'list' ? 'lista' : KIND_LABEL[g.kind];
+  return (
+    <li className="group-row" style={{ '--grp': KIND_COLOR[g.kind] } as React.CSSProperties}>
+      <button className="group-open" aria-label={`Apri ${label}${n ? `, ${words}` : ''}`} onClick={onOpen}>
+        <span className="grp-icon" aria-hidden="true"><GroupIcon group={g} account={account} /></span>
+        <span className="group-names"><span className="t">{label}</span><span className="muted small">{what} · {people(Object.keys(g.members).length)}</span></span>
+        {n > 0 && <span className="group-n" aria-hidden="true">{n}</span>}
+      </button>
+      <button className="icon-choice small" aria-label={`Gestisci ${label}`} title="Gestisci" onClick={onManage}><Icon name="more" size={18} /></button>
+    </li>
+  );
+}
+
+interface BarPlace { at: number; count: number; pin(): void; unpin(): void; move(by: -1 | 1): void }
+
+/**
+ * A group's management page, from ⋯ in Noi: name and icon, what it holds, the people and the invitations, its place in
+ * the bar, archive or leave. The controls keep the names they had on the old card.
+ */
+function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { group: Group; onBack(): void; onArchive(): void; bar: BarPlace; problem: string | null }) {
   const ws = useWs();
   const session = useSession();
   const engine = ws.engineOf(g.id);
@@ -143,10 +179,10 @@ function GroupCard({ group: g, onOpenGroup, onNewActivity, onArchive, pinControl
   const [leaving, setLeaving] = useState(false);
   const [picking, setPicking] = useState(false);
   const choose = (icon: Parameters<typeof setIcon>[2]) => { setIcon(session.account, g.id, icon); setPicking(false); };
-  const waiting = waitingIn(g, ws.activities);
-  const isList = groupTypeOf(g) === 'list';
   const [problem, setProblem] = useState<string | null>(null);
   const label = groupName(g);
+  const mine = roleIn(g, account);
+  const owner = g.kind === 'invite' && mine === 'owner';
   const canLeave = g.kind !== 'personal' && g.ownerId !== account;
 
   async function invite(e: React.FormEvent) {
@@ -171,13 +207,16 @@ function GroupCard({ group: g, onOpenGroup, onNewActivity, onArchive, pinControl
   }
 
   return (
-    <article aria-label={label} className="card" style={{ '--grp': KIND_COLOR[g.kind] } as React.CSSProperties}>
-      <header className="row">
+    <article aria-label={label} className="card stack manage" style={{ '--grp': KIND_COLOR[g.kind] } as React.CSSProperties}>
+      <header className="manage-head">
+        <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={onBack}><Icon name="back" size={18} /></button>
         <button className="grp-icon pick" aria-label={`Icona di ${label}`} aria-expanded={picking} onClick={() => setPicking(v => !v)}><GroupIcon group={g} account={session.account} /></button>
-        <GroupName group={g} label={label} account={account} level="h3" />
-        <span className="pills"><span className="pill">{KIND_LABEL[g.kind]}</span><ManagedBy groupId={g.id} /></span>
-        {pinControls && <span className="pin-controls">{pinControls}</span>}
+        <GroupName group={g} label={label} account={account} level="h2" />
       </header>
+      <p className="muted small manage-info">
+        <span className="pills"><span className="pill">{KIND_LABEL[g.kind]}</span><ManagedBy groupId={g.id} /></span>
+        {mine && <span>tu: {ROLE_LABEL[mine]}</span>}
+      </p>
       {picking && (
         <div className="icon-grid" role="group" aria-label={`Scegli l'icona di ${label}`}>
           <div className="icon-section">
@@ -193,39 +232,59 @@ function GroupCard({ group: g, onOpenGroup, onNewActivity, onArchive, pinControl
           ))}
         </div>
       )}
-      {g.kind === 'invite' && roleIn(g, account) === 'owner' && (
+      {owner && <>
+        <p className="label">Cosa contiene</p>
         <div className="seg" role="radiogroup" aria-label={`Tipo di ${label}`}>
           {([['activities', 'Attività'], ['list', 'Lista']] as const).map(([t, words]) => (
             <button key={t} role="radio" aria-checked={groupTypeOf(g) === t}
               onClick={() => { if (groupTypeOf(g) !== t) void retype(t); }}>{words}</button>
           ))}
         </div>
+      </>}
+      <p className="label">Persone</p>
+      <ul className="people">
+        {Object.entries(g.members).map(([m, r]) => <li key={m}><span>{m === account ? 'tu' : shortName(m)}</span><span className="muted small">{ROLE_LABEL[r]}</span></li>)}
+      </ul>
+      {can(g, account, 'invite') && !inviting && <button className="btn" aria-label={`Invita in ${label}`} onClick={() => setInviting(true)}><Icon name="invite" size={18} /> Invita</button>}
+      {inviting && (
+        <form className="form" onSubmit={invite}>
+          <input aria-label="Email" type="email" required autoFocus placeholder="nome@esempio.it" value={email} onChange={e => setEmail(e.target.value)} />
+          <select aria-label="Ruolo" value={role} onChange={e => setRole(e.target.value as Role)}>
+            <option value="member">membro</option>
+            <option value="guest">ospite</option>
+          </select>
+          <button className="btn primary" type="submit" disabled={!email.trim()}>Invia invito</button>
+          <button className="btn" type="button" onClick={() => setInviting(false)}>Annulla</button>
+        </form>
       )}
-      <p className="muted small">{Object.entries(g.members).map(([m, r]) => `${m === account ? 'tu' : shortName(m)}${r === 'member' ? '' : ` (${r === 'owner' ? 'proprietario' : 'ospite'})`}`).join(' · ')}</p>
+      {google && can(g, account, 'invite') && <InviteLink link={inviteLink(google, appBase())} />}
+      <p className="label">Barra in basso</p>
+      {bar.at >= 0 ? (
+        <div className="kv-row">
+          <span>In barra, {bar.at + 1}° posto</span>
+          <span className="icon-row">
+            <button className="icon-choice small" aria-label={`Sposta su ${label}`} title="Sposta su" disabled={bar.at === 0} onClick={() => bar.move(-1)}><Icon name="up" size={18} /></button>
+            <button className="icon-choice small" aria-label={`Sposta giù ${label}`} title="Sposta giù" disabled={bar.at === bar.count - 1} onClick={() => bar.move(1)}><Icon name="down" size={18} /></button>
+            <button className="btn" aria-label={`Togli ${label} dalla barra`} onClick={bar.unpin}>Togli</button>
+          </span>
+        </div>
+      ) : (
+        <div className="kv-row">
+          <span className="muted small">Non è in barra: ci va da solo se lo usi spesso.</span>
+          <button className="btn" aria-label={`Metti ${label} in barra`} onClick={bar.pin}><Icon name="pin" size={18} /> Metti in barra</button>
+        </div>
+      )}
+      {(owner || canLeave) && <p className="label">Altro</p>}
       <div className="btns">
-        <button className="icon-choice count" aria-label={`Elenco di ${label}`} title="Elenco" onClick={() => onOpenGroup(g.id)}><Icon name={isList ? 'task' : 'list'} />{waiting.n > 0 && <span>{waiting.n}</span>}</button>
-        {can(g, account, 'invite') && <button className="icon-choice" aria-label={`Invita in ${label}`} title="Invita" aria-expanded={inviting} onClick={() => setInviting(v => !v)}><Icon name="invite" /></button>}
-        {!isList && can(g, account, 'editActivity') && <button className="icon-choice" aria-label={`Nuova attività in ${label}`} title="Nuova attività" onClick={() => onNewActivity(g.id)}><Icon name="plus" /></button>}
-        {g.kind === 'invite' && roleIn(g, account) === 'owner' && <button className="icon-choice" aria-label={`Archivia ${label}`} title="Archivia il gruppo" onClick={onArchive}><Icon name="archive" /></button>}
-        {canLeave && !leaving && <button className="icon-choice" aria-label={`Esci da ${label}`} title="Esci dal gruppo" onClick={() => setLeaving(true)}><Icon name="leave" /></button>}
+        {owner && <button className="btn" aria-label={`Archivia ${label}`} onClick={onArchive}><Icon name="archive" size={18} /> Archivia il gruppo</button>}
+        {canLeave && !leaving && <button className="btn" aria-label={`Esci da ${label}`} onClick={() => setLeaving(true)}><Icon name="leave" size={18} /> Esci dal gruppo</button>}
         {leaving && <>
           <span className="small">Le attività assegnate a te torneranno libere.</span>
           <button className="btn primary" onClick={() => void leave()}>Conferma uscita</button>
           <button className="btn" onClick={() => setLeaving(false)}>Annulla</button>
         </>}
       </div>
-      {inviting && (
-        <form className="form" onSubmit={invite}>
-          <input aria-label="Email" type="email" required placeholder="nome@esempio.it" value={email} onChange={e => setEmail(e.target.value)} />
-          <select aria-label="Ruolo" value={role} onChange={e => setRole(e.target.value as Role)}>
-            <option value="member">membro</option>
-            <option value="guest">ospite</option>
-          </select>
-          <button className="btn primary" type="submit" disabled={!email.trim()}>Invia invito</button>
-        </form>
-      )}
-      {google && can(g, account, 'invite') && <InviteLink link={inviteLink(google, appBase())} />}
-      {problem && <p className="error" role="alert">{problem}</p>}
+      {(problem ?? outer) && <p className="error" role="alert">{problem ?? outer}</p>}
     </article>
   );
 }

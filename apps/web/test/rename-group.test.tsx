@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { GroupPage } from '../src/groups/GroupPage.js';
 import { GroupsView } from '../src/groups/GroupsView.js';
-import { OSPITE, PIPPO, PLUTO, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { OSPITE, PIPPO, PLUTO, manage, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
 
 /** The owner renames an invite group from its page; every member sees the new name. */
 test('testOwnerRenamesTheGroupFromItsPage', async () => {
@@ -19,7 +19,7 @@ test('testOwnerRenamesTheGroupFromItsPage', async () => {
 test('testRenameCanBeCancelledAndRefusesAnEmptyName', async () => {
   const s = memorySession(PIPPO);
   renderWithSession(<GroupsView />, s);
-  const card = await screen.findByRole('article', { name: 'developers' });
+  const card = await manage('developers');
   userClick('Rinomina developers');
   userType(within(card).getByLabelText('Nome del gruppo'), '   ');
   expect((within(card).getByRole('button', { name: 'Salva il nome' }) as HTMLButtonElement).disabled).toBe(true);
@@ -35,7 +35,7 @@ test('testRenameCanBeCancelledAndRefusesAnEmptyName', async () => {
 test('testMemberGuestAndDomainGroupHaveNoRename', async () => {
   for (const who of [PLUTO, OSPITE]) {
     const view = renderWithSession(<GroupsView />, memorySession(who));
-    await screen.findByRole('article', { name: 'developers' });
+    await manage('developers');
     expect(screen.queryByRole('button', { name: 'Rinomina developers' })).toBeNull();
     view.unmount();
   }

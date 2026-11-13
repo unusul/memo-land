@@ -4,7 +4,7 @@ import { addItem, newActivity, toggleItem } from '@attivita/core';
 import type { Group } from '@attivita/core';
 import { GroupsView } from '../src/groups/GroupsView.js';
 import { Shell } from '../src/shell/Shell.js';
-import { PIPPO, PLUTO, benchBackend, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, PLUTO, benchBackend, groupRow, manage, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
 
 const T = '2026-11-02T08:00:00Z';
 const spesa: Group = { id: 'inv:spesa', kind: 'invite', type: 'list', name: 'spesa', ownerId: PIPPO, timeZone: 'Europe/Rome', members: { [PIPPO]: 'owner', [PLUTO]: 'member' }, version: 1 };
@@ -64,8 +64,8 @@ test('testListGroupCountsWhatIsLeftToTick', async () => {
 test('testNewGroupCanBeAList', async () => {
   const s = memorySession(PIPPO);
   renderWithSession(<GroupsView />, s);
-  await screen.findByRole('article', { name: 'developers' });
-  userClick('Nuovo gruppo condiviso');
+  await groupRow('developers');
+  userClick('Nuovo gruppo');
   fireEvent.click(within(screen.getByRole('group', { name: 'Tipo' })).getByRole('radio', { name: 'Lista' }));
   userType(screen.getByLabelText('Nome'), 'ferramenta');
   userClick('Crea');
@@ -75,13 +75,13 @@ test('testNewGroupCanBeAList', async () => {
 /** The owner changes the type afterwards; members do not (the engines allow it to the owner only). */
 test('testOnlyTheOwnerChangesTheType', async () => {
   const s = memorySession(PIPPO);
-  renderWithSession(<GroupsView />, s);
-  const card = await screen.findByRole('article', { name: 'developers' });
+  const owner = renderWithSession(<GroupsView />, s);
+  const card = await manage('developers');
   fireEvent.click(within(within(card).getByRole('radiogroup', { name: 'Tipo di developers' })).getByRole('radio', { name: 'Lista' }));
   await waitFor(async () => expect((await s.primary.getGroup('inv:developers')).type).toBe('list'));
+  owner.unmount();
   renderWithSession(<GroupsView />, memorySession(PLUTO));
-  await waitFor(() => expect(screen.getAllByRole('article', { name: 'developers' })).toHaveLength(2));
-  expect(within(screen.getAllByRole('article', { name: 'developers' }).at(-1)!).queryByRole('radiogroup')).toBeNull();
+  expect(within(await manage('developers')).queryByRole('radiogroup')).toBeNull();
 });
 
 /** Turning a group of activities into a list hides them, and the page says how to see them again. */

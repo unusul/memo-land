@@ -165,6 +165,26 @@ textarea { width: 100%; resize: vertical }
 .detail > header > .btn.primary { margin-left: auto }
 /* Copia and Condividi: at the right of the top row, or at the end of the list's header on a list group's page. */
 .copy { display: inline-flex; align-items: center; gap: 8px; margin-left: auto }
+/* Noi: one row per group, the row opens it, ⋯ manages it. */
+.noi-head { display: flex; align-items: center; justify-content: space-between; gap: 12px }
+.noi-head h2 { margin: 0 }
+.noi-head .btn { display: inline-flex; align-items: center; gap: 6px }
+.group-rows { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden }
+.group-row { display: flex; align-items: center; gap: 4px; padding-right: 8px; border-left: 4px solid var(--grp) }
+.group-row + .group-row { border-top: 1px solid var(--line) }
+.group-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 8px 10px 12px; border: 0; background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; min-height: 56px }
+.group-open:hover { background: var(--surface-2) }
+.group-names { flex: 1; min-width: 0; display: grid }
+.group-names .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.group-n { flex: none; min-width: 24px; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: .85rem; font-weight: 600; text-align: center }
+.manage-head { display: flex; align-items: center; gap: 10px }
+.manage-head h2 { margin: 0 }
+.manage-info { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 }
+.manage .label { margin-top: 10px }
+.manage .btn { display: inline-flex; align-items: center; gap: 6px; justify-self: start }
+.manage .kv-row { justify-content: space-between; flex-wrap: wrap }
+.people { list-style: none; margin: 0; padding: 0 }
+.people li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line) }
 /* Aiuto e glossario. */
 .help-points { margin: 0; padding-left: 1.2em; display: grid; gap: 6px }
 .glossary-topic { border-top: 1px solid var(--line); padding-top: 4px }

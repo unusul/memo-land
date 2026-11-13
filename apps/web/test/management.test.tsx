@@ -5,7 +5,7 @@ import type { Group } from '@attivita/core';
 import { GroupPage } from '../src/groups/GroupPage.js';
 import { GroupsView } from '../src/groups/GroupsView.js';
 import { registerGoogleEngine } from '../src/session/google-config.js';
-import { PIPPO, memorySession, renderWithSession } from './memory-session.js';
+import { PIPPO, manage, memorySession, renderWithSession, userClick } from './memory-session.js';
 
 const famiglia: Group = { id: 'g:famiglia', kind: 'invite', name: 'famiglia', ownerId: PIPPO, timeZone: 'Europe/Rome', members: { [PIPPO]: 'owner' }, version: 1 };
 
@@ -19,14 +19,15 @@ function withGoogleGroup() {
   return { ...s, engines: [s.primary, google] };
 }
 
-/** Each group says where its data are: on the app's server, or in the person's Google project (named on hover). */
+/** Each group's page says where its data are: on the app's server, or in the person's Google project (named on hover). */
 test('testCardsSayWhoManagesTheGroup', async () => {
   renderWithSession(<GroupsView />, withGoogleGroup());
-  const google = await screen.findByRole('article', { name: 'famiglia' });
-  const own = within(google).getByText('gestione privata');
+  const own = within(await manage('famiglia')).getByText('gestione privata');
   expect(own.getAttribute('title')).toBe('progetto memo-famiglia');
-  expect(within(screen.getByRole('article', { name: 'developers' })).getByText('gestito da terzi')).toBeTruthy();
-  expect(within(screen.getByRole('article', { name: 'altereos.com' })).getByText('gestito da terzi')).toBeTruthy();
+  userClick('Indietro');
+  expect(within(await manage('developers')).getByText('gestito da terzi')).toBeTruthy();
+  userClick('Indietro');
+  expect(within(await manage('altereos.com')).getByText('gestito da terzi')).toBeTruthy();
 });
 
 test('testGroupPageSaysWhoManagesIt', async () => {

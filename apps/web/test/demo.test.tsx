@@ -101,6 +101,6 @@ test('testSettingsDemoButtons', () => {
 /** A group on Google would need a real Google account: in the demo new groups stay in memory. */
 test('testDemoNewGroupHasNoGoogleChoice', async () => {
   renderWithSession(<GroupsView />, openDemoSession());
-  fireEvent.click(await screen.findByRole('button', { name: 'Nuovo gruppo condiviso' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Nuovo gruppo' }));
   expect(screen.queryByText('Gestione privata')).toBeNull();
 });

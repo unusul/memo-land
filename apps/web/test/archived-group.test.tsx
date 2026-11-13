@@ -4,7 +4,7 @@ import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { AgendaView } from '../src/agenda/AgendaView.js';
 import { GroupsView } from '../src/groups/GroupsView.js';
 import { Shell } from '../src/shell/Shell.js';
-import { PIPPO, PLUTO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
+import { PIPPO, PLUTO, benchBackend, groupRow, manage, memorySession, renderWithSession } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -20,17 +20,18 @@ function withArchivedDevelopers(account = PIPPO) {
   return memorySession(account, {}, backend);
 }
 
-/** The owner archives a group from its card: it leaves the cards and the bar, and waits under Archiviati. */
+/** The owner archives a group from its page: it leaves the rows and the bar, and waits under Archiviati. */
 test('testOwnerArchivesTheGroupFromItsCard', async () => {
   const s = memorySession(PIPPO);
   renderWithSession(<Shell />, s);
   const nav = await screen.findByRole('navigation', { name: 'Sezioni' });
   await within(nav).findByRole('button', { name: /^developers/ });
   fireEvent.click(within(nav).getByRole('button', { name: 'Noi' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Archivia developers' }));
+  await manage('developers');
+  fireEvent.click(screen.getByRole('button', { name: 'Archivia developers' }));
   await waitFor(async () => expect((await s.primary.getGroup('inv:developers')).archived).toBe(true));
   expect(await screen.findByRole('group', { name: 'Archiviati (1)' })).toBeTruthy();
-  expect(screen.queryByRole('article', { name: 'developers' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^Apri developers/ })).toBeNull();
   expect(within(nav).queryByRole('button', { name: /^developers/ })).toBeNull();
 });
 
@@ -39,14 +40,15 @@ test('testOwnerReopensAnArchivedGroup', async () => {
   renderWithSession(<GroupsView />, s);
   fireEvent.click(await screen.findByRole('button', { name: 'Riapri developers' }));
   await waitFor(async () => expect((await s.primary.getGroup('inv:developers')).archived).toBeUndefined());
-  expect(await screen.findByRole('article', { name: 'developers' })).toBeTruthy();
+  expect(await groupRow('developers')).toBeTruthy();
 });
 
 /** Members see it archived too, and cannot archive or reopen: that is the owner's. */
 test('testMembersNeitherArchiveNorReopen', async () => {
-  renderWithSession(<GroupsView />, memorySession(PLUTO));
-  await screen.findByRole('article', { name: 'developers' });
+  const first = renderWithSession(<GroupsView />, memorySession(PLUTO));
+  await manage('developers');
   expect(screen.queryByRole('button', { name: 'Archivia developers' })).toBeNull();
+  first.unmount();
   renderWithSession(<GroupsView />, withArchivedDevelopers(PLUTO));
   expect(await screen.findByRole('group', { name: 'Archiviati (1)' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Riapri developers' })).toBeNull();

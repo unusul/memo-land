@@ -4,16 +4,16 @@ import { GroupsView } from '../src/groups/GroupsView.js';
 import { MeView } from '../src/me/MeView.js';
 import { enqueueDraft } from '../src/offline/outbox.js';
 import { newActivity } from '@attivita/core';
-import { PIPPO, PLUTO, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, PLUTO, groupRow, manage, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
 
 test('testCreateInviteGroupAndInvite', async () => {
   const s = memorySession();
   renderWithSession(<GroupsView />, s);
-  await screen.findByRole('article', { name: 'altereos.com' });
-  userClick('Nuovo gruppo condiviso');
+  await groupRow('altereos.com');
+  userClick('Nuovo gruppo');
   userType(screen.getByLabelText('Nome'), 'famiglia');
   userClick('Crea');
-  const card = await screen.findByRole('article', { name: 'famiglia' });
+  const card = await manage('famiglia');
   userClick(/Invita in famiglia/);
   userType(within(card).getByLabelText('Email'), 'Pluto@Altereos.com');
   userClick('Invia invito');
@@ -25,18 +25,18 @@ test('testCreateInviteGroupAndInvite', async () => {
 
 test('testDomainGroupHasNoInviteButton', async () => {
   renderWithSession(<GroupsView />, memorySession());
-  const card = await screen.findByRole('article', { name: 'altereos.com' });
+  const card = await manage('altereos.com');
   expect(within(card).queryByRole('button', { name: /Invita/ })).toBeNull();
   expect(within(card).getByRole('button', { name: /Esci da altereos.com/ })).toBeTruthy();
 });
 
 test('testOwnerSeesNoLeaveButtonGuestCannotInvite', async () => {
-  renderWithSession(<GroupsView />, memorySession());
-  const dev = await screen.findByRole('article', { name: 'developers' });
+  const owner = renderWithSession(<GroupsView />, memorySession());
+  const dev = await manage('developers');
   expect(within(dev).queryByRole('button', { name: /Esci/ })).toBeNull();
+  owner.unmount();
   renderWithSession(<GroupsView />, memorySession('ospite@esterno.it'));
-  await waitFor(() => expect(screen.getAllByRole('article', { name: 'developers' })).toHaveLength(2));
-  const asGuest = screen.getAllByRole('article', { name: 'developers' }).at(-1)!;
+  const asGuest = await manage('developers');
   expect(within(asGuest).queryByRole('button', { name: /Invita/ })).toBeNull();
 });
 
@@ -44,7 +44,7 @@ test('testOwnerSeesNoLeaveButtonGuestCannotInvite', async () => {
 test('testLeaveDomainGroupReleasesAssignments', async () => {
   const s = memorySession();
   renderWithSession(<GroupsView />, s);
-  await screen.findByRole('article', { name: 'altereos.com' });
+  await manage('altereos.com');
   userClick(/Esci da altereos.com/);
   userClick('Conferma uscita');
   await waitFor(async () => expect((await s.primary.listGroups()).map(g => g.id)).not.toContain('domain:altereos.com'));

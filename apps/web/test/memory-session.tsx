@@ -65,3 +65,16 @@ export function userType(el: HTMLElement, text: string): void {
 export function firePaste(target: HTMLElement, file: File): void {
   fireEvent.paste(target, { clipboardData: { files: [file], items: [{ kind: 'file', type: file.type, getAsFile: () => file }], getData: () => '' } });
 }
+
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** A group's row in Noi: the button that opens the group. */
+export function groupRow(name: string): Promise<HTMLElement> {
+  return screen.findByRole('button', { name: new RegExp(`^Apri ${escape(name)}(,|$)`) });
+}
+
+/** Opens a group's management page from its ⋯ in Noi, and gives the page. */
+export async function manage(name: string): Promise<HTMLElement> {
+  fireEvent.click(await screen.findByRole('button', { name: `Gestisci ${name}` }));
+  return screen.findByRole('article', { name });
+}
