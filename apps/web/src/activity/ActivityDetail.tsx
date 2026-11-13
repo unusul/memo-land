@@ -17,6 +17,7 @@ import { useWs } from '../workspace/useWorkspace.js';
 import { availableActions } from './actions.js';
 import { occurrenceAt } from './occurrence.js';
 import { Attachments } from './Attachments.js';
+import { Links } from './Links.js';
 import { ChecklistView } from './ChecklistView.js';
 import { CopyButton } from './CopyButton.js';
 import { Disclosure } from '../shell/Disclosure.js';
@@ -243,6 +244,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       ) : canEdit
         ? <TextFields key={a.id} title={a.title} body={a.body} hideTitle={asGroupList} onSave={text => run(() => editText(a, text, me, instantNow()))} />
         : a.body && <p>{a.body}</p>}
+      <Links texts={asGroupList ? [a.body] : [a.title, a.body]} />
       {isNew
         ? files.length > 0 && <ul className="attachments">{files.map((f, i) => <li key={i}>{f.name} <button type="button" className="link" aria-label={`Togli ${f.name}`} onClick={() => setFiles(l => l.filter((_, j) => j !== i))}>togli</button></li>)}</ul>
         : <Attachments activity={a} />}

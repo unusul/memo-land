@@ -151,6 +151,9 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .link.value { color: inherit; padding: 0; font-weight: inherit; text-decoration: underline dotted; text-align: left }
 .chip { min-height: 36px; border: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-weight: 600; cursor: pointer }
 .chip:hover { border-style: solid }
+.links { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px }
+.links a { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 12px; border-radius: 999px; background: var(--accent-soft);
+  color: var(--accent); font-weight: 600; text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .attach { position: relative; display: inline-flex }
 .attach .menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 200px; display: grid; padding: 6px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18) }
