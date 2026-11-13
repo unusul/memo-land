@@ -23,6 +23,7 @@ const SHELL_PATHS = {
   reopen: <><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4v4.5h4.5" /></>,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
+  chevron: <path d="m9 6 6 6-6 6" />,
   copy: <><rect x="8.5" y="8.5" width="12" height="12" rx="2" /><path d="M15.5 8.5V5A1.5 1.5 0 0 0 14 3.5H5A1.5 1.5 0 0 0 3.5 5v9A1.5 1.5 0 0 0 5 15.5h3.5" /></>,
 };
 

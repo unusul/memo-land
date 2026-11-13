@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { addItem, removeItem, setListFixed, suggestItems, toggleItem } from '@attivita/core';
-import type { Activity } from '@attivita/core';
+import type { Activity, ChecklistItem } from '@attivita/core';
+import { Icon } from '../shell/icons.js';
 import { instantNow } from '../dates.js';
 
 /**
@@ -15,9 +16,22 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
 }) {
   const [text, setText] = useState('');
   const items = a.checklist?.items ?? [];
-  // Ticked items sink to the bottom, each group in the order it was added.
-  const ordered = [...items.filter(i => !i.done), ...items.filter(i => i.done)];
+  // Ticked items go under a row that opens and closes, as in a notes app: closed each time the list is shown.
+  const toDo = items.filter(i => !i.done);
+  const ticked = items.filter(i => i.done);
+  const [showTicked, setShowTicked] = useState(false);
   const suggestions = text.trim() ? suggestItems(a, text) : [];
+
+  const row = (i: ChecklistItem) => (
+    <li key={i.id} className={i.done ? 'done' : undefined}>
+      <label>
+        <input type="checkbox" checked={i.done} disabled={!editable} aria-label={i.text}
+          onChange={() => void change(() => toggleItem(a, i.id, me, instantNow()))} />
+        <span>{i.text}</span>
+      </label>
+      {editable && <button className="link" aria-label={`Togli ${i.text}`} onClick={() => void change(() => removeItem(a, i.id, me, instantNow()))}>×</button>}
+    </li>
+  );
 
   function add(t: string) {
     if (!t.trim()) return;
@@ -31,18 +45,7 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
         <p className="label">Lista{items.length > 0 && ` · ${items.filter(i => i.done).length}/${items.length}`}</p>
         {copy}
       </div>
-      <ul className="check-items">
-        {ordered.map(i => (
-          <li key={i.id} className={i.done ? 'done' : undefined}>
-            <label>
-              <input type="checkbox" checked={i.done} disabled={!editable} aria-label={i.text}
-                onChange={() => void change(() => toggleItem(a, i.id, me, instantNow()))} />
-              <span>{i.text}</span>
-            </label>
-            {editable && <button className="link" aria-label={`Togli ${i.text}`} onClick={() => void change(() => removeItem(a, i.id, me, instantNow()))}>×</button>}
-          </li>
-        ))}
-      </ul>
+      <ul className="check-items">{toDo.map(row)}</ul>
       {editable && (
         <>
           {/* A form, not an Enter keydown: phone keyboards send Enter as "Unidentified" while composing, but submit forms. */}
@@ -62,6 +65,15 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
             </label>
           )}
         </>
+      )}
+      {ticked.length > 0 && (
+        <div className="ticked">
+          <button type="button" className="ticked-row" aria-expanded={showTicked} aria-controls={`ticked-${a.id}`} onClick={() => setShowTicked(v => !v)}>
+            <Icon name="chevron" size={18} />
+            {ticked.length === 1 ? '1 voce spuntata' : `${ticked.length} voci spuntate`}
+          </button>
+          {showTicked && <ul id={`ticked-${a.id}`} className="check-items">{ticked.map(row)}</ul>}
+        </div>
       )}
     </section>
   );

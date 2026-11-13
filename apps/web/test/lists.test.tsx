@@ -98,14 +98,50 @@ test('testReturnKeyOnAPhoneKeyboardAddsTheItem', async () => {
   expect(input.getAttribute('enterkeyhint')).toBe('enter');
 });
 
-/** A ticked item sinks to the bottom, struck through, as before the form. */
-test('testTickedItemSinksToTheBottom', async () => {
+const listBox = () => within(screen.getByRole('region', { name: 'Lista' }));
+const ticks = () => listBox().getAllByRole('checkbox').map(c => c.getAttribute('aria-label'));
+
+/**
+ * A ticked item goes under a closed row «N voci spuntate», as in a notes app; ticking another does not open it, the
+ * count grows. Before, ticked items stayed visible at the bottom, struck through.
+ */
+test('testTickedItemsGoUnderAClosedRow', async () => {
   await openDetail('idea', 'app gestione core');
   userClick('+ Lista');
-  addVoice('latte');
-  await screen.findByRole('checkbox', { name: 'latte' });
-  addVoice('pane');
-  fireEvent.click(await screen.findByRole('checkbox', { name: 'latte' }));
-  await waitFor(() => expect(within(screen.getByRole('region', { name: 'Lista' })).getAllByRole('checkbox').map(c => c.getAttribute('aria-label'))).toEqual(['pane', 'latte']));
+  for (const t of ['latte', 'pane', 'uova']) { addVoice(t); await screen.findByRole('checkbox', { name: t }); }
+  expect(listBox().queryByRole('button', { name: /spuntat/ })).toBeNull();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'latte' }));
+  const row = await listBox().findByRole('button', { name: '1 voce spuntata' });
+  expect(row.getAttribute('aria-expanded')).toBe('false');
+  expect(ticks()).toEqual(['pane', 'uova']);
+  fireEvent.click(screen.getByRole('checkbox', { name: 'pane' }));
+  await listBox().findByRole('button', { name: '2 voci spuntate' });
+  expect(ticks()).toEqual(['uova']);
+});
+
+/** Opened, the row shows the ticked items struck through; unticking one brings it back among those to do. */
+test('testOpenTickedRowAndUntick', async () => {
+  const s = await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  for (const t of ['latte', 'pane']) { addVoice(t); await screen.findByRole('checkbox', { name: t }); }
+  fireEvent.click(screen.getByRole('checkbox', { name: 'latte' }));
+  fireEvent.click(await listBox().findByRole('button', { name: '1 voce spuntata' }));
+  expect(listBox().getByRole('button', { name: '1 voce spuntata' }).getAttribute('aria-expanded')).toBe('true');
+  expect(ticks()).toEqual(['pane', 'latte']);
   expect(screen.getByRole('checkbox', { name: 'latte' }).closest('li')!.classList.contains('done')).toBe(true);
+  fireEvent.click(screen.getByRole('checkbox', { name: 'latte' }));
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.every(i => !i.done)).toBe(true));
+  await waitFor(() => expect(ticks()).toEqual(['latte', 'pane']));
+  expect(listBox().queryByRole('button', { name: /spuntat/ })).toBeNull();
+});
+
+/** The field for a new item sits right under the items to do, the ticked row below it, as in a notes app. */
+test('testNewItemFieldBeforeTheTickedRow', async () => {
+  await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  for (const t of ['latte', 'pane']) { addVoice(t); await screen.findByRole('checkbox', { name: t }); }
+  fireEvent.click(screen.getByRole('checkbox', { name: 'latte' }));
+  const row = await listBox().findByRole('button', { name: '1 voce spuntata' });
+  const field = screen.getByLabelText('Nuova voce');
+  expect(field.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });

@@ -167,6 +167,11 @@ textarea { width: 100%; resize: vertical }
 .detail > header:has(.copy) { align-items: center }
 .checklist-head { display: flex; align-items: center; gap: 8px }
 .checklist-head .label { margin: 0 }
+/* The ticked items' row: closed each time the list is shown, its arrow turns down when open. */
+.ticked-row { display: flex; align-items: center; gap: 8px; min-height: 44px; width: 100%; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; text-align: left }
+.ticked-row:hover { color: var(--fg) }
+.ticked-row svg { transition: transform .15s }
+.ticked-row[aria-expanded="true"] svg { transform: rotate(90deg) }
 .text-fields { display: grid; gap: 4px }
 .title-field, .body-field { border-color: transparent; background: transparent; padding: 6px 8px; margin: 0 -8px; width: calc(100% + 16px); max-width: none }
 .title-field { font: 700 1.35rem/1.25 var(--display); min-height: 0 }
