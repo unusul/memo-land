@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { addItem, removeItem, setListFixed, suggestItems, toggleItem } from '@attivita/core';
 import type { Activity } from '@attivita/core';
 import { instantNow } from '../dates.js';
@@ -7,8 +8,10 @@ import { instantNow } from '../dates.js';
  * The list inside an activity: tick, add with Enter, remove. While typing, the texts this list has already seen are
  * proposed, most used first. Every change is saved at once through `change`.
  */
-export function ChecklistView({ activity: a, me, editable, change }: {
+export function ChecklistView({ activity: a, me, editable, change, copy }: {
   activity: Activity; me: string; editable: boolean; change(next: () => Activity): Promise<unknown>;
+  /** Shown at the end of the header: a list group's page has no other row to hold Copia. */
+  copy?: ReactNode;
 }) {
   const [text, setText] = useState('');
   const items = a.checklist?.items ?? [];
@@ -24,7 +27,10 @@ export function ChecklistView({ activity: a, me, editable, change }: {
 
   return (
     <section className="checklist" aria-label="Lista">
-      <p className="label">Lista{items.length > 0 && ` · ${items.filter(i => i.done).length}/${items.length}`}</p>
+      <div className="checklist-head">
+        <p className="label">Lista{items.length > 0 && ` · ${items.filter(i => i.done).length}/${items.length}`}</p>
+        {copy}
+      </div>
       <ul className="check-items">
         {ordered.map(i => (
           <li key={i.id} className={i.done ? 'done' : undefined}>

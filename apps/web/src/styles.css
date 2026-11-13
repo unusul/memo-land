@@ -161,6 +161,12 @@ textarea { width: 100%; resize: vertical }
 
 /* Detail and cards. Title and text look like text and become fields on focus. */
 .detail > header .link { margin-left: auto }
+/* Copia sits right before Chiudi, or at the end of the list's header on a list group's page. */
+.copy { display: inline-flex; align-items: center; gap: 8px; margin-left: auto }
+.detail > header .copy + .link { margin-left: 0 }
+.detail > header:has(.copy) { align-items: center }
+.checklist-head { display: flex; align-items: center; gap: 8px }
+.checklist-head .label { margin: 0 }
 .text-fields { display: grid; gap: 4px }
 .title-field, .body-field { border-color: transparent; background: transparent; padding: 6px 8px; margin: 0 -8px; width: calc(100% + 16px); max-width: none }
 .title-field { font: 700 1.35rem/1.25 var(--display); min-height: 0 }

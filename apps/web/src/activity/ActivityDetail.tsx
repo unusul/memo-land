@@ -16,6 +16,7 @@ import { useWs } from '../workspace/useWorkspace.js';
 import { availableActions } from './actions.js';
 import { Attachments } from './Attachments.js';
 import { ChecklistView } from './ChecklistView.js';
+import { CopyButton } from './CopyButton.js';
 import { SnoozeForm } from './SnoozeForm.js';
 import { describeRepeat } from './timing.js';
 import type { ActionKind } from './actions.js';
@@ -181,13 +182,14 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       {!asGroupList && <header className="row">
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
+        {!isNew && <CopyButton activity={a} />}
         <button className="link" onClick={() => void close()}>Chiudi</button>
       </header>}
       {asGroupList && closed && group && can(group, me, 'editActivity') && (
         <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>
       )}
       {/* A list group's page starts with the list: it is what the group is for. */}
-      {asGroupList && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} />}
+      {asGroupList && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} copy={!isNew && <CopyButton activity={a} />} />}
       {isNew ? (
         <div className="text-fields">
           <input className="title-field" aria-label="Titolo" autoFocus placeholder="Cosa c'è da fare?" value={a.title} onChange={e => setLocal({ ...a, title: e.target.value })} />
