@@ -5,12 +5,16 @@ import { shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { useAgendaSources } from './sources.js';
+import { useQuickActions } from './quickActions.js';
+import { SwipeRow } from '../shell/SwipeRow.js';
 
 export const KIND_COLOR: Record<GroupKind, string> = { domain: 'var(--acc-dom)', invite: 'var(--acc-inv)', personal: 'var(--acc-per)' };
 
 export interface OpenTarget {
   activityId: string;
-  occurrenceKey?: string;
+  occurrenceKey?: string | undefined;
+  /** A form to open ready: the date, after the swipe «Sposta la data». */
+  form?: 'due' | 'schedule';
 }
 
 export function AgendaView({ from = today(), days = 14, onOpen }: { from?: LocalDate; days?: number; onOpen(t: OpenTarget): void }) {
@@ -20,6 +24,7 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
   const attention = needsAttention(sources, account, today());
   const agenda = buildAgenda(sources, `${from}T00:00`, `${addDays(from, days - 1)}T23:59`);
   const groupOf = (id: string) => ws.groups.find(g => g.id === id);
+  const quick = useQuickActions(onOpen);
 
   if (!ws.loaded) return <p className="muted">Carico l'agenda…</p>;
   return (
@@ -27,11 +32,11 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
       <h2 id="agenda-h" className="sr-only">Agenda</h2>
       {attention.overdue.length > 0 && (
         <AttentionList label="Scadute" rows={attention.overdue.map(o => ({ activity: o.activity, groupId: o.groupId, note: `scaduta ${onDay(o.since)}` }))}
-          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} />
+          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} quick={quick} />
       )}
       {attention.proposed.length > 0 && (
         <AttentionList label="Proposte a te" rows={attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}` }))}
-          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} />
+          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} quick={quick} />
       )}
       {Object.keys(agenda.days).length === 0 && <p className="muted">Niente in agenda nelle prossime due settimane. Premi + per catturare un'idea.</p>}
       {Object.entries(agenda.days).map(([day, items]) => {
@@ -40,7 +45,7 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
           <div key={day} className={`day${day === today() ? ' today' : ''}`}>
             <div className="d">{p.weekday}<b>{p.day}</b>{p.month}</div>
             <ul className="items">
-              {items.map(it => <li key={`${it.activityId}|${it.key}`}><Item it={it} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen} /></li>)}
+              {items.map(it => <li key={`${it.activityId}|${it.key}`}><SwipeRow {...quick(it.activityId, it.key)}><Item it={it} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen} /></SwipeRow></li>)}
             </ul>
           </div>
         );
@@ -50,10 +55,12 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
         <ul className="items" aria-labelledby="waiting-h">
           {agenda.waiting.map(a => (
             <li key={a.id}>
-              <button className="item" style={{ '--grp': KIND_COLOR[groupOf(a.groupId!)?.kind ?? 'personal'] } as React.CSSProperties} onClick={() => onOpen({ activityId: a.id })}>
-                <span className="bar" /><span><span className="t">{a.title}</span><br /><span className="meta">aspetta: {a.props.waitingFor?.condition}</span></span>
-                <span className="time">{groupOf(a.groupId!)?.name}</span>
-              </button>
+              <SwipeRow {...quick(a.id)}>
+                <button className="item" style={{ '--grp': KIND_COLOR[groupOf(a.groupId!)?.kind ?? 'personal'] } as React.CSSProperties} onClick={() => onOpen({ activityId: a.id })}>
+                  <span className="bar" /><span><span className="t">{a.title}</span><br /><span className="meta">aspetta: {a.props.waitingFor?.condition}</span></span>
+                  <span className="time">{groupOf(a.groupId!)?.name}</span>
+                </button>
+              </SwipeRow>
             </li>
           ))}
         </ul>
@@ -85,8 +92,9 @@ const onDay = (day: LocalDate) => { const p = dayParts(day); return `${p.day ===
 interface AttentionRow { activity: Activity; groupId: string; note: string }
 
 /** A titled card of rows for what waits for the account (overdue, proposals), above the days. */
-function AttentionList({ label, rows, kindOf, nameOf, onOpen }: {
+function AttentionList({ label, rows, kindOf, nameOf, onOpen, quick }: {
   label: string; rows: AttentionRow[]; kindOf(id: string): GroupKind | undefined; nameOf(id: string): string | undefined; onOpen(t: OpenTarget): void;
+  quick: ReturnType<typeof useQuickActions>;
 }) {
   return (
     <div className="attention">
@@ -94,10 +102,12 @@ function AttentionList({ label, rows, kindOf, nameOf, onOpen }: {
       <ul className="items" aria-label={label}>
         {rows.map(r => (
           <li key={r.activity.id}>
-            <button className="item" style={{ '--grp': KIND_COLOR[kindOf(r.groupId) ?? 'personal'] } as React.CSSProperties} onClick={() => onOpen({ activityId: r.activity.id })}>
-              <span className="bar" /><span><span className="t">{r.activity.title}</span><br /><span className="meta">{r.note} · {nameOf(r.groupId)}</span></span>
-              <span className="time" />
-            </button>
+            <SwipeRow {...quick(r.activity.id)}>
+              <button className="item" style={{ '--grp': KIND_COLOR[kindOf(r.groupId) ?? 'personal'] } as React.CSSProperties} onClick={() => onOpen({ activityId: r.activity.id })}>
+                <span className="bar" /><span><span className="t">{r.activity.title}</span><br /><span className="meta">{r.note} · {nameOf(r.groupId)}</span></span>
+                <span className="time" />
+              </button>
+            </SwipeRow>
           </li>
         ))}
       </ul>

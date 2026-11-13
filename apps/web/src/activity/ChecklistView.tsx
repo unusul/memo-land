@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { addItem, removeItem, setListFixed, suggestItems, toggleItem } from '@attivita/core';
+import { addItem, removeItem, setListFixed, suggestItems, toggleItem, undoTo } from '@attivita/core';
 import type { Activity, ChecklistItem } from '@attivita/core';
 import { Disclosure } from '../shell/Disclosure.js';
+import { SwipeRow } from '../shell/SwipeRow.js';
+import type { SwipeAction } from '../shell/SwipeRow.js';
+import { useToast } from '../shell/toast.js';
 import { Icon } from '../shell/icons.js';
 import { instantNow } from '../dates.js';
 
@@ -22,14 +25,32 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
   const ticked = items.filter(i => i.done);
   const suggestions = text.trim() ? suggestItems(a, text) : [];
 
+  // The activity as last shown: Annulla puts back what was before, on top of the version stored by then.
+  const latest = useRef(a);
+  latest.current = a;
+  const toast = useToast();
+  const tick = (i: ChecklistItem) => void change(() => toggleItem(a, i.id, me, instantNow()));
+  const remove = async (i: ChecklistItem) => {
+    const before = a;
+    await change(() => removeItem(a, i.id, me, instantNow()));
+    toast({ text: 'Voce tolta', undo: () => void change(() => undoTo(before, latest.current, instantNow())) });
+  };
+
+  // Swipes: towards the right ticks (or unticks), towards the left takes the item away, with Annulla.
   const row = (i: ChecklistItem) => (
     <li key={i.id} className={i.done ? 'done' : undefined}>
-      <label>
-        <input type="checkbox" checked={i.done} disabled={!editable} aria-label={i.text}
-          onChange={() => void change(() => toggleItem(a, i.id, me, instantNow()))} />
-        <span>{i.text}</span>
-      </label>
-      {editable && <button className="link" aria-label={`Togli ${i.text}`} onClick={() => void change(() => removeItem(a, i.id, me, instantNow()))}>×</button>}
+      <SwipeRow {...(editable ? {
+        right: { label: i.done ? 'Togli la spunta' : 'Spunta', icon: 'check', tone: 'done', run: () => tick(i) } as SwipeAction,
+        left: { label: 'Togli', icon: 'trash', tone: 'remove', run: () => void remove(i) } as SwipeAction,
+      } : {})}>
+        <div className="check-row">
+          <label>
+            <input type="checkbox" checked={i.done} disabled={!editable} aria-label={i.text} onChange={() => tick(i)} />
+            <span>{i.text}</span>
+          </label>
+          {editable && <button className="link" aria-label={`Togli ${i.text}`} onClick={() => void change(() => removeItem(a, i.id, me, instantNow()))}>×</button>}
+        </div>
+      </SwipeRow>
     </li>
   );
 

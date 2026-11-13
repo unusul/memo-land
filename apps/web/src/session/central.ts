@@ -6,6 +6,7 @@ import { idbOutboxStore } from '../offline/idb-store.js';
 import { forgetGoogleProjects } from './google-config.js';
 import { TIMED_OUT, chooseStartup, offlineIdentity, resolveOnboarding, withinStartupWait } from './onboarding.js';
 import type { OpenedSession } from './session.js';
+import type { PrefsStore, SyncedPrefs } from '../settings/prefsSync.js';
 
 /** The only module that knows the app runs on Supabase. */
 let client: SupabaseClient | null = null;
@@ -49,7 +50,22 @@ export async function openCentralSession(): Promise<OpenedSession | null> {
   rememberEmail(start.email);
   if (identity.offline) reloadWhenBack(db);
   const signOut = async () => { rememberEmail(null); await forgetGoogleProjects(); await db.auth.signOut(); };
-  return { account: identity.account, primary: engine, engines: [engine], personalGroupId: identity.personalGroupId, outbox: idbOutboxStore(), signOut };
+  return { account: identity.account, primary: engine, engines: [engine], personalGroupId: identity.personalGroupId, outbox: idbOutboxStore(), signOut, prefs: supabasePrefs(db) };
+}
+
+/** The prefs that follow the account (bar, icons, theme) in its metadata, which the sign-in already keeps: no table. */
+export function supabasePrefs(db: SupabaseClient): PrefsStore {
+  return {
+    async load() {
+      const { data, error } = await db.auth.getUser();
+      if (error) throw error;
+      return (data.user?.user_metadata?.['memo_prefs'] as Partial<SyncedPrefs> | undefined) ?? null;
+    },
+    async save(prefs) {
+      const { error } = await db.auth.updateUser({ data: { memo_prefs: prefs } });
+      if (error) throw error;
+    },
+  };
 }
 
 export async function sendMagicLink(email: string): Promise<string | null> {

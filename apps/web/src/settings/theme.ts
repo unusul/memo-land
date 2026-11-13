@@ -14,9 +14,18 @@ export function loadTheme(): Theme {
   }
 }
 
+const listeners = new Set<() => void>();
+
+/** Calls `listener` when the theme is chosen; returns the way to stop. */
+export function onThemeChange(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
 export function saveTheme(theme: Theme): void {
   try { if (theme === 'auto') localStorage.removeItem(KEY); else localStorage.setItem(KEY, theme); } catch { /* storage unavailable: the choice lasts this visit */ }
   applyTheme(theme);
+  listeners.forEach(l => l());
 }
 
 export function applyTheme(theme: Theme): void {

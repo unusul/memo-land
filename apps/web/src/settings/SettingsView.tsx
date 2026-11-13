@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { startDemo } from '../demo/demo.js';
+import { retryPrefsSync, useSyncStatus } from './prefsSync.js';
 import { useSession } from '../session/SessionContext.js';
 import { Icon } from '../shell/icons.js';
 import { loadTheme, saveTheme } from './theme.js';
@@ -9,7 +10,7 @@ const THEMES: Array<[Theme, string, 'auto' | 'sun' | 'moon']> = [['auto', 'Autom
 
 /** The person's settings, opened from the gear in the header: account and theme today, notifications and linked accounts later. */
 export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
-  const { account, signOut, demo } = useSession();
+  const { account, signOut, demo, prefs } = useSession();
   const [theme, setTheme] = useState(loadTheme);
   const choose = (t: Theme) => { saveTheme(t); setTheme(t); };
   const [leaving, setLeaving] = useState(false);
@@ -25,7 +26,8 @@ export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
           ))}
         </div>
       </div>
-      {onHelp && <button className="btn" onClick={onHelp}>Aiuto e glossario</button>}
+      <SyncLine kept={prefs !== undefined} />
+      {onHelp &&<button className="btn" onClick={onHelp}>Aiuto e glossario</button>}
       {/* In the demo there is no account to leave: only the demo, and nothing to lose by it. */}
       {demo ? <button className="btn" onClick={() => void signOut()}>Esci dalla demo</button> : <>
       <button className="btn" onClick={startDemo}>Prova con dati di esempio</button>
@@ -39,4 +41,19 @@ export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
       </>}
     </section>
   );
+}
+
+/** Where the sync of the bar, the icons and the theme stands; Riprova after a failure. */
+function SyncLine({ kept }: { kept: boolean }) {
+  const s = useSyncStatus();
+  const what = 'Barra, icone e tema';
+  if (!kept) return <p className="muted small">{what}: restano in questo browser</p>;
+  if (s.state === 'failed') {
+    return (
+      <p className="small sync-line">{what}: non salvati{s.offline ? ': senza rete' : ''}
+        <button className="link" onClick={retryPrefsSync}>Riprova</button></p>
+    );
+  }
+  const said = s.state === 'pending' ? 'in attesa di salvare' : s.state === 'saved' ? `salvati sull'account${s.at ? ` alle ${s.at}` : ''}` : 'in attesa di salvare';
+  return <p className="muted small">{what}: {said}</p>;
 }

@@ -16,6 +16,7 @@ import { useSession } from '../session/SessionContext.js';
 import { configFromInvite, googleConfigOf, inviteLink } from '../session/google-config.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { useBackLayer } from '../shell/back.js';
+import { SwipeRow } from '../shell/SwipeRow.js';
 import { GoogleGroupWizard, InviteLink, appBase } from './GoogleGroupWizard.js';
 
 export const groupName = (g: Group) => (g.kind === 'personal' ? 'Idee personali' : g.name);
@@ -141,7 +142,7 @@ export function GroupsView({ onOpenGroup = () => undefined }: { onOpenGroup?(gro
 
 const people = (n: number) => (n === 1 ? '1 persona' : `${n} persone`);
 
-/** One group in Noi: the row opens it; ⋯ opens its management page. */
+/** One group in Noi: the row opens it, ⋯ opens its management page; swiped, towards the right opens, towards the left manages. */
 function GroupRow({ group: g, onOpen, onManage }: { group: Group; onOpen(): void; onManage(): void }) {
   const ws = useWs();
   const { account } = useSession();
@@ -149,13 +150,17 @@ function GroupRow({ group: g, onOpen, onManage }: { group: Group; onOpen(): void
   const { n, words } = waitingIn(g, ws.activities);
   const what = groupTypeOf(g) === 'list' ? 'lista' : KIND_LABEL[g.kind];
   return (
-    <li className="group-row" style={{ '--grp': KIND_COLOR[g.kind] } as React.CSSProperties}>
+    <li style={{ '--grp': KIND_COLOR[g.kind] } as React.CSSProperties}>
+      <SwipeRow right={{ label: 'Apri', icon: 'chevron', tone: 'go', run: onOpen }} left={{ label: 'Gestisci', icon: 'more', tone: 'go', run: onManage }}>
+      <div className="group-row">
       <button className="group-open" aria-label={`Apri ${label}${n ? `, ${words}` : ''}`} onClick={onOpen}>
         <span className="grp-icon" aria-hidden="true"><GroupIcon group={g} account={account} /></span>
         <span className="group-names"><span className="t">{label}</span><span className="muted small">{what} · {people(Object.keys(g.members).length)}</span></span>
         {n > 0 && <span className="group-n" aria-hidden="true">{n}</span>}
       </button>
       <button className="icon-choice small" aria-label={`Gestisci ${label}`} title="Gestisci" onClick={onManage}><Icon name="more" size={18} /></button>
+      </div>
+      </SwipeRow>
     </li>
   );
 }

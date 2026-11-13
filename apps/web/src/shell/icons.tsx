@@ -79,7 +79,7 @@ export const GROUP_ICON_SECTIONS = Object.entries(GROUP_PATHS).reduce<Array<{ ti
   return sections;
 }, []);
 
-type IconName = keyof typeof SHELL_PATHS | GroupIconName;
+export type IconName = keyof typeof SHELL_PATHS | GroupIconName;
 const pathsOf = (name: IconName) => (name in SHELL_PATHS ? SHELL_PATHS[name as keyof typeof SHELL_PATHS] : GROUP_PATHS[name as GroupIconName][2]);
 
 export function Icon({ name, size = 24 }: { name: IconName; size?: number }) {

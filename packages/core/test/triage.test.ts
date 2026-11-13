@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { archive, backToDraft, complete, decompose, moveBetweenGroups, keepAsIdea, markConditionMet, moveToGroup, resumeIfDue, setProp, shapeOf, reopen, snooze } from '../src/index.js';
+import { archive, backToDraft, complete, decompose, moveBetweenGroups, keepAsIdea, markConditionMet, moveToGroup, resumeIfDue, setProp, shapeOf, reopen, snooze, undoTo } from '../src/index.js';
 import { draft, movedIdea, t1, t2, task } from './fixtures.js';
 
 test('testDecomposeLinksChildrenToParent', () => {
@@ -87,4 +87,19 @@ test('testMoveBetweenGroupsOnlyByItsAuthorAndToAnotherGroup', () => {
   expect(() => moveBetweenGroups(task, 'g2', 'u2', t1)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
   expect(() => moveBetweenGroups(task, 'g1', 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
   expect(() => moveBetweenGroups(draft, 'g1', 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
+});
+
+/**
+ * Annulla after a swipe puts back what the activity was, history included, as if the action never happened; it keeps
+ * the stored version, so the engines accept it as the next change and refuse it if someone changed the activity meanwhile.
+ */
+test('testUndoToPutsBackThePreviousContent', () => {
+  const done = complete(task, 'u1', '2026-11-03', t1);
+  const stored = { ...done, version: task.version + 1 };
+  const back = undoTo(task, stored, t2);
+  expect(back.status).toBe('open');
+  expect(back.history).toEqual(task.history);
+  expect(back.version).toBe(stored.version);
+  expect(back.updatedAt).toBe(t2);
+  expect(shapeOf(back, 'p1')).toBe(shapeOf(task, 'p1'));
 });

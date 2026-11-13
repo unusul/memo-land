@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, test } from 'vitest';
 import { SettingsView } from '../src/settings/SettingsView.js';
-import { applyTheme, loadTheme } from '../src/settings/theme.js';
+import { applyTheme, loadTheme, saveTheme } from '../src/settings/theme.js';
+import { startPrefsSync } from '../src/settings/prefsSync.js';
 import { PIPPO, memorySession, renderWithSession } from './memory-session.js';
 
 const choose = (name: string) => fireEvent.click(screen.getByRole('radio', { name }));
@@ -50,4 +51,19 @@ test('testSignOutAsksFirst', async () => {
   fireEvent.click(screen.getByRole('button', { name: "Esci dall'account" }));
   fireEvent.click(screen.getByRole('button', { name: 'Conferma uscita' }));
   await waitFor(() => expect(out).toBe(1));
+});
+
+/** The settings say where the sync of the bar, icons and theme stands; in the demo they stay in the browser. */
+test('testSettingsSaySyncState', async () => {
+  const { unmount } = renderWithSession(<SettingsView />, memorySession(PIPPO));
+  expect(screen.getByText('Barra, icone e tema: restano in questo browser')).toBeTruthy();
+  unmount();
+  const s = { ...memorySession(PIPPO), prefs: { load: async () => ({ pins: [] }), save: async () => { throw new Error('offline'); } } };
+  renderWithSession(<SettingsView />, s);
+  const stop = startPrefsSync(PIPPO, s.prefs, 10);
+  await waitFor(() => expect(screen.getByText(/Barra, icone e tema: salvati sull'account/)).toBeTruthy());
+  saveTheme('dark');
+  expect(await screen.findByText(/Barra, icone e tema: non salvati/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Riprova' })).toBeTruthy();
+  stop();
 });

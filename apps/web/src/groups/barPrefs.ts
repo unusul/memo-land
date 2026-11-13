@@ -64,6 +64,16 @@ export function setIcon(account: AccountId, id: GroupId, icon: GroupIconName | n
   write(iconsKey(account), icons);
 }
 
+export const iconsOf = (account: AccountId): Record<GroupId, GroupIconName> => read<Record<string, GroupIconName>>(iconsKey(account), {});
+/** Every icon at once: the account's copy, when the app opens on another device. */
+export const setIcons = (account: AccountId, icons: Record<GroupId, GroupIconName>): void => write(iconsKey(account), icons);
+
+/** Calls `listener` when pins or icons change, in this tab; returns the way to stop. */
+export function onBarPrefsChange(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
 /** Re-renders the caller when pins or icons change, in this tab. */
 export function useBarPrefs(): number {
   return useSyncExternalStore(l => { listeners.add(l); return () => listeners.delete(l); }, () => version);

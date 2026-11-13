@@ -20,13 +20,18 @@ import type { OutboxEntry } from '../offline/outbox.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { useBackLayer } from './back.js';
+import { useSectionSwipe } from './sectionSwipe.js';
+import { startPrefsSync } from '../settings/prefsSync.js';
+import { ToastHost } from './toast.js';
 import { Icon } from './icons.js';
 import { TodayTitle } from './TodayTitle.js';
 
 export type Tab = 'agenda' | 'groups' | 'me' | 'settings' | 'help';
 
 export function Shell() {
-  const { primary: engine, outbox, account, demo, signOut } = useSession();
+  const { primary: engine, outbox, account, demo, signOut, prefs } = useSession();
+  // The bar, the groups' icons and the theme follow the account across devices.
+  useEffect(() => (prefs ? startPrefsSync(account, prefs) : undefined), [prefs, account]);
   const ws = useWs();
   useBarPrefs();
   // An invite link to a Google group opens the Groups tab, where the wizard waits.
@@ -77,12 +82,19 @@ export function Shell() {
   const onList = here !== undefined && (groupTypeOf(here) === 'list' || here.archived === true);
   const newIn = (id: string) => setCreating(newActivity({ id: newId(), accountId: ws.engineOf(id)?.account ?? account, title: '', groupId: id }, instantNow()));
   const plus = () => (here ? newIn(here.id) : setCapturing(true));
+  // Swiping the page goes through the sections in the bar's order, the agenda first (from its header).
+  const sections: Array<() => void> = [() => go('agenda'), () => go('groups'), ...menuGroups.map(g => () => openGroup(g.id)), () => go('me')];
+  const at = open || creating ? -1
+    : tab === 'agenda' ? 0 : tab === 'groups' && !groupId ? 1 : tab === 'me' ? sections.length - 1
+    : groupId ? (i => (i < 0 ? -1 : i + 2))(menuGroups.findIndex(g => g.id === groupId)) : -1;
+  const swipe = useSectionSwipe(at >= 0, at > 0 ? sections[at - 1]! : null, at >= 0 && at < sections.length - 1 ? sections[at + 1]! : null);
   const entry = (id: 'groups' | 'me', label: string, count: number) => (
     <button key={id} aria-current={current(id)} aria-label={count ? `${label}, ${count} da vedere` : label} onClick={() => go(id)}>
       <span className="tab-icon"><Icon name={id} />{count > 0 && <span className="badge">{count}</span>}</span>{label}
     </button>
   );
   return (
+    <ToastHost>
     <div className="app">
       <header className="top">
         <div className="wrap">
@@ -90,7 +102,7 @@ export function Shell() {
           <button className="gear" aria-label="Impostazioni" aria-current={current('settings')} onClick={() => go('settings')}><Icon name="settings" /></button>
         </div>
       </header>
-      <main className="content">
+      <main className="content" {...swipe}>
         {demo && (
           <section className="demo-band" aria-label="Modalità demo">
             <span>Modalità demo: niente viene salvato</span>
@@ -103,7 +115,7 @@ export function Shell() {
         {creating ? (
           <ActivityDetail key={creating.id} activityId={creating.id} fresh={creating} onClose={message => { setCreating(null); refreshQueue(); if (message) setFlash(message); }} />
         ) : open ? (
-          <ActivityDetail key={`${open.activityId}|${open.occurrenceKey ?? ''}`} activityId={open.activityId} occurrenceKey={open.occurrenceKey} onClose={message => { setOpen(null); if (message) setFlash(message); }} />
+          <ActivityDetail key={`${open.activityId}|${open.occurrenceKey ?? ''}`} activityId={open.activityId} occurrenceKey={open.occurrenceKey} initialForm={open.form} onClose={message => { setOpen(null); if (message) setFlash(message); }} />
         ) : (
           <>
             {tab === 'agenda' && <AgendaView onOpen={setOpen} />}
@@ -133,5 +145,6 @@ export function Shell() {
         {entry('me', 'Io', forMe)}
       </nav>
     </div>
+    </ToastHost>
   );
 }

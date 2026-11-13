@@ -1,5 +1,6 @@
 import type { AccountId, Engine, GroupId } from '@attivita/core';
 import type { OutboxStore } from '../offline/outbox.js';
+import type { PrefsStore } from '../settings/prefsSync.js';
 
 export interface Session {
   account: AccountId;
@@ -10,6 +11,8 @@ export interface Session {
   personalGroupId: GroupId;
   outbox: OutboxStore;
   signOut(): Promise<void>;
+  /** Where the account keeps the prefs that follow it across devices; absent, they stay in this browser (the demo). */
+  prefs?: PrefsStore;
   /** The demo with sample data in memory: a band says so, and signing out leaves the demo. */
   demo?: true;
   addEngine(e: Engine): void;

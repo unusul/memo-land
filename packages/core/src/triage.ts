@@ -47,6 +47,14 @@ export function reopen(a: Activity, by: AccountId, now: Instant): Activity {
   return touch({ ...a, status: 'open' }, { kind: 'reopened' }, by, now);
 }
 
+/**
+ * Annulla after a quick action (a swipe): the activity as it was before, history included, as if the action never
+ * happened. It takes the version now stored, so it is saved as the next change and refused if someone changed it meanwhile.
+ */
+export function undoTo(previous: Activity, current: Activity, now: Instant): Activity {
+  return { ...previous, version: current.version, updatedAt: now };
+}
+
 export function snooze(a: Activity, until: LocalDate | LocalDateTime, by: AccountId, now: Instant): Activity {
   return touch(withProps(a, { ...a.props, resumeAt: until }), { kind: 'snoozed', detail: { until } }, by, now);
 }

@@ -14,6 +14,7 @@ import { useSession } from '../session/SessionContext.js';
 import { loadUsage, noteUse } from '../usage/usageStore.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { availableActions } from './actions.js';
+import { occurrenceAt } from './occurrence.js';
 import { Attachments } from './Attachments.js';
 import { ChecklistView } from './ChecklistView.js';
 import { CopyButton } from './CopyButton.js';
@@ -48,8 +49,11 @@ const SAVED: Record<Chip, string> = {
  * With `asGroupList` it is a list group's own activity, shown as the group's page: no Chiudi and no title (the group's
  * name is above), the list always open, and nothing that would take it out of the group.
  */
-export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList = false, onClose }: {
-  activityId: string; occurrenceKey?: string; fresh?: Activity; asGroupList?: boolean; onClose(message?: string): void;
+export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList = false, initialForm, onClose }: {
+  activityId: string; occurrenceKey?: string | undefined; fresh?: Activity; asGroupList?: boolean;
+  /** Opens with a form ready: the date, after the swipe «Sposta la data» in the agenda. */
+  initialForm?: 'due' | 'schedule' | undefined;
+  onClose(message?: string): void;
 }) {
   const { account: me, personalGroupId, outbox } = useSession();
   const ws = useWs();
@@ -57,7 +61,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
-  const [form, setForm] = useState<Chip | 'reject' | 'release' | 'decompose' | 'snooze' | null>(null);
+  const [form, setForm] = useState<Chip | 'reject' | 'release' | 'decompose' | 'snooze' | null>(initialForm ?? null);
   const [reason, setReason] = useState('');
   const [usage, setUsage] = useState(() => loadUsage(me));
   const [problem, setProblem] = useState<string | null>(null);
@@ -73,7 +77,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   if (!a) return ws.loaded ? <p className="muted">Questa attività non c'è più o non è visibile per te.</p> : <p className="muted">Carico…</p>;
   const group = a.groupId ? ws.groups.find(g => g.id === a.groupId) ?? null : null;
   const role = group ? roleIn(group, me) ?? 'guest' : 'owner';
-  const occ = occurrenceKey ? occurrencesBetween(a, occurrenceKey.length > 10 ? occurrenceKey : `${occurrenceKey}T00:00`, occurrenceKey.length > 10 ? occurrenceKey : `${occurrenceKey}T23:59`)[0] ?? null : null;
+  const occ = occurrenceAt(a, occurrenceKey);
   const shape = shapeOf(a, personalGroupId);
   const actions = (a.status === 'open' && !group?.archived ? availableActions(a, occ, group, me) : []).filter(k => !asGroupList || (k !== 'archive' && k !== 'toDraft'));
   // A done or archived activity is read only: it is reopened from the list it sits in.
