@@ -34,6 +34,15 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
       expect((await e.getActivity(a.id)).activity).toEqual(saved);
     });
 
+    /** Priority (2026-11-13) lives in props: every engine keeps it as it keeps the others, no column of its own. */
+    test('testPriorityRoundTrips', async () => {
+      const { e, a } = await subject();
+      const saved = await e.saveActivity({ ...a, props: { ...a.props, priority: 'high' } }, null);
+      expect((await e.getActivity(a.id)).activity.props.priority).toBe('high');
+      const low = await e.saveActivity({ ...saved, props: { ...saved.props, priority: 'low' } }, saved.version);
+      expect((await e.getActivity(a.id)).activity.props.priority).toBe(low.props.priority);
+    });
+
     test('testCreateExistingIdConflicts', async () => {
       const { e, a } = await subject();
       await e.saveActivity(a, null);

@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { Shell } from '../src/shell/Shell.js';
-import { PLUTO, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PLUTO, memorySession, renderWithSession, userClick, userType, pickDate } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 
@@ -43,7 +43,7 @@ test('testEmptyTitleIsNotSaved', async () => {
 test('testCloseSavesAnOpenChangedForm', async () => {
   const { s, onClose } = await open('costi', 'Analisi costi');
   userClick('Modifica Scadenza');
-  userType(screen.getByLabelText('Scadenza'), '2026-11-10');
+  pickDate('Scadenza', '2026-11-10');
   userClick('Indietro');
   await waitFor(() => expect(onClose).toHaveBeenCalledWith('Scadenza salvata'));
   expect((await s.primary.getActivity('costi')).activity.props.due).toBe('2026-11-10');
@@ -74,7 +74,7 @@ test('testShellSaysWhatChiudiSaved', async () => {
   renderWithSession(<Shell />, memorySession(PLUTO));
   fireEvent.click((await screen.findAllByText('Analisi costi'))[0]!);
   userClick('Modifica Scadenza');
-  userType(screen.getByLabelText('Scadenza'), '2026-11-10');
+  pickDate('Scadenza', '2026-11-10');
   userClick('Indietro');
   expect(await screen.findByText('Scadenza salvata')).toBeTruthy();
   vi.useRealTimers();

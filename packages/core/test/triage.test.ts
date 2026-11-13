@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { archive, backToDraft, complete, decompose, moveBetweenGroups, keepAsIdea, markConditionMet, moveToGroup, resumeIfDue, setProp, shapeOf, reopen, snooze, undoTo } from '../src/index.js';
+import { archive, backToDraft, complete, decompose, moveBetweenGroups, keepAsIdea, markConditionMet, moveToGroup, resumeIfDue, setProp, shapeOf, reopen, snooze, undoTo, waitingOnDone } from '../src/index.js';
 import { draft, movedIdea, t1, t2, task } from './fixtures.js';
 
 test('testDecomposeLinksChildrenToParent', () => {
@@ -31,6 +31,20 @@ test('testAnyMemberUnblocksWaitingMemo', () => {
   expect(m.props.waitingFor).toMatchObject({ metAt: t2, metBy: 'u3' });
   expect(() => markConditionMet(m, 'u2', 'member', t2)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
   expect(() => markConditionMet(w, 'g9', 'guest', t2)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+});
+
+/**
+ * «In attesa di» may name another activity (2026-11-13): the condition is its title, and it comes true when that
+ * activity is done. Archived or still open, it keeps waiting; a condition met already is left alone.
+ */
+test('testWaitingOnADoneActivityIsFound', () => {
+  const target = { ...task, id: 'firma' };
+  const w = setProp({ ...task, id: 'contratto' }, 'waitingFor', { condition: 'firma', activityId: 'firma' }, 'u1', t1);
+  const free = setProp({ ...task, id: 'altro' }, 'waitingFor', { condition: 'qualcosa' }, 'u1', t1);
+  expect(waitingOnDone([w, free, target])).toEqual([]);
+  expect(waitingOnDone([w, free, { ...target, status: 'archived' }])).toEqual([]);
+  expect(waitingOnDone([w, free, { ...target, status: 'done' }]).map(a => a.id)).toEqual(['contratto']);
+  expect(waitingOnDone([markConditionMet(w, 'u1', 'member', t2), { ...target, status: 'done' }])).toEqual([]);
 });
 
 test('testMoveToGroupOnlyFromDraft', () => {

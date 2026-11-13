@@ -160,12 +160,12 @@ test('testNoShareWithoutTheSystemMenu', async () => {
 
 /**
  * The top row: the way out on the left (an arrow, «Indietro», which saves as Chiudi did), what to do with the text on
- * the right. Before, a text link Chiudi sat beside the copy icon.
+ * the right, after the star «In evidenza». Before, a text link Chiudi sat beside the copy icon.
  */
 test('testDetailTopRowBackLeftCopyRight', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
   await screen.findByRole('heading', { name: 'app gestione core' });
   expect(screen.queryByRole('button', { name: 'Chiudi' })).toBeNull();
   const buttons = within(document.querySelector('.detail > header') as HTMLElement).getAllByRole('button').map(b => b.getAttribute('aria-label'));
-  expect(buttons).toEqual(['Indietro', 'Copia il testo']);
+  expect(buttons).toEqual(['Indietro', 'In evidenza', 'Copia il testo']);
 });

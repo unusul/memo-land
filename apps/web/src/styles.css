@@ -134,10 +134,17 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .item .t { font-weight: 600; overflow-wrap: anywhere }
 .item .meta { font-size: .82rem; color: var(--muted) }
 .item.done .t { text-decoration: line-through; color: var(--muted) }
+/* Free, taken by the person or by someone else: the bottom third of the bar on the left, under the group's colour. */
+.item[data-take] .bar { background: linear-gradient(var(--grp) 0 calc(66.6% - 1px), transparent 0 calc(66.6% + 1px), var(--take) 0) }
+/* The text's colour: black on the light theme; on the dark one black would vanish, so it turns light as the text does. */
+.item[data-take="free"] { --take: var(--fg) }
+/* Taken is taken, whoever took it: the text under the title says who. */
+.item[data-take="mine"], .item[data-take="other"] { --take: var(--ok) }
 .time { font-size: .82rem; font-weight: 600; color: var(--muted); white-space: nowrap }
 .pill { display: inline-block; margin-left: 6px; font-size: .72rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--chip); color: var(--muted) }
 .pill.cover { color: var(--warn); background: var(--warn-soft) }
 .pill.ok { color: var(--ok); background: var(--ok-soft) }
+.pill.high { color: var(--bad); background: var(--bad-soft) }
 .pill.prop { margin: 0; color: var(--accent); background: var(--accent-soft) }
 
 /* Controls: 44px touch targets, 16px text in fields so phones do not zoom. */
@@ -154,6 +161,26 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .links { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px }
 .links a { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 12px; border-radius: 999px; background: var(--accent-soft);
   color: var(--accent); font-weight: 600; text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.btns.end { margin-left: auto; justify-content: flex-end }
+/* Data e ora: the optional duration, a whole row under the time. */
+.duration { flex: 1 1 100% }
+/* Ripeti: one row per chosen day, its start and end. */
+.day-times { flex: 1 1 100%; display: grid; gap: 6px }
+.day-time { display: flex; align-items: center; gap: 8px }
+.day-time .d { width: 3ch; font-weight: 600 }
+/* The month calendar: a whole row of its form, seven columns from Monday. */
+.cal, .cal-time { flex: 1 1 100%; display: grid; gap: 8px; max-width: 340px }
+.cal-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600 }
+.cal-head .prev svg { transform: rotate(180deg) }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center }
+.cal-grid .wd { font-size: .72rem; color: var(--muted); padding: 4px 0 }
+.cal-grid button { min-height: 40px; border: 0; border-radius: 999px; background: none; color: var(--fg); font: inherit; cursor: pointer }
+.cal-grid button:hover { background: var(--surface-2) }
+.cal-grid button[aria-current="date"] { color: var(--accent); font-weight: 700; box-shadow: inset 0 0 0 1px var(--accent) }
+.cal-grid button[aria-pressed="true"] { background: var(--accent); color: var(--surface) }
+.row-end { display: inline-flex; align-items: center; gap: 8px; margin-left: auto }
+.highlight[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
+.highlight[aria-pressed="true"] svg { fill: currentColor }
 .attach { position: relative; display: inline-flex }
 .attach .menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 200px; display: grid; padding: 6px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18) }

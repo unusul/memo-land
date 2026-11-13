@@ -24,6 +24,25 @@ test('testSetPropRejectsAssignmentAndParentViaGenericSetter', () => {
   expect(() => setProp(base, 'parentId', 'x', 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_INPUT' }));
 });
 
+/** Three levels: high, low, or none set (normal), so the activities of before stay as they were; no shape changes. */
+test('testPriorityIsHighOrLowAndLeavesTheShape', () => {
+  const g = { ...base, groupId: 'g1' };
+  const high = setProp(g, 'priority', 'high', 'u1', t1);
+  expect(high.props.priority).toBe('high');
+  expect(shapeOf(high, 'p1')).toBe(shapeOf(g, 'p1'));
+  expect(removeProp(high, 'priority', 'u1', t2).props.priority).toBeUndefined();
+  expect(() => setProp(g, 'priority', 'urgent' as never, 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_INPUT' }));
+});
+
+test('testDayTimesAreCheckedLikeTheSchedule', () => {
+  const g = { ...base, groupId: 'g1', props: { schedule: { start: '2026-11-10T10:00' } } };
+  const rep = (times: object) => ({ mode: 'calendar' as const, rrule: 'FREQ=WEEKLY;BYDAY=TU,TH', times: times as never });
+  expect(setProp(g, 'repeat', rep({ TH: { start: '18:00', end: '19:00' } }), 'u1', t1).props.repeat).toMatchObject({ times: { TH: { start: '18:00' } } });
+  for (const bad of [{ XX: { start: '18:00' } }, { TH: { start: '25:00' } }, { TH: { start: '18:00', end: '17:00' } }]) {
+    expect(() => setProp(g, 'repeat', rep(bad), 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_INPUT' }));
+  }
+});
+
 test('testScheduleEndBeforeStartRejected', () => {
   expect(() => setProp(base, 'schedule', { start: '2026-11-10T10:00', end: '2026-11-10T09:00' }, 'u1', t1))
     .toThrow(expect.objectContaining({ code: 'INVALID_INPUT' }));

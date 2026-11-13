@@ -2,7 +2,7 @@ import type { PropKey } from './types.js';
 
 export type UsageStats = Partial<Record<PropKey, number>>;
 
-export const DEFAULT_PROP_ORDER: readonly PropKey[] = ['due', 'schedule', 'repeat', 'assignment', 'waitingFor', 'resumeAt', 'parentId'];
+export const DEFAULT_PROP_ORDER: readonly PropKey[] = ['due', 'schedule', 'repeat', 'assignment', 'waitingFor', 'resumeAt', 'parentId', 'priority'];
 
 export function recordUse(stats: UsageStats, key: PropKey): UsageStats {
   return { ...stats, [key]: (stats[key] ?? 0) + 1 };

@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { listActivityId } from '@attivita/core';
 import { App } from '../src/App.js';
 import { DEMO_ACCOUNT, isDemoUrl, openDemoSession } from '../src/demo/demo.js';
+import { iconOf } from '../src/groups/barPrefs.js';
 import { GroupsView } from '../src/groups/GroupsView.js';
 import { LoginScreen } from '../src/session/LoginScreen.js';
 import { SettingsView } from '../src/settings/SettingsView.js';
@@ -41,6 +42,13 @@ test('testDemoSessionHasSampleGroupsAndActivities', async () => {
   expect(all.some(a => a.props.assignment?.assignee === DEMO_ACCOUNT && a.props.assignment.state === 'proposed')).toBe(true);
   expect(all.some(a => a.props.waitingFor !== undefined)).toBe(true);
   expect((await s.primary.listActivities(null)).length).toBeGreaterThan(0);
+});
+
+/** The shared groups come with an icon each, as in use; before, the demo showed only their initials. */
+test('testDemoGroupsHaveIcons', async () => {
+  const s = openDemoSession();
+  const shared = (await s.primary.listGroups()).filter(g => g.kind !== 'personal');
+  expect(shared.map(g => iconOf(DEMO_ACCOUNT, g.id)).every(Boolean)).toBe(true);
 });
 
 /** Two demos never share data: each opening starts clean. */

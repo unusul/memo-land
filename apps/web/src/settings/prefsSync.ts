@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from 'react';
-import type { AccountId, GroupId } from '@attivita/core';
-import { iconsOf, onBarPrefsChange, pinsOf, setIcons, setPins } from '../groups/barPrefs.js';
+import type { AccountId, ActivityId, GroupId } from '@attivita/core';
+import { highlightsOf, iconsOf, onBarPrefsChange, pinsOf, setHighlights, setIcons, setPins } from '../groups/barPrefs.js';
 import type { GroupIconName } from '../shell/icons.js';
 import { loadTheme, onThemeChange, saveTheme } from './theme.js';
 import type { Theme } from './theme.js';
 
-/** What follows the account from one device to another: the bar, the groups' icons, the theme. */
-export interface SyncedPrefs { pins: GroupId[]; icons: Record<GroupId, GroupIconName>; theme: Theme }
+/** What follows the account from one device to another: the bar, the groups' icons, the theme, what is «In evidenza». */
+export interface SyncedPrefs { pins: GroupId[]; icons: Record<GroupId, GroupIconName>; theme: Theme; highlights: ActivityId[] }
 /** Where the account keeps them (on the central engine, the account's metadata). */
 export interface PrefsStore { load(): Promise<Partial<SyncedPrefs> | null>; save(p: SyncedPrefs): Promise<void> }
 
@@ -23,7 +23,7 @@ export const retryPrefsSync = (): void => retry?.();
 /** Re-renders the caller when the sync status changes. */
 export const useSyncStatus = (): SyncStatus => useSyncExternalStore(w => { watchers.add(w); return () => watchers.delete(w); }, () => status);
 
-const collect = (account: AccountId): SyncedPrefs => ({ pins: pinsOf(account), icons: iconsOf(account), theme: loadTheme() });
+const collect = (account: AccountId): SyncedPrefs => ({ pins: pinsOf(account), icons: iconsOf(account), theme: loadTheme(), highlights: highlightsOf(account) });
 const hhmm = (d = new Date()) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const failed = () => setStatus({ state: 'failed', offline: !navigator.onLine });
 
@@ -58,6 +58,7 @@ export function startPrefsSync(account: AccountId, store: PrefsStore, delayMs = 
       if (remote.pins) setPins(account, remote.pins);
       if (remote.icons) setIcons(account, remote.icons);
       if (remote.theme) saveTheme(remote.theme);
+      if (remote.highlights) setHighlights(account, remote.highlights);
     } finally {
       applying = false;
     }

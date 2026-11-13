@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { calendarStarts } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { describeRepeat, snoozeUntil, toRepeat } from '../src/activity/timing.js';
-import { PIPPO, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, memorySession, renderWithSession, userClick, userType, pickDateTime, pickedDate } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -70,7 +70,7 @@ test('testSnoozeAtAChosenDateAndTime', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick('Rimanda…');
-  userType(screen.getByLabelText('Il giorno'), '2026-12-24T18:00');
+  pickDateTime('Il giorno', '2026-12-24T18:00');
   userClick('Rimanda al giorno scelto');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props.resumeAt).toBe('2026-12-24T18:00'));
 });
@@ -98,7 +98,7 @@ test('testRepeatFormShowsTheStartAndWritesTheRule', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick(/^\+ Ripeti/);
-  expect((screen.getByLabelText('Parte dal') as HTMLInputElement).value).toBe('2026-11-04');
+  expect(pickedDate('Parte dal')).toBe('2026-11-04');
   userType(screen.getByLabelText('Ogni'), '2');
   userType(screen.getByLabelText('Unità di ripetizione'), 'week');
   userClick('lun');

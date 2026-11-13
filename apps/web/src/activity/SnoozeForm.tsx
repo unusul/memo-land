@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { AccountId, LocalDateTime } from '@attivita/core';
 import { localNow } from '../dates.js';
 import { noteChoice, topChoices } from '../usage/choicesStore.js';
+import { DateTimePicker } from './DatePicker.js';
 import { UNIT_NAMES, describeSnooze, snoozeUntil } from './timing.js';
 import type { SnoozeUnit } from './timing.js';
 
@@ -38,7 +39,7 @@ export function SnoozeForm({ me, onSnooze }: { me: AccountId; onSnooze(until: Lo
       </form>
       <form className="form" onSubmit={e => { e.preventDefault(); if (at) onSnooze(at); }}>
         <span>oppure il</span>
-        <input aria-label="Il giorno" type="datetime-local" required value={at} onChange={e => setAt(e.target.value)} />
+        <DateTimePicker label="Il giorno" value={at} onChange={setAt} />
         <button className="btn" type="submit" disabled={!at}>Rimanda al giorno scelto</button>
       </form>
     </div>

@@ -14,13 +14,22 @@ export type OccurrenceKey = LocalDateTime | LocalDate;
 
 export type Unit = 'day' | 'week' | 'month' | 'year';
 
+/** The days of a weekly rule, as RRULE writes them. */
+export type Weekday = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
+/** «HH:mm», a time of day without a date. */
+export type TimeOfDay = string;
+/** A day's own time in a weekly series; without an end it keeps the schedule's duration. */
+export type DayTime = { start: TimeOfDay; end?: TimeOfDay };
+
 export type Repeat =
-  | { mode: 'calendar'; rrule: string }
+  /** `times`: a weekly series may give some of its days a time of their own; the others keep the schedule's. */
+  | { mode: 'calendar'; rrule: string; times?: Partial<Record<Weekday, DayTime>> }
   | { mode: 'fromCompletion'; every: { unit: Unit; count: number } };
 
 export type Assignment = { state: 'proposed' | 'accepted'; assignee: AccountId; assignedBy: AccountId };
 
-export type WaitingFor = { condition: string; metAt?: Instant; metBy?: AccountId };
+/** `activityId`: the activity waited for; `condition` is then its title, and it comes true when that one is done. */
+export type WaitingFor = { condition: string; activityId?: ActivityId; metAt?: Instant; metBy?: AccountId };
 
 export interface Props {
   due?: LocalDate | LocalDateTime;
@@ -30,7 +39,11 @@ export interface Props {
   waitingFor?: WaitingFor;
   resumeAt?: LocalDate | LocalDateTime;
   parentId?: ActivityId;
+  /** High or low; none set is normal, so the activities of before need nothing. */
+  priority?: Priority;
 }
+
+export type Priority = 'high' | 'low';
 
 export type PropKey = keyof Props;
 

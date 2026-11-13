@@ -1,6 +1,7 @@
 import { InMemoryBackend, addItem, listActivityId, newActivity, toggleItem } from '@attivita/core';
 import type { Activity, Group, Props } from '@attivita/core';
 import { appHome } from '../appHome.js';
+import { setIcons } from '../groups/barPrefs.js';
 import { addDays, instantNow, newId, today } from '../dates.js';
 import { memoryOutboxStore } from '../offline/outbox.js';
 import type { OpenedSession } from '../session/session.js';
@@ -54,6 +55,8 @@ function sampleActivities(now: string): Activity[] {
     mk('Pulizie di casa', HOME.id, { schedule: { start: `${day(2)}T09:00`, end: `${day(2)}T11:00` }, repeat: weekly(2) }, ANNA),
     mk('Prenotare le vacanze', HOME.id, {}, DEMO_ACCOUNT, 'Mare o montagna? Decidere entro fine mese.'),
     mk('Riparare la mensola', HOME.id, { due: day(5) }, MARCO),
+    // Taken by someone else: the agenda shows the grey bottom of the bar.
+    mk('Ritirare il pacco', HOME.id, { due: day(1), assignment: { state: 'accepted', assignee: ANNA, assignedBy: ANNA } }, ANNA),
     shopping,
     mk('Regalo per il compleanno di Anna', null),
   ];
@@ -69,6 +72,8 @@ function wipeDemoPrefs(): void {
 
 export function openDemoSession(): OpenedSession {
   wipeDemoPrefs();
+  // The groups come with their icons, as a person would have chosen them: the bar shows what the app looks like in use.
+  setIcons(DEMO_ACCOUNT, { [WORK.id]: 'work', [HOME.id]: 'home', [SHOPPING.id]: 'shopping' });
   const backend = new InMemoryBackend();
   for (const g of [PERSONAL, WORK, HOME, SHOPPING]) backend.groups.set(g.id, structuredClone(g));
   for (const a of sampleActivities(instantNow())) backend.activities.set(a.id, a);

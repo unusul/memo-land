@@ -1,8 +1,8 @@
 import { addUnits, fromFloating, toFloating } from '@attivita/core';
-import type { LocalDate, LocalDateTime, Repeat, Unit } from '@attivita/core';
+import type { DayTime, LocalDate, LocalDateTime, Repeat, Unit, Weekday } from '@attivita/core';
 
 export type SnoozeUnit = 'minute' | 'hour' | Unit;
-export type Weekday = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
+export type { Weekday };
 
 /** What the repeat form collects; turned into a core Repeat by toRepeat. */
 export interface RepeatSpec {
@@ -13,7 +13,11 @@ export interface RepeatSpec {
   weekdays: Weekday[];
   /** Monthly calendar rules: the same day number, or the same weekday of the month (first Monday, last Friday). */
   monthly: 'day' | 'nth';
+  /** Weekly calendar rules: the days with a time of their own; the others keep the schedule's. */
+  times?: DayTimes;
 }
+
+export type DayTimes = Partial<Record<Weekday, DayTime>>;
 
 export const WEEKDAYS: Array<[Weekday, string]> = [['MO', 'lun'], ['TU', 'mar'], ['WE', 'mer'], ['TH', 'gio'], ['FR', 'ven'], ['SA', 'sab'], ['SU', 'dom']];
 const WEEKDAY_OF_DATE: Weekday[] = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
@@ -42,10 +46,16 @@ export const describeSnooze = (count: number, unit: SnoozeUnit) => `tra ${count}
 export function toRepeat(spec: RepeatSpec, start: LocalDate | LocalDateTime): Repeat {
   if (spec.mode === 'fromCompletion') return { mode: 'fromCompletion', every: { unit: spec.unit, count: spec.every } };
   const parts = [`FREQ=${FREQ[spec.unit]}`, ...(spec.every > 1 ? [`INTERVAL=${spec.every}`] : [])];
-  if (spec.unit === 'week') parts.push(`BYDAY=${(spec.weekdays.length ? sortDays(spec.weekdays) : [weekdayOf(start)]).join(',')}`);
+  const days = spec.weekdays.length ? sortDays(spec.weekdays) : [weekdayOf(start)];
+  if (spec.unit === 'week') parts.push(`BYDAY=${days.join(',')}`);
   if (spec.unit === 'month') parts.push(spec.monthly === 'nth' ? `BYDAY=${nthOf(start)}${weekdayOf(start)}` : `BYMONTHDAY=${toFloating(start).getUTCDate()}`);
-  return { mode: 'calendar', rrule: parts.join(';') };
+  // Only the rule's own days keep a time: a day taken out of the rule takes its time away too.
+  const times = spec.unit === 'week' ? Object.fromEntries(days.filter(d => spec.times?.[d]).map(d => [d, spec.times![d]!])) : {};
+  return { mode: 'calendar', rrule: parts.join(';'), ...(Object.keys(times).length ? { times } : {}) };
 }
+
+/** The weekday of a date or date-time, as RRULE writes it. */
+export const weekdayOf = (start: LocalDate | LocalDateTime) => WEEKDAY_OF_DATE[toFloating(start).getUTCDay()]!;
 
 /** The form values for a stored rule, so it can be edited; null for a rule the form cannot express. */
 export function specOf(r: Repeat): RepeatSpec | null {
@@ -55,7 +65,10 @@ export function specOf(r: Repeat): RepeatSpec | null {
   if (!unit) return null;
   const byDay = rule['BYDAY']?.split(',') ?? [];
   const weekdays = unit === 'week' ? byDay.filter((d): d is Weekday => WEEKDAYS.some(([k]) => k === d)) : [];
-  return { mode: 'calendar', every: Number(rule['INTERVAL'] ?? 1), unit, weekdays, monthly: unit === 'month' && byDay.length ? 'nth' : 'day' };
+  return {
+    mode: 'calendar', every: Number(rule['INTERVAL'] ?? 1), unit, weekdays, monthly: unit === 'month' && byDay.length ? 'nth' : 'day',
+    ...(r.times ? { times: r.times } : {}),
+  };
 }
 
 const parseRule = (rrule: string): Record<string, string> => Object.fromEntries(rrule.split(';').map(p => p.split('=') as [string, string]));
@@ -68,11 +81,14 @@ export function describeRepeat(r: Repeat): string {
   if (!unit) return r.rrule;
   const head = every(Number(rule['INTERVAL'] ?? 1), unit);
   const byDay = rule['BYDAY']?.split(',') ?? [];
-  if (unit === 'week' && byDay.length) return `${head}, ${joinIt(byDay.map(d => WEEKDAYS.find(([k]) => k === d)?.[1] ?? d))}`;
+  if (unit === 'week' && byDay.length) return `${head}, ${joinIt(byDay.map(d => (WEEKDAYS.find(([k]) => k === d)?.[1] ?? d) + ownTime(r.times?.[d as Weekday])))}`;
   if (unit === 'month' && byDay.length === 1) return `${head}, ${nthText(byDay[0]!)}`;
   if (unit === 'month' && rule['BYMONTHDAY']) return `${head}, il ${rule['BYMONTHDAY'].replaceAll(',', ' e il ')}`;
   return head;
 }
+
+/** « 18:00–19:15» after a day with a time of its own; nothing for a day at the schedule's time. */
+const ownTime = (t: DayTime | undefined) => (t ? ` ${t.start}${t.end ? `–${t.end}` : ''}` : '');
 
 const every = (n: number, unit: Unit) => n === 1 ? `ogni ${UNIT_NAMES[unit][0]}` : `ogni ${n} ${plural(n, unit)}`;
 
@@ -85,7 +101,6 @@ function nthText(code: string): string {
 
 const joinIt = (xs: string[]) => xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`;
 const sortDays = (ds: Weekday[]) => WEEKDAYS.map(([k]) => k).filter(k => ds.includes(k));
-const weekdayOf = (start: LocalDate | LocalDateTime) => WEEKDAY_OF_DATE[toFloating(start).getUTCDay()]!;
 
 /** Which occurrence of its weekday the start is: +1..+4, or -1 when it is the fifth (that is, the last). */
 function nthOf(start: LocalDate | LocalDateTime): string {

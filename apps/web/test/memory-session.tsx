@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { dayLabel } from '../src/activity/DatePicker.js';
 import type { ReactElement } from 'react';
 import { InMemoryBackend, newActivity } from '@attivita/core';
 import type { Activity, EngineLimits, Group } from '@attivita/core';
@@ -60,6 +61,24 @@ export function userClick(name: string | RegExp): void {
 
 export function userType(el: HTMLElement, text: string): void {
   fireEvent.change(el, { target: { value: text } });
+}
+
+/** The month calendar labelled `label`: what it shows and what is chosen. */
+const calendar = (label: string) => screen.getByRole('group', { name: label });
+export const pickedDate = (label: string): string => calendar(label).dataset.value ?? '';
+
+/** Chooses `day` (YYYY-MM-DD) on the month calendar labelled `label`, leafing through the months as a person would. */
+export function pickDate(label: string, day: string): void {
+  for (let i = 0; i < 240 && calendar(label).dataset.month !== day.slice(0, 7); i++) {
+    fireEvent.click(within(calendar(label)).getByRole('button', { name: calendar(label).dataset.month! < day ? 'Mese dopo' : 'Mese prima' }));
+  }
+  fireEvent.click(within(calendar(label)).getByRole('button', { name: dayLabel(day) }));
+}
+
+/** A day and a time (YYYY-MM-DDTHH:mm): the day on the calendar, then the time in its field. */
+export function pickDateTime(label: string, at: string): void {
+  pickDate(label, at.slice(0, 10));
+  userType(screen.getByLabelText('Ora'), at.slice(11, 16));
 }
 
 export function firePaste(target: HTMLElement, file: File): void {

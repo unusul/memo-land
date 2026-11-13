@@ -5,7 +5,7 @@ import { GroupsView } from '../src/groups/GroupsView.js';
 import { Shell } from '../src/shell/Shell.js';
 import { SwipeRow } from '../src/shell/SwipeRow.js';
 import { ToastHost } from '../src/shell/toast.js';
-import { PIPPO, groupRow, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, groupRow, memorySession, renderWithSession, userClick, userType, pickedDate } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -78,7 +78,7 @@ test('testAgendaSwipeLeftMovesTheDate', async () => {
   expect(screen.queryByRole('heading', { name: 'Controllo backup' })).toBeNull();
   swipe(swipeRowOf((await screen.findAllByText('Aggiornare la documentazione'))[0]!), -150);
   expect(await screen.findByRole('heading', { name: 'Aggiornare la documentazione' })).toBeTruthy();
-  expect((screen.getByLabelText('Scadenza') as HTMLInputElement).value).toBe('2026-11-12');
+  expect(pickedDate('Scadenza')).toBe('2026-11-12');
 });
 
 /** In a list, towards the right ticks, towards the left takes the item away with Annulla. */

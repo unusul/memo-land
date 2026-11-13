@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { Shell } from '../src/shell/Shell.js';
-import { PIPPO, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, memorySession, renderWithSession, userClick, pickDate } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -25,7 +25,7 @@ test('testBackClosesTheDetailSavingTheOpenForm', async () => {
   fireEvent.click(await screen.findByText('app gestione core'));
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick(/^\+ Scadenza/);
-  userType(screen.getByLabelText('Scadenza'), '2026-11-20');
+  pickDate('Scadenza', '2026-11-20');
   await back();
   expect(await screen.findByText('Scadenza salvata')).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'app gestione core' })).toBeNull();

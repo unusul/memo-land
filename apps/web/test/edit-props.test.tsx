@@ -5,7 +5,7 @@ import type { Group } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { availableActions } from '../src/activity/actions.js';
 import { specOf, toRepeat } from '../src/activity/timing.js';
-import { PIPPO, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, memorySession, renderWithSession, userClick, userType, pickDate, pickDateTime, pickedDate } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 
@@ -19,9 +19,8 @@ async function open(id: string, title: string) {
 test('testClickingASetPropertyEditsIt', async () => {
   const s = await open('costi', 'Analisi costi');
   userClick('Modifica Scadenza');
-  const input = screen.getByLabelText('Scadenza') as HTMLInputElement;
-  expect(input.value).toBe('2026-11-06');
-  userType(input, '2026-11-10');
+  expect(pickedDate('Scadenza')).toBe('2026-11-06');
+  pickDate('Scadenza', '2026-11-10');
   userClick('Salva');
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.due).toBe('2026-11-10'));
 });
@@ -29,8 +28,9 @@ test('testClickingASetPropertyEditsIt', async () => {
 test('testEditingTheScheduleKeepsItsDuration', async () => {
   const s = await open('sal', 'Stato avanzamento');
   userClick('Modifica Data e ora');
-  expect((screen.getByLabelText('Data e ora') as HTMLInputElement).value).toBe('2026-11-01T15:00');
-  userType(screen.getByLabelText('Data e ora'), '2026-11-02T10:00');
+  expect(pickedDate('Data e ora')).toBe('2026-11-01');
+  expect((screen.getByLabelText('Ora') as HTMLInputElement).value).toBe('15:00');
+  pickDateTime('Data e ora', '2026-11-02T10:00');
   userClick('Salva');
   await waitFor(async () => expect((await s.primary.getActivity('sal')).activity.props.schedule)
     .toEqual({ start: '2026-11-02T10:00', end: '2026-11-02T10:45' }));

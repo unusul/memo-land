@@ -4,7 +4,7 @@ import { addItem, newActivity, toggleItem } from '@attivita/core';
 import type { Group } from '@attivita/core';
 import { GroupsView } from '../src/groups/GroupsView.js';
 import { Shell } from '../src/shell/Shell.js';
-import { PIPPO, PLUTO, benchBackend, groupRow, manage, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, PLUTO, benchBackend, groupRow, manage, memorySession, renderWithSession, userClick, userType, pickDate } from './memory-session.js';
 
 const T = '2026-11-02T08:00:00Z';
 const spesa: Group = { id: 'inv:spesa', kind: 'invite', type: 'list', name: 'spesa', ownerId: PIPPO, timeZone: 'Europe/Rome', members: { [PIPPO]: 'owner', [PLUTO]: 'member' }, version: 1 };
@@ -50,7 +50,7 @@ test('testListGroupShowsTheListsActivityWithItsProperties', async () => {
   for (const gone of ['Archivia', 'Torna bozza', 'Modifica Dove', 'Indietro']) expect(screen.queryByRole('button', { name: gone })).toBeNull();
   expect(screen.queryByLabelText('Titolo')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '+ Scadenza' }));
-  userType(screen.getByLabelText('Scadenza'), '2026-11-14');
+  pickDate('Scadenza', '2026-11-14');
   fireEvent.click(screen.getByRole('button', { name: 'Aggiungi' }));
   await waitFor(async () => expect((await s.primary.getActivity('inv:spesa#list')).activity.props.due).toBe('2026-11-14'));
 });

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { newActivity } from '@attivita/core';
 import type { EngineLimits } from '@attivita/core';
 import { instantNow, newId } from '../dates.js';
+import { toggleHighlight } from '../groups/barPrefs.js';
 import { enqueueDraft, flushOutbox } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import { useSession } from '../session/SessionContext.js';
@@ -47,7 +48,8 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage }: { onSav
     if (pasted.length) { e.preventDefault(); void add(pasted); }
   }
 
-  async function save(e: React.FormEvent) {
+  /** With `inView` the draft also goes «In evidenza», on top of the agenda. */
+  async function save(e: React.FormEvent, inView = false) {
     e.preventDefault();
     if (!text.trim() && files.length === 0) return;
     setSaving(true);
@@ -57,6 +59,7 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage }: { onSav
     try {
       const queued: QueuedFile[] = await Promise.all(files.map(async f => ({ name: f.name, mimeType: f.type || 'application/octet-stream', bytes: await readBytes(f) })));
       await enqueueDraft(outbox, account, draft, queued, instantNow());
+      if (inView) toggleHighlight(account, draft.id);
     } catch {
       setNotice('Non sono riuscito a salvare la bozza su questo dispositivo: riprova.');
       setSaving(false);
@@ -77,8 +80,12 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage }: { onSav
         {notice && <p className="error" role="alert">{notice}</p>}
         <div className="btns">
           <AttachMenu className="btn" onFiles={f => void add(f)} />
-          <button type="button" className="btn" onClick={onClose}>Annulla</button>
-          <button type="submit" className="btn primary" disabled={saving || (!text.trim() && files.length === 0)}>Salva</button>
+          {/* The three ways out stay together: on a phone they go under + Allega as one row, on the right. */}
+          <span className="btns end">
+            <button type="button" className="btn" onClick={onClose}>Annulla</button>
+            <button type="button" className="btn" disabled={saving || (!text.trim() && files.length === 0)} onClick={e => void save(e, true)}>In evidenza</button>
+            <button type="submit" className="btn primary" disabled={saving || (!text.trim() && files.length === 0)}>Salva</button>
+          </span>
         </div>
         <p className="muted small">Le bozze le vedi solo tu. Senza rete restano sul dispositivo e partono appena torna la connessione.</p>
       </form>

@@ -8,7 +8,7 @@ import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { availableActions } from '../src/activity/actions.js';
 import { DraftsView } from '../src/drafts/DraftsView.js';
 import { seedUsage } from '../src/usage/usageStore.js';
-import { PIPPO, PLUTO, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, PLUTO, memorySession, renderWithSession, userClick, userType, pickDate } from './memory-session.js';
 
 test('testAvailableActionsForGuest', () => {
   const mine: Activity = { ...costTask, props: { ...costTask.props, assignment: { state: 'accepted', assignee: 'guest1', assignedBy: 'u1' } } };
@@ -55,7 +55,7 @@ test('testAddDueDateTurnsIdeaIntoTask', async () => {
   userClick('Aggiungi');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.groupId).toBe(`personal:${PIPPO}`));
   userClick(/^\+ Scadenza/);
-  userType(screen.getByLabelText('Scadenza'), '2026-11-20');
+  pickDate('Scadenza', '2026-11-20');
   userClick('Aggiungi');
   expect(await screen.findByText('cosa da fare')).toBeTruthy();
 });

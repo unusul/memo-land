@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { Shell } from '../src/shell/Shell.js';
-import { PIPPO, firePaste, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, firePaste, memorySession, renderWithSession, userClick, userType, pickDate } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
@@ -35,7 +35,7 @@ test('testNewActivityIsSavedWithItsPropertiesAndFiles', async () => {
   const s = await plusInDevelopers();
   userType(within(detail()).getByLabelText('Titolo'), 'preparare la demo');
   userClick('+ Scadenza');
-  userType(screen.getByLabelText('Scadenza'), '2026-11-20');
+  pickDate('Scadenza', '2026-11-20');
   userClick('Aggiungi');
   expect(await created(s, 'preparare la demo')).toBeUndefined();
   firePaste(detail(), new File([new Uint8Array([1, 2])], 'schema.png', { type: 'image/png' }));
@@ -54,7 +54,7 @@ test('testNewActivityIsSavedWithItsPropertiesAndFiles', async () => {
 test('testClosingWithoutATitleDiscards', async () => {
   const s = await plusInDevelopers();
   userClick('+ Scadenza');
-  userType(screen.getByLabelText('Scadenza'), '2026-11-20');
+  pickDate('Scadenza', '2026-11-20');
   userClick('Aggiungi');
   userClick('Indietro');
   await screen.findByRole('region', { name: 'Elenco di developers' });

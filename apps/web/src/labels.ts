@@ -1,5 +1,5 @@
 import { DomainError } from '@attivita/core';
-import type { DomainErrorCode, GroupKind, HistoryEntry, PropKey, Role, Shape } from '@attivita/core';
+import type { DomainErrorCode, GroupKind, HistoryEntry, Priority, PropKey, Role, Shape } from '@attivita/core';
 
 export const SHAPE_LABEL: Record<Shape, string> = {
   draft: 'bozza', idea: 'idea', waiting: 'in attesa', snoozed: 'rimandata', recurring: 'ricorrente',
@@ -11,8 +11,11 @@ export const ROLE_LABEL: Record<Role, string> = { owner: 'proprietario', member:
 
 export const PROP_LABEL: Record<PropKey, string> = {
   due: 'Scadenza', schedule: 'Data e ora', repeat: 'Ripeti', assignment: 'Assegna',
-  waitingFor: 'In attesa di…', resumeAt: 'Riprendi il…', parentId: 'Sotto-attività',
+  waitingFor: 'In attesa di…', resumeAt: 'Riprendi il…', parentId: 'Sotto-attività', priority: 'Priorità',
 };
+
+/** Normal is no priority set: it has no word of its own on the activity. */
+export const PRIORITY_LABEL: Record<Priority, string> = { high: 'alta', low: 'bassa' };
 
 export const KIND_LABEL: Record<GroupKind, string> = { personal: 'personale', domain: 'dominio', invite: 'su invito' };
 

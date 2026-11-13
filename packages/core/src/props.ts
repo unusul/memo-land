@@ -56,6 +56,7 @@ export function validateProps(props: Props): void {
   if (props.resumeAt !== undefined) toFloating(props.resumeAt);
   if (props.schedule) validateSchedule(props.schedule);
   if (props.repeat) validateRepeat(props.repeat);
+  if (props.priority !== undefined && props.priority !== 'high' && props.priority !== 'low') fail('INVALID_INPUT', 'priority is high or low');
 }
 
 function validateSchedule(s: NonNullable<Props['schedule']>): void {
@@ -69,6 +70,15 @@ function validateRepeat(r: NonNullable<Props['repeat']>): void {
     return;
   }
   validateRrule(r.rrule);
+  for (const [day, t] of Object.entries(r.times ?? {})) validateDayTime(day, t);
+}
+
+const DAYS: ReadonlySet<string> = new Set(['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']);
+const TIME_OF_DAY = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function validateDayTime(day: string, t: { start: string; end?: string } | undefined): void {
+  if (!DAYS.has(day) || !t || !TIME_OF_DAY.test(t.start)) fail('INVALID_INPUT', `invalid time for "${day}"`);
+  if (t.end !== undefined && (!TIME_OF_DAY.test(t.end) || t.end < t.start)) fail('INVALID_INPUT', `invalid end for "${day}"`);
 }
 
 function validateRrule(rrule: string): void {

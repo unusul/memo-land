@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { AccountId, Group, GroupId } from '@attivita/core';
+import type { AccountId, ActivityId, Group, GroupId } from '@attivita/core';
 import { topChoices } from '../usage/choicesStore.js';
 import type { GroupIconName } from '../shell/icons.js';
 
@@ -68,7 +68,19 @@ export const iconsOf = (account: AccountId): Record<GroupId, GroupIconName> => r
 /** Every icon at once: the account's copy, when the app opens on another device. */
 export const setIcons = (account: AccountId, icons: Record<GroupId, GroupIconName>): void => write(iconsKey(account), icons);
 
-/** Calls `listener` when pins or icons change, in this tab; returns the way to stop. */
+const highlightsKey = (account: AccountId) => `attivita:highlights:${account}`;
+
+/** What the person keeps «In evidenza», on top of the agenda: theirs only, in the order they put it there. */
+export const highlightsOf = (account: AccountId): ActivityId[] => read<ActivityId[]>(highlightsKey(account), []);
+export const setHighlights = (account: AccountId, ids: ActivityId[]): void => write(highlightsKey(account), ids);
+export const isHighlighted = (account: AccountId, id: ActivityId): boolean => highlightsOf(account).includes(id);
+
+export function toggleHighlight(account: AccountId, id: ActivityId): void {
+  const ids = highlightsOf(account);
+  setHighlights(account, ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+}
+
+/** Calls `listener` when pins, icons or highlights change, in this tab; returns the way to stop. */
 export function onBarPrefsChange(listener: () => void): () => void {
   listeners.add(listener);
   return () => { listeners.delete(listener); };

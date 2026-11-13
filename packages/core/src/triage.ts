@@ -84,6 +84,15 @@ export function decompose(parent: Activity, children: ChildSpec[], by: AccountId
   return { parent: updated, children: created };
 }
 
+/** The open activities waiting for one of these that is now done: their condition can be marked met. */
+export function waitingOnDone(activities: Activity[]): Activity[] {
+  const done = new Set(activities.filter(a => a.status === 'done').map(a => a.id));
+  return activities.filter(a => {
+    const w = a.props.waitingFor;
+    return a.status === 'open' && w?.activityId !== undefined && !w.metAt && done.has(w.activityId);
+  });
+}
+
 export function markConditionMet(a: Activity, by: AccountId, byRole: Role, now: Instant): Activity {
   if (byRole === 'guest') fail('FORBIDDEN', 'guests cannot unblock memos');
   const w = a.props.waitingFor;

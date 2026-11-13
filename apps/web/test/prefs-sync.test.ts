@@ -42,7 +42,7 @@ test('testAnEmptyAccountGetsThisBrowsersPrefs', async () => {
   const s = store(null);
   const stop = startPrefsSync(ME, s, 10);
   await settle();
-  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'auto' }]);
+  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'auto', highlights: [] }]);
   stop();
 });
 
@@ -55,7 +55,7 @@ test('testChangesAreSentAMomentLater', async () => {
   setIcon(ME, 'inv:developers', 'music');
   saveTheme('light');
   await settle();
-  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'light' }]);
+  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'light', highlights: [] }]);
   stop();
   setPins(ME, []);
   await settle();
@@ -80,8 +80,8 @@ test('testSupabasePrefsUseTheUsersMetadata', async () => {
   const db = { auth: { getUser: async () => ({ data: { user: { user_metadata: { memo_prefs: { pins: ['x'] } } } }, error: null }), updateUser } };
   const prefs = supabasePrefs(db as never);
   expect(await prefs.load()).toEqual({ pins: ['x'] });
-  await prefs.save({ pins: ['y'], icons: {}, theme: 'auto' });
-  expect(updateUser).toHaveBeenCalledWith({ data: { memo_prefs: { pins: ['y'], icons: {}, theme: 'auto' } } });
+  await prefs.save({ pins: ['y'], icons: {}, theme: 'auto', highlights: ['idea'] });
+  expect(updateUser).toHaveBeenCalledWith({ data: { memo_prefs: { pins: ['y'], icons: {}, theme: 'auto', highlights: ['idea'] } } });
 });
 
 /** The settings say where the sync stands: waiting, saved (with the time), or failed with the way to try again. */

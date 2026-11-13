@@ -26,6 +26,29 @@ test('testTakeOccurrenceRejectsNonOccurrenceAndGuests', () => {
   expect(() => takeOccurrence(series, '2026-10-22T09:00', 'g9', 'guest', t1)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
 });
 
+/** A weekly series may have its own time on each day (2026-11-13): Thursday 18:00–19:15 here, Tuesday as the schedule. */
+const perDay: Activity = { ...series, props: { ...series.props, repeat: { mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH', times: { TH: { start: '18:00', end: '19:15' } } } } };
+
+test('testEachDayKeepsItsOwnTime', () => {
+  const occ = occurrencesBetween(perDay, '2026-10-20T00:00', '2026-10-30T00:00');
+  expect(occ.map(o => [o.start, o.end])).toEqual([
+    ['2026-10-20T09:00', '2026-10-20T09:30'], ['2026-10-22T18:00', '2026-10-22T19:15'],
+    ['2026-10-27T09:00', '2026-10-27T09:30'], ['2026-10-29T18:00', '2026-10-29T19:15']]);
+});
+
+/** A day's own time without an end keeps the schedule's duration. */
+test('testADayWithoutEndKeepsTheDuration', () => {
+  const a: Activity = { ...perDay, props: { ...perDay.props, repeat: { mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH', times: { TH: { start: '18:00' } } } } };
+  expect(occurrencesBetween(a, '2026-10-22T00:00', '2026-10-22T23:59')[0]).toMatchObject({ start: '2026-10-22T18:00', end: '2026-10-22T18:30' });
+});
+
+/** The occurrence is found by its own start, even when the schedule's time falls outside the asked range. */
+test('testADaysOwnTimeIsAnOccurrenceToTake', () => {
+  const s = takeOccurrence(perDay, '2026-10-29T18:00', 'pluto', 'member', t1);
+  expect(occurrencesBetween(s, '2026-10-29T17:00', '2026-10-29T23:00')).toEqual([expect.objectContaining({ start: '2026-10-29T18:00', assignee: 'pluto' })]);
+  expect(() => takeOccurrence(perDay, '2026-10-29T09:00', 'pluto', 'member', t1)).toThrow(expect.objectContaining({ code: 'INVALID_INPUT' }));
+});
+
 test('testTwiceAMonthOn1stAnd15th', () => {
   const m: Activity = { ...task, props: { due: '2026-11-01', repeat: { mode: 'calendar', rrule: 'FREQ=MONTHLY;BYMONTHDAY=1,15' } } };
   expect(occurrencesBetween(m, '2026-11-01T00:00', '2026-12-31T23:59').map(o => o.start))

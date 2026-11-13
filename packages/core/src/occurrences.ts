@@ -3,7 +3,7 @@ import { completedKeys, nextDue } from './completion.js';
 import { asDateTime, fromFloating, isDateOnly, toFloating } from './dates.js';
 import { fail } from './errors.js';
 import { touch } from './props.js';
-import type { AccountId, Activity, ActivityId, Instant, LocalDate, LocalDateTime, OccurrenceKey, Role } from './types.js';
+import type { AccountId, Activity, ActivityId, DayTime, Instant, LocalDate, LocalDateTime, OccurrenceKey, Role, Weekday } from './types.js';
 
 export interface Occurrence {
   activityId: ActivityId;
@@ -30,9 +30,24 @@ export function occurrencesBetween(a: Activity, from: LocalDateTime, to: LocalDa
 
 function startsOf(a: Activity, anchor: LocalDate | LocalDateTime, from: LocalDateTime, to: LocalDateTime): Array<LocalDate | LocalDateTime> {
   const repeat = a.props.repeat;
-  if (repeat?.mode === 'calendar') return calendarStarts(repeat.rrule, anchor, from, to);
+  if (repeat?.mode === 'calendar') {
+    if (!repeat.times || isDateOnly(anchor)) return calendarStarts(repeat.rrule, anchor, from, to);
+    // The rule gives each day at the schedule's time; a day with a time of its own may fall in the range while the
+    // schedule's time does not, so whole days are asked and the caller keeps the starts in range.
+    const days = calendarStarts(repeat.rrule, anchor, `${from.slice(0, 10)}T00:00`, `${to.slice(0, 10)}T23:59`);
+    return days.map(s => atDayTime(s, repeat.times!));
+  }
   if (repeat?.mode === 'fromCompletion') return [nextDue(a) ?? anchor];
   return [anchor];
+}
+
+const WEEKDAY_OF_DATE: Weekday[] = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+const weekdayOf = (start: LocalDate | LocalDateTime): Weekday => WEEKDAY_OF_DATE[toFloating(start).getUTCDay()]!;
+type DayTimes = Partial<Record<Weekday, DayTime>>;
+
+function atDayTime(start: LocalDateTime | LocalDate, times: DayTimes): LocalDateTime | LocalDate {
+  const own = times[weekdayOf(start)];
+  return own ? `${start.slice(0, 10)}T${own.start}` : start;
 }
 
 export function takeOccurrence(a: Activity, key: OccurrenceKey, by: AccountId, byRole: Role, now: Instant): Activity {
@@ -79,6 +94,9 @@ function toOccurrence(a: Activity, start: LocalDate | LocalDateTime, done: Set<O
 }
 
 function endFor(a: Activity, start: LocalDate | LocalDateTime): LocalDateTime | undefined {
+  const repeat = a.props.repeat;
+  const ownEnd = repeat?.mode === 'calendar' ? repeat.times?.[weekdayOf(start)]?.end : undefined;
+  if (ownEnd && !isDateOnly(start)) return `${start.slice(0, 10)}T${ownEnd}`;
   const s = a.props.schedule;
   if (!s?.end) return undefined;
   const duration = toFloating(s.end).getTime() - toFloating(s.start).getTime();

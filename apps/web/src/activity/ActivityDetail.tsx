@@ -10,12 +10,13 @@ import {
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
 import { instantNow, localNow } from '../dates.js';
-import { PROP_LABEL, ROLE_LABEL, SHAPE_LABEL, errorText, historyText, shortName } from '../labels.js';
+import { PRIORITY_LABEL, PROP_LABEL, ROLE_LABEL, SHAPE_LABEL, errorText, historyText, shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { loadUsage, noteUse } from '../usage/usageStore.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { availableActions } from './actions.js';
 import { occurrenceAt } from './occurrence.js';
+import { isHighlighted, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
 import { Attachments } from './Attachments.js';
 import { Links } from './Links.js';
 import { ChecklistView } from './ChecklistView.js';
@@ -31,7 +32,7 @@ import { TextFields } from './TextFields.js';
 import { PropertyForm } from './PropertyForms.js';
 import type { Chip } from './PropertyForms.js';
 
-const CHIP_PROPS: readonly PropKey[] = ['due', 'schedule', 'repeat', 'assignment', 'waitingFor'];
+const CHIP_PROPS: readonly PropKey[] = ['due', 'schedule', 'repeat', 'assignment', 'waitingFor', 'priority'];
 const ACTION_LABEL: Record<ActionKind, string> = {
   accept: 'Accetta', reject: 'Rifiuta…', release: 'Lascia…', claim: 'Me la prendo', cover: 'Copro io questa', complete: 'Fatto',
   met: 'Segna avverata', moveToGroup: 'Sposta in un gruppo', keepAsIdea: 'Tienila come idea', decompose: 'Scomponi…',
@@ -43,6 +44,7 @@ const PRIMARY: ReadonlySet<ActionKind> = new Set<ActionKind>(['accept']);
 const SAVED: Record<Chip, string> = {
   due: 'Scadenza salvata', schedule: 'Data e ora salvata', repeat: 'Ripeti salvato', assignment: 'Assegnazione salvata',
   waitingFor: 'Attesa salvata', resumeAt: 'Rimando salvato', parentId: 'Attività madre salvata', groupId: 'Gruppo salvato',
+  priority: 'Priorità salvata',
 };
 
 /**
@@ -229,7 +231,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
-        {!isNew && <CopyButton activity={a} />}
+        {!isNew && <span className="row-end"><HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
       </header>}
       {asGroupList && closed && group && can(group, me, 'editActivity') && (
         <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>
@@ -313,6 +315,18 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   );
 }
 
+/** Puts the activity «In evidenza» on top of the person's agenda, and takes it away: theirs only. */
+function HighlightButton({ id, me }: { id: string; me: string }) {
+  useBarPrefs();
+  const on = isHighlighted(me, id);
+  return (
+    <button type="button" className="icon-choice small highlight" aria-label="In evidenza" aria-pressed={on}
+      title={on ? "Togli dall'evidenza" : 'Metti in evidenza'} onClick={() => toggleHighlight(me, id)}>
+      <Icon name="highlight" size={18} />
+    </button>
+  );
+}
+
 function PropRow({ label, value, editing, onEdit, onRemove, note }: {
   label: string; value: string; editing: boolean; onEdit?: (() => void) | undefined; onRemove?: (() => void) | undefined; note?: string | undefined;
 }) {
@@ -336,6 +350,7 @@ function describe(a: Activity, k: PropKey): string {
     case 'repeat': return p.repeat ? describeRepeat(p.repeat) + (p.repeat.mode === 'fromCompletion' ? ` · prossima ${nextDue(a)}` : '') : '';
     case 'assignment': return p.assignment ? `${shortName(p.assignment.assignee)} · ${p.assignment.state === 'proposed' ? `proposta da ${shortName(p.assignment.assignedBy)}` : 'accettata'}` : '';
     case 'waitingFor': return p.waitingFor ? p.waitingFor.condition + (p.waitingFor.metAt ? ` · avverata da ${shortName(p.waitingFor.metBy ?? '')}` : '') : '';
+    case 'priority': return p.priority ? PRIORITY_LABEL[p.priority] : '';
     default: return '';
   }
 }

@@ -5,7 +5,7 @@ import type { UsageStats } from '../src/index.js';
 test('testRankPropsByUsageWithStableTies', () => {
   let s: UsageStats = {};
   s = recordUse(recordUse(recordUse(s, 'waitingFor'), 'waitingFor'), 'repeat');
-  expect(rankProps(s)).toEqual(['waitingFor', 'repeat', 'due', 'schedule', 'assignment', 'resumeAt', 'parentId']);
+  expect(rankProps(s)).toEqual(['waitingFor', 'repeat', 'due', 'schedule', 'assignment', 'resumeAt', 'parentId', 'priority']);
 });
 
 test('testNoUsageKeepsDefaultOrder', () => {

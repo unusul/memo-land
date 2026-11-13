@@ -3,8 +3,9 @@ import { anchorOf, setProp } from '@attivita/core';
 import type { AccountId, Activity, Instant, LocalDate, LocalDateTime, Unit } from '@attivita/core';
 import { today } from '../dates.js';
 import { noteChoice, topChoices } from '../usage/choicesStore.js';
-import { UNIT_NAMES, WEEKDAYS, describeRepeat, specOf, toRepeat } from './timing.js';
-import type { RepeatSpec, Weekday } from './timing.js';
+import { DatePicker } from './DatePicker.js';
+import { UNIT_NAMES, WEEKDAYS, describeRepeat, specOf, toRepeat, weekdayOf } from './timing.js';
+import type { DayTimes, RepeatSpec, Weekday } from './timing.js';
 
 const UNITS: Unit[] = ['day', 'week', 'month', 'year'];
 const DEFAULT: RepeatSpec = { mode: 'calendar', every: 1, unit: 'week', weekdays: [], monthly: 'day' };
@@ -23,7 +24,10 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
   const valid = Number.isInteger(n) && n > 0 && start !== '';
   const set = (patch: Partial<RepeatSpec>) => setSpec(s => ({ ...s, ...patch }));
 
-  const build = (s: RepeatSpec) => setProp(anchor ? a : setProp(a, 'due', from, me, now), 'repeat', toRepeat(s, start), me, now);
+  // Each day's time starts as the schedule's; only the days that differ are kept with a time of their own.
+  const base = a.props.schedule ? { start: a.props.schedule.start.slice(11, 16), end: a.props.schedule.end?.slice(11, 16) } : null;
+  const own = (s: RepeatSpec): RepeatSpec => ({ ...s, times: base ? differing(s.times, base) : {} });
+  const build = (s: RepeatSpec) => setProp(anchor ? a : setProp(a, 'due', from, me, now), 'repeat', toRepeat(own(s), start), me, now);
 
   function apply(s: RepeatSpec) {
     noteChoice(me, 'repeat', JSON.stringify(s));
@@ -58,6 +62,10 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
           <option value="fromCompletion">da quando la completi</option>
         </select>
         {spec.mode === 'calendar' && spec.unit === 'week' && <WeekdayToggles value={spec.weekdays} onChange={weekdays => set({ weekdays })} />}
+        {spec.mode === 'calendar' && spec.unit === 'week' && base && start && (
+          <DayTimeRows days={spec.weekdays.length ? WEEKDAYS.map(([d]) => d).filter(d => spec.weekdays.includes(d)) : [weekdayOf(start)]}
+            times={spec.times ?? {}} base={base} onChange={times => set({ times })} />
+        )}
         {spec.mode === 'calendar' && spec.unit === 'month' && start && (
           <select aria-label="Giorno del mese" value={spec.monthly} onChange={e => set({ monthly: e.target.value as RepeatSpec['monthly'] })}>
             <option value="day">{describeRepeat(toRepeat({ ...spec, monthly: 'day' }, start)).split(', ')[1]}</option>
@@ -66,10 +74,39 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
         )}
         {anchor
           ? <span className="muted">parte dalla {a.props.schedule ? 'data' : 'scadenza'}, {anchor.replace('T', ' ')}</span>
-          : <label className="muted">parte dal <input aria-label="Parte dal" type="date" required value={from} onChange={e => setFrom(e.target.value)} /></label>}
+          : <><span className="muted">parte dal</span><DatePicker label="Parte dal" value={from} onChange={setFrom} /></>}
         <button className="btn primary" type="submit" disabled={!valid}>{a.props.repeat ? 'Salva' : 'Aggiungi'}</button>
       </form>
     </div>
+  );
+}
+
+type Base = { start: string; end?: string | undefined };
+
+/** The days whose time is not the schedule's; an end equal to the schedule's is kept only with a start that differs. */
+function differing(times: DayTimes | undefined, base: Base): DayTimes {
+  return Object.fromEntries(Object.entries(times ?? {}).filter(([, t]) => t && (t.start !== base.start || (t.end ?? base.end) !== base.end)));
+}
+
+/** Beside each chosen day its start and end, filled with the schedule's: the person changes only the days that differ. */
+function DayTimeRows({ days, times, base, onChange }: { days: Weekday[]; times: DayTimes; base: Base; onChange(next: DayTimes): void }) {
+  const label = (d: Weekday) => WEEKDAYS.find(([k]) => k === d)![1];
+  const at = (d: Weekday) => times[d] ?? { start: base.start, ...(base.end ? { end: base.end } : {}) };
+  const change = (d: Weekday, patch: Partial<Base>) => {
+    const next = { ...at(d), ...patch };
+    onChange({ ...times, [d]: { start: next.start, ...(next.end ? { end: next.end } : {}) } });
+  };
+  return (
+    <span className="day-times" role="group" aria-label="Orario di ogni giorno">
+      {days.map(d => (
+        <span key={d} className="day-time">
+          <span className="d">{label(d)}</span>
+          <input aria-label={`Inizio ${label(d)}`} type="time" value={at(d).start} onChange={e => e.target.value && change(d, { start: e.target.value })} />
+          <span aria-hidden="true">–</span>
+          <input aria-label={`Fine ${label(d)}`} type="time" value={at(d).end ?? ''} onChange={e => change(d, { end: e.target.value || undefined })} />
+        </span>
+      ))}
+    </span>
   );
 }
 
