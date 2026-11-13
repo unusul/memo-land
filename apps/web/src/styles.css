@@ -59,7 +59,10 @@ button { font: inherit; color: inherit }
 .gear:hover { background: var(--surface-2); color: var(--fg) }
 .gear[aria-current="page"] { color: var(--accent); background: var(--accent-soft) }
 .wrap { max-width: 1080px; width: 100%; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)) }
-.content { overflow: auto; padding: 20px max(16px, env(safe-area-inset-right)) 104px max(16px, env(safe-area-inset-left)); max-width: 760px; width: 100%; margin: 0 auto }
+.content { overflow: auto; padding: 20px max(16px, env(safe-area-inset-right)) 104px max(16px, env(safe-area-inset-left)); max-width: 760px; width: 100%; margin: 0 auto;
+  /* Vertical scroll and zoom stay the browser's; sideways moves are the page's swipe between sections, otherwise the
+     phone takes the gesture over and the swipe gets a pointercancel instead of its pointerup. */
+  touch-action: pan-y pinch-zoom }
 .tabs { display: flex; min-height: var(--nav-h); background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom) }
 .tabs button { flex: 1; display: grid; justify-items: center; align-content: center; gap: 2px; border: 0; background: none; color: var(--muted); font: 600 13px var(--body); padding: 10px 4px; cursor: pointer }
 .tabs button[aria-current="page"] { color: var(--accent); box-shadow: inset 0 3px var(--accent) }
