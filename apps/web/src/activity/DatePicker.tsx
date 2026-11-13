@@ -36,21 +36,44 @@ function shift(month: Month, by: number): Month {
 
 const monthName = (month: Month) => `${MONTHS[Number(month.slice(5)) - 1]} ${month.slice(0, 4)}`;
 
+/** «gio 26 nov», with the year when it is not this one: the chosen day written on its chip. */
+export function shortDay(day: LocalDate, now: LocalDate = today()): string {
+  const d = utc(day);
+  const year = day.slice(0, 4) === now.slice(0, 4) ? '' : ` ${d.getUTCFullYear()}`;
+  return `${WEEKDAYS[d.getUTCDay()]!.slice(0, 3)} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]!.slice(0, 3)}${year}`;
+}
+
 /**
- * A month to leaf through instead of a date field to type in: arrows for the month before and after, today marked, the
- * chosen day highlighted, and the usual shortcuts. It opens on the chosen day's month, or today's.
+ * One row of chips: the usual shortcuts and «Altra data…», which opens a month to leaf through (arrows for the month
+ * before and after, today marked, the chosen day highlighted) on the chosen day's month, or today's. A day chosen there
+ * closes the month and is written on that chip. The month used to be always open, and took half the screen where the
+ * date is a detail.
  */
 export function DatePicker({ label, value, onChange }: { label: string; value: LocalDate | ''; onChange(day: LocalDate): void }) {
   const [shown, setShown] = useState<Month>(() => (value || today()).slice(0, 7));
+  const [open, setOpen] = useState(false);
   const now = today();
-  const choose = (day: LocalDate) => { setShown(day.slice(0, 7)); onChange(day); };
+  const choose = (day: LocalDate) => { setShown(day.slice(0, 7)); setOpen(false); onChange(day); };
+  const other = value !== '' && !SHORTCUTS.some(([, n]) => value === addDays(now, n));
   return (
     <div className="cal" role="group" aria-label={label} data-value={value} data-month={shown}>
       <div className="chips">
         {SHORTCUTS.map(([name, n]) => (
           <button key={name} type="button" className="chip" aria-pressed={value === addDays(now, n)} onClick={() => choose(addDays(now, n))}>{name}</button>
         ))}
+        <button type="button" className="chip" aria-pressed={other} aria-expanded={open} title={other ? dayLabel(value) : undefined}
+          onClick={() => setOpen(o => !o)}>{other ? shortDay(value, now) : 'Altra data…'}</button>
       </div>
+      {open && <MonthView shown={shown} setShown={setShown} value={value} now={now} choose={choose} />}
+    </div>
+  );
+}
+
+function MonthView({ shown, setShown, value, now, choose }: {
+  shown: Month; setShown(next: (m: Month) => Month): void; value: LocalDate | ''; now: LocalDate; choose(day: LocalDate): void;
+}) {
+  return (
+    <>
       <div className="cal-head">
         <button type="button" className="icon-choice small prev" aria-label="Mese prima" onClick={() => setShown(m => shift(m, -1))}><Icon name="chevron" size={18} /></button>
         <span aria-live="polite">{monthName(shown)}</span>
@@ -63,7 +86,7 @@ export function DatePicker({ label, value, onChange }: { label: string; value: L
             onClick={() => choose(day)}>{Number(day.slice(8))}</button>
         ))}
       </div>
-    </div>
+    </>
   );
 }
 

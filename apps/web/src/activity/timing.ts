@@ -73,18 +73,47 @@ export function specOf(r: Repeat): RepeatSpec | null {
 
 const parseRule = (rrule: string): Record<string, string> => Object.fromEntries(rrule.split(';').map(p => p.split('=') as [string, string]));
 
-/** Italian text for the rules this app writes; anything else falls back to the raw rule. */
-export function describeRepeat(r: Repeat): string {
+const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
+
+/** The next full hour and the one after («18:00–19:00» at 17:20): what a day's time starts as; after 22:00, 23:00 to the day's end. */
+export function nextHour(now: LocalDateTime): { start: string; end: string } {
+  const h = Math.min(Number(now.slice(11, 13)) + 1, 23);
+  return { start: hh(h), end: h === 23 ? '23:59' : hh(h + 1) };
+}
+
+/** A weekly series by the calendar: the one whose days may each have a time, and that says them all by itself. */
+export const isWeekly = (r: Repeat | undefined): boolean => r?.mode === 'calendar' && parseRule(r.rrule)['FREQ'] === 'WEEKLY';
+
+/**
+ * Italian text for the rules this app writes; anything else falls back to the raw rule. With the schedule's time
+ * (`base`) a weekly series says the time of every day, once at the end when they all share it.
+ */
+export function describeRepeat(r: Repeat, base?: DayTime): string {
   if (r.mode === 'fromCompletion') return `${every(r.every.count, r.every.unit)} da quando la completi`;
   const rule = parseRule(r.rrule);
   const unit = UNIT_OF_FREQ[rule['FREQ'] ?? ''];
   if (!unit) return r.rrule;
   const head = every(Number(rule['INTERVAL'] ?? 1), unit);
   const byDay = rule['BYDAY']?.split(',') ?? [];
-  if (unit === 'week' && byDay.length) return `${head}, ${joinIt(byDay.map(d => (WEEKDAYS.find(([k]) => k === d)?.[1] ?? d) + ownTime(r.times?.[d as Weekday])))}`;
+  if (unit === 'week' && byDay.length) {
+    const name = (d: string) => WEEKDAYS.find(([k]) => k === d)?.[1] ?? d;
+    if (base) return `${head}, ${sameTimeTogether(byDay.map(d => [name(d), shortTime(r.times?.[d as Weekday] ?? base)])).join(', ')}`;
+    return `${head}, ${joinIt(byDay.map(d => name(d) + ownTime(r.times?.[d as Weekday])))}`;
+  }
   if (unit === 'month' && byDay.length === 1) return `${head}, ${nthText(byDay[0]!)}`;
   if (unit === 'month' && rule['BYMONTHDAY']) return `${head}, il ${rule['BYMONTHDAY'].replaceAll(',', ' e il ')}`;
   return head;
+}
+
+/** «18–19:30»: a time without its empty minutes, so a week of them stays a short line. */
+const shortHour = (t: string) => `${Number(t.slice(0, 2))}${t.slice(3) === '00' ? '' : `:${t.slice(3)}`}`;
+const shortTime = (t: DayTime) => shortHour(t.start) + (t.end ? `–${shortHour(t.end)}` : '');
+
+/** «mar e sab 18–19», «gio 18–19:30»: the days that share a time are said together, in the order of the first of them. */
+function sameTimeTogether(days: [string, string][]): string[] {
+  const byTime = new Map<string, string[]>();
+  for (const [day, time] of days) byTime.set(time, [...(byTime.get(time) ?? []), day]);
+  return [...byTime].map(([time, names]) => `${joinIt(names)} ${time}`);
 }
 
 /** « 18:00–19:15» after a day with a time of its own; nothing for a day at the schedule's time. */

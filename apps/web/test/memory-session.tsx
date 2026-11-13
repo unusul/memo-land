@@ -67,8 +67,9 @@ export function userType(el: HTMLElement, text: string): void {
 const calendar = (label: string) => screen.getByRole('group', { name: label });
 export const pickedDate = (label: string): string => calendar(label).dataset.value ?? '';
 
-/** Chooses `day` (YYYY-MM-DD) on the month calendar labelled `label`, leafing through the months as a person would. */
+/** Chooses `day` (YYYY-MM-DD) on the month calendar labelled `label`: opens the month, then leafs through as a person would. */
 export function pickDate(label: string, day: string): void {
+  if (!within(calendar(label)).queryByRole('button', { name: 'Mese dopo' })) fireEvent.click(within(calendar(label)).getByRole('button', { expanded: false }));
   for (let i = 0; i < 240 && calendar(label).dataset.month !== day.slice(0, 7); i++) {
     fireEvent.click(within(calendar(label)).getByRole('button', { name: calendar(label).dataset.month! < day ? 'Mese dopo' : 'Mese prima' }));
   }

@@ -25,7 +25,7 @@ import { Disclosure } from '../shell/Disclosure.js';
 import { useBackLayer } from '../shell/back.js';
 import { Icon } from '../shell/icons.js';
 import { SnoozeForm } from './SnoozeForm.js';
-import { describeRepeat } from './timing.js';
+import { describeRepeat, isWeekly } from './timing.js';
 import type { ActionKind } from './actions.js';
 import { DecomposeForm } from './DecomposeForm.js';
 import { TextFields } from './TextFields.js';
@@ -202,7 +202,8 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   }
 
   const chips: Chip[] = [...(a.groupId === null ? ['groupId' as const] : []), ...rankProps(usage, CHIP_PROPS).filter(k => !a.props[k])];
-  const set = CHIP_PROPS.filter(k => a.props[k] !== undefined);
+  // A weekly series says its days and their times in Ripeti: the date it starts from is no row of its own.
+  const set = CHIP_PROPS.filter(k => a.props[k] !== undefined && !(isWeekly(a.props.repeat) && (k === 'due' || k === 'schedule')));
 
   // The assignee is changed from its row by who edits the group; taking it away is the assignee's Lascia, not a removal.
   const editable = (k: PropKey) => canEdit;
@@ -342,12 +343,14 @@ function PropRow({ label, value, editing, onEdit, onRemove, note }: {
   );
 }
 
+const scheduleTime = (p: Activity['props']) => p.schedule ? { start: p.schedule.start.slice(11, 16), ...(p.schedule.end ? { end: p.schedule.end.slice(11, 16) } : {}) } : undefined;
+
 function describe(a: Activity, k: PropKey): string {
   const p = a.props;
   switch (k) {
     case 'due': return p.due ?? '';
     case 'schedule': return p.schedule ? p.schedule.start.replace('T', ' ') + (p.schedule.end ? `–${p.schedule.end.slice(11)}` : '') : '';
-    case 'repeat': return p.repeat ? describeRepeat(p.repeat) + (p.repeat.mode === 'fromCompletion' ? ` · prossima ${nextDue(a)}` : '') : '';
+    case 'repeat': return p.repeat ? describeRepeat(p.repeat, scheduleTime(p)) + (p.repeat.mode === 'fromCompletion' ? ` · prossima ${nextDue(a)}` : '') : '';
     case 'assignment': return p.assignment ? `${shortName(p.assignment.assignee)} · ${p.assignment.state === 'proposed' ? `proposta da ${shortName(p.assignment.assignedBy)}` : 'accettata'}` : '';
     case 'waitingFor': return p.waitingFor ? p.waitingFor.condition + (p.waitingFor.metAt ? ` · avverata da ${shortName(p.waitingFor.metBy ?? '')}` : '') : '';
     case 'priority': return p.priority ? PRIORITY_LABEL[p.priority] : '';

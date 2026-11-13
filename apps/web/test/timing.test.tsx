@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { calendarStarts } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { describeRepeat, snoozeUntil, toRepeat } from '../src/activity/timing.js';
-import { PIPPO, memorySession, renderWithSession, userClick, userType, pickDateTime, pickedDate } from './memory-session.js';
+import { PIPPO, memorySession, renderWithSession, userClick, userType, pickDate, pickDateTime, pickedDate } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -98,16 +98,37 @@ test('testRepeatFormShowsTheStartAndWritesTheRule', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick(/^\+ Ripeti/);
-  expect(pickedDate('Parte dal')).toBe('2026-11-04');
+  expect(screen.queryByRole('group', { name: 'Parte dal' })).toBeNull();
+  expect(screen.getByText(/parte da oggi/)).toBeTruthy();
   userType(screen.getByLabelText('Ogni'), '2');
   userType(screen.getByLabelText('Unità di ripetizione'), 'week');
   userClick('lun');
   userClick('ven');
+  // The days come with a time already written; emptied, the series is of whole days and starts from a due date.
+  userType(screen.getByLabelText('Inizio lun'), '');
   userClick('Aggiungi');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props).toMatchObject({
     due: '2026-11-04', repeat: { mode: 'calendar', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,FR' },
   }));
   expect(await screen.findByText(/ogni 2 settimane, lun e ven/)).toBeTruthy();
+});
+
+/**
+ * The form used to ask always for the day the series starts from, with its chips under the weekdays: nobody asked for it,
+ * the engine needs it. It now starts today by itself, and the day is asked only from «cambia».
+ */
+test('testTheStartIsAskedOnlyFromCambia', async () => {
+  const s = memorySession();
+  renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
+  await screen.findByRole('heading', { name: 'app gestione core' });
+  userClick(/^\+ Ripeti/);
+  userClick('Cambia la partenza');
+  expect(pickedDate('Parte dal')).toBe('2026-11-04');
+  pickDate('Parte dal', '2026-11-09');
+  userClick('Aggiungi');
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props).toMatchObject({
+    schedule: { start: '2026-11-09T23:00', end: '2026-11-09T23:59' }, repeat: { mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=MO' },
+  }));
 });
 
 test('testRepeatOnDatedActivityStartsFromItsDate', async () => {

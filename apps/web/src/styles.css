@@ -170,6 +170,8 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .day-time .d { width: 3ch; font-weight: 600 }
 /* The month calendar: a whole row of its form, seven columns from Monday. */
 .cal, .cal-time { flex: 1 1 100%; display: grid; gap: 8px; max-width: 340px }
+.repeat-start { flex: 1 1 100% }
+.repeat-start .cal { margin-top: 6px }
 .cal-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600 }
 .cal-head .prev svg { transform: rotate(180deg) }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center }

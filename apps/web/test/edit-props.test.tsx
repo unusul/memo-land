@@ -78,7 +78,8 @@ test('testNoClaimInThePersonalGroup', () => {
 test('testDateOfARepeatingActivityCannotBeRemoved', async () => {
   await open('backup', 'Controllo backup');
   expect(screen.queryByRole('button', { name: 'Togli Data e ora' })).toBeNull();
-  expect(screen.getByText(/per toglierla, togli prima Ripeti/)).toBeTruthy();
+  // A weekly series has no row for the date it starts from: it comes back, to be taken away, once Ripeti is gone.
+  expect(screen.queryByText('Data e ora')).toBeNull();
   userClick('Togli Ripeti');
   expect(await screen.findByRole('button', { name: 'Togli Data e ora' })).toBeTruthy();
 });
