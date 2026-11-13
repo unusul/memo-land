@@ -80,19 +80,29 @@ async function sendOne(entry: OutboxEntry, store: OutboxStore, engine: Engine): 
       refs.push(await engine.putAttachment(current.id, entry.files[i]!));
       await store.put({ ...entry, uploaded: refs });
     }
-    for (let attempt = 0; ; attempt++) {
-      const missing = refs.filter(r => !current.attachments.some(x => x.id === r.id));
-      if (missing.length === 0) return true;
-      try {
-        current = await engine.saveActivity({ ...current, attachments: [...current.attachments, ...missing] }, current.version);
-      } catch (e) {
-        if (!(isConflict(e) && attempt === 0)) throw e;
-        current = (await engine.getActivity(current.id)).activity;
-      }
-    }
+    await linkAttachments(engine, current, refs);
+    return true;
   } catch (e) {
     if (e instanceof DomainError && e.code !== 'VERSION_CONFLICT') await store.put({ ...entry, error: e.code });
     return false;
+  }
+}
+
+/**
+ * Adds to the stored activity the uploaded files it does not list yet, after those it has. A change made meanwhile by
+ * someone else is read again once and kept; a second conflict is left to the caller.
+ */
+export async function linkAttachments(engine: Engine, activity: Activity, refs: AttachmentRef[]): Promise<Activity> {
+  let current = activity;
+  for (let attempt = 0; ; attempt++) {
+    const missing = refs.filter(r => !current.attachments.some(x => x.id === r.id));
+    if (missing.length === 0) return current;
+    try {
+      current = await engine.saveActivity({ ...current, attachments: [...current.attachments, ...missing] }, current.version);
+    } catch (e) {
+      if (!(isConflict(e) && attempt === 0)) throw e;
+      current = (await engine.getActivity(current.id)).activity;
+    }
   }
 }
 

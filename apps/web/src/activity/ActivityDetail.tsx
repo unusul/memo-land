@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { readBytes } from '../capture/CaptureSheet.js';
 import { shrinkImage } from '../capture/images.js';
-import { enqueueDraft } from '../offline/outbox.js';
+import { AttachMenu } from '../capture/AttachMenu.js';
+import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
   accept, archive, backToDraft, can, claim, complete, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
@@ -55,12 +56,11 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   initialForm?: 'due' | 'schedule' | undefined;
   onClose(message?: string): void;
 }) {
-  const { account: me, personalGroupId, outbox } = useSession();
+  const { account: me, personalGroupId, outbox, primary } = useSession();
   const ws = useWs();
   const [local, setLocal] = useState<Activity | null>(fresh ?? null);
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
-  const picker = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<Chip | 'reject' | 'release' | 'decompose' | 'snooze' | null>(initialForm ?? null);
   const [reason, setReason] = useState('');
   const [usage, setUsage] = useState(() => loadUsage(me));
@@ -136,13 +136,45 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
     }
   }
 
+  /** A new activity keeps its files until Salva; an existing one gets them straight away. */
   async function addFiles(incoming: File[]) {
-    const limits = ws.engineOf(a!.groupId!)?.limits;
+    const fit = await fitFiles(incoming);
+    if (isNew) setFiles(l => [...l, ...fit]);
+    else if (fit.length) await attachNow(fit);
+  }
+
+  async function fitFiles(incoming: File[]): Promise<File[]> {
+    const limits = holder()?.limits;
+    const fit: File[] = [];
     for (const f of incoming) {
       // A file the browser cannot shrink keeps its size, and the limit below still applies.
       const small = limits ? await shrinkImage(f, limits).catch(() => f) : f;
       if (limits && small.size > limits.maxAttachmentBytes) setProblem(`L'allegato ${f.name} è troppo grande anche dopo la riduzione: non l'ho aggiunto.`);
-      else setFiles(l => [...l, small]);
+      else fit.push(small);
+    }
+    return fit;
+  }
+
+  /** The engine holding the activity: a draft's is the account's own. */
+  function holder() {
+    return a!.groupId === null ? primary : ws.engineOf(a!.groupId);
+  }
+
+  /** The files first, then the activity read again and saved with them after those it has. */
+  async function attachNow(fit: File[]) {
+    const engine = holder();
+    if (!engine) return;
+    setSaving(true);
+    try {
+      setProblem(null);
+      const refs = [];
+      for (const f of fit) refs.push(await engine.putAttachment(a!.id, { name: f.name, mimeType: f.type || 'application/octet-stream', bytes: await readBytes(f) }));
+      await linkAttachments(engine, a!, refs);
+      await ws.reload();
+    } catch (e) {
+      setProblem(errorText(e));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -188,9 +220,9 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
 
   return (
     <article className="detail stack" {...(isNew ? { 'aria-label': 'Nuova attività' } : { 'aria-labelledby': 'detail-h' })}
-      onPaste={isNew ? e => { const f = Array.from(e.clipboardData?.files ?? []); if (f.length) { e.preventDefault(); void addFiles(f); } } : undefined}
-      onDragOver={isNew ? e => e.preventDefault() : undefined}
-      onDrop={isNew ? e => { e.preventDefault(); void addFiles(Array.from(e.dataTransfer.files)); } : undefined}>
+      onPaste={canEdit ? e => { const f = Array.from(e.clipboardData?.files ?? []); if (f.length) { e.preventDefault(); void addFiles(f); } } : undefined}
+      onDragOver={canEdit ? e => e.preventDefault() : undefined}
+      onDrop={canEdit ? e => { e.preventDefault(); void addFiles(Array.from(e.dataTransfer.files)); } : undefined}>
       {!asGroupList && <header className="row">
         {/* The way out on the left, as the phone's back: it saves what Chiudi used to save. What to do with the text on the right. */}
         <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
@@ -211,12 +243,9 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       ) : canEdit
         ? <TextFields key={a.id} title={a.title} body={a.body} hideTitle={asGroupList} onSave={text => run(() => editText(a, text, me, instantNow()))} />
         : a.body && <p>{a.body}</p>}
-      {isNew ? (
-        <>
-          {files.length > 0 && <ul className="attachments">{files.map((f, i) => <li key={i}>{f.name} <button type="button" className="link" aria-label={`Togli ${f.name}`} onClick={() => setFiles(l => l.filter((_, j) => j !== i))}>togli</button></li>)}</ul>}
-          <input ref={picker} type="file" multiple accept="image/*,*/*" hidden onChange={e => { void addFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
-        </>
-      ) : <Attachments activity={a} />}
+      {isNew
+        ? files.length > 0 && <ul className="attachments">{files.map((f, i) => <li key={i}>{f.name} <button type="button" className="link" aria-label={`Togli ${f.name}`} onClick={() => setFiles(l => l.filter((_, j) => j !== i))}>togli</button></li>)}</ul>
+        : <Attachments activity={a} />}
       {!asGroupList && (a.checklist || listOpen) && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} />}
       <dl className="kv">
         {/* A list group's page says the group above, and a list is always an "idea": neither row tells anything there. */}
@@ -267,7 +296,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
               </button>
             ))}
             {!a.checklist && !listOpen && !asGroupList && <button className="chip" onClick={() => setListOpen(true)}>+ Lista</button>}
-            {isNew && <button className="chip" onClick={() => picker.current?.click()}>+ Foto o file</button>}
+            <AttachMenu disabled={saving} onFiles={f => void addFiles(f)} />
           </div>
           {!editingSet && propForm}
         </>

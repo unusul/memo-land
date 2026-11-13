@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { newActivity } from '@attivita/core';
 import type { EngineLimits } from '@attivita/core';
 import { instantNow, newId } from '../dates.js';
@@ -6,6 +6,7 @@ import { enqueueDraft, flushOutbox } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
+import { AttachMenu } from './AttachMenu.js';
 import { shrinkImage } from './images.js';
 
 type Shrink = (file: File, limits: EngineLimits) => Promise<File>;
@@ -28,7 +29,6 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage }: { onSav
   const [files, setFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const picker = useRef<HTMLInputElement>(null);
   const maxMb = Math.round(engine.limits.maxAttachmentBytes / 1_000_000);
 
   async function add(incoming: File[]) {
@@ -75,9 +75,8 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage }: { onSav
         <textarea id="capture-text" autoFocus rows={3} placeholder="Scrivi, incolla uno screenshot o trascina un file" value={text} onChange={e => setText(e.target.value)} />
         {files.length > 0 && <ul className="attachments">{files.map((f, i) => <li key={i}>{f.name} <button type="button" className="link" aria-label={`Togli ${f.name}`} onClick={() => setFiles(l => l.filter((_, j) => j !== i))}>togli</button></li>)}</ul>}
         {notice && <p className="error" role="alert">{notice}</p>}
-        <input ref={picker} type="file" multiple accept="image/*,*/*" hidden onChange={e => { void add(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
         <div className="btns">
-          <button type="button" className="btn" onClick={() => picker.current?.click()}>Foto o file</button>
+          <AttachMenu className="btn" onFiles={f => void add(f)} />
           <button type="button" className="btn" onClick={onClose}>Annulla</button>
           <button type="submit" className="btn primary" disabled={saving || (!text.trim() && files.length === 0)}>Salva</button>
         </div>
