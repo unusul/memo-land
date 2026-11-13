@@ -8,7 +8,7 @@ import type { Theme } from './theme.js';
 const THEMES: Array<[Theme, string, 'auto' | 'sun' | 'moon']> = [['auto', 'Automatico', 'auto'], ['light', 'Chiaro', 'sun'], ['dark', 'Scuro', 'moon']];
 
 /** The person's settings, opened from the gear in the header: account and theme today, notifications and linked accounts later. */
-export function SettingsView() {
+export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
   const { account, signOut, demo } = useSession();
   const [theme, setTheme] = useState(loadTheme);
   const choose = (t: Theme) => { saveTheme(t); setTheme(t); };
@@ -25,6 +25,7 @@ export function SettingsView() {
           ))}
         </div>
       </div>
+      {onHelp && <button className="btn" onClick={onHelp}>Aiuto e glossario</button>}
       {/* In the demo there is no account to leave: only the demo, and nothing to lose by it. */}
       {demo ? <button className="btn" onClick={() => void signOut()}>Esci dalla demo</button> : <>
       <button className="btn" onClick={startDemo}>Prova con dati di esempio</button>

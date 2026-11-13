@@ -14,14 +14,16 @@ import { GroupsView } from '../groups/GroupsView.js';
 import { noteGroupOpened } from '../groups/order.js';
 import { MeView } from '../me/MeView.js';
 import { SettingsView } from '../settings/SettingsView.js';
+import { HelpView } from '../help/HelpView.js';
 import { flushOutbox } from '../offline/outbox.js';
 import type { OutboxEntry } from '../offline/outbox.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
+import { useBackLayer } from './back.js';
 import { Icon } from './icons.js';
 import { TodayTitle } from './TodayTitle.js';
 
-export type Tab = 'agenda' | 'groups' | 'me' | 'settings';
+export type Tab = 'agenda' | 'groups' | 'me' | 'settings' | 'help';
 
 export function Shell() {
   const { primary: engine, outbox, account, demo, signOut } = useSession();
@@ -60,6 +62,12 @@ export function Shell() {
   // Io holds the drafts to sort and the captures the server refused.
   const forMe = waitingDrafts + refused;
   const go = (id: Tab) => { setTab(id); setGroupId(null); setOpen(null); setCreating(null); };
+  // The phone's back: the open activity closes itself (ActivityDetail); then a group's page, then a section, then the app.
+  useBackLayer(tab !== 'agenda', () => go('agenda'));
+  useBackLayer(groupId !== null, () => setGroupId(null));
+  // The help is opened from the settings: back goes there first.
+  useBackLayer(tab === 'help', () => go('settings'));
+  useBackLayer(capturing, () => setCapturing(false));
   const openGroup = (id: string) => { noteGroupOpened(account, id); setTab('groups'); setGroupId(id); setOpen(null); };
   const current = (id: Tab) => (tab === id && !groupId && !open ? 'page' : undefined);
   const menuGroups = orderSharedGroups(ws.groups, account).slice(0, MENU_GROUPS);
@@ -69,7 +77,7 @@ export function Shell() {
   const onList = here !== undefined && (groupTypeOf(here) === 'list' || here.archived === true);
   const newIn = (id: string) => setCreating(newActivity({ id: newId(), accountId: ws.engineOf(id)?.account ?? account, title: '', groupId: id }, instantNow()));
   const plus = () => (here ? newIn(here.id) : setCapturing(true));
-  const entry = (id: Tab, label: string, count: number) => (
+  const entry = (id: 'groups' | 'me', label: string, count: number) => (
     <button key={id} aria-current={current(id)} aria-label={count ? `${label}, ${count} da vedere` : label} onClick={() => go(id)}>
       <span className="tab-icon"><Icon name={id} />{count > 0 && <span className="badge">{count}</span>}</span>{label}
     </button>
@@ -101,7 +109,8 @@ export function Shell() {
             {tab === 'agenda' && <AgendaView onOpen={setOpen} />}
             {tab === 'groups' && (groupId ? <GroupPage groupId={groupId} onOpen={setOpen} /> : <GroupsView onOpenGroup={openGroup} onNewActivity={id => { openGroup(id); newIn(id); }} />)}
             {tab === 'me' && <MeView onOpen={setOpen} />}
-            {tab === 'settings' && <SettingsView />}
+            {tab === 'settings' && <SettingsView onHelp={() => go('help')} />}
+            {tab === 'help' && <HelpView />}
           </>
         )}
       </main>

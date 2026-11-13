@@ -18,6 +18,8 @@ import { Attachments } from './Attachments.js';
 import { ChecklistView } from './ChecklistView.js';
 import { CopyButton } from './CopyButton.js';
 import { Disclosure } from '../shell/Disclosure.js';
+import { useBackLayer } from '../shell/back.js';
+import { Icon } from '../shell/icons.js';
 import { SnoozeForm } from './SnoozeForm.js';
 import { describeRepeat } from './timing.js';
 import type { ActionKind } from './actions.js';
@@ -62,6 +64,9 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   // The open property form's change, if any: Chiudi saves it instead of dropping it.
   const pending = useRef<(() => Activity) | null>(null);
   const [listOpen, setListOpen] = useState(false);
+  // The phone's back closes the activity as Chiudi does (a list group's page is the group's, not a layer of its own).
+  const closeOnBack = useRef<() => void>(() => onClose());
+  useBackLayer(!asGroupList, () => closeOnBack.current());
 
   const a = local ?? [...ws.activities, ...ws.drafts].find(x => x.id === activityId);
   const isNew = local !== null;
@@ -99,6 +104,8 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
     if (!next || !form || form === 'reject' || form === 'release' || form === 'decompose' || form === 'snooze') return onClose(undefined);
     if (await run(next)) onClose(SAVED[form]);
   }
+
+  closeOnBack.current = () => void close();
 
   /** The activity first, then its files, then the activity again with them. Offline it becomes a draft, with its files. */
   async function create(it: Activity) {
@@ -181,10 +188,11 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       onDragOver={isNew ? e => e.preventDefault() : undefined}
       onDrop={isNew ? e => { e.preventDefault(); void addFiles(Array.from(e.dataTransfer.files)); } : undefined}>
       {!asGroupList && <header className="row">
+        {/* The way out on the left, as the phone's back: it saves what Chiudi used to save. What to do with the text on the right. */}
+        <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
         {!isNew && <CopyButton activity={a} />}
-        <button className="link" onClick={() => void close()}>Chiudi</button>
       </header>}
       {asGroupList && closed && group && can(group, me, 'editActivity') && (
         <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>

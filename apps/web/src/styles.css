@@ -160,11 +160,22 @@ textarea { width: 100%; resize: vertical }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap }
 
 /* Detail and cards. Title and text look like text and become fields on focus. */
-.detail > header .link { margin-left: auto }
-/* Copia sits right before Chiudi, or at the end of the list's header on a list group's page. */
+/* The detail's top row: Indietro on the left, Copia/Condividi (or Salva) on the right. */
+.detail > header { align-items: center; flex-wrap: nowrap }
+.detail > header > .btn.primary { margin-left: auto }
+/* Copia and Condividi: at the right of the top row, or at the end of the list's header on a list group's page. */
 .copy { display: inline-flex; align-items: center; gap: 8px; margin-left: auto }
-.detail > header .copy + .link { margin-left: 0 }
-.detail > header:has(.copy) { align-items: center }
+/* Aiuto e glossario. */
+.help-points { margin: 0; padding-left: 1.2em; display: grid; gap: 6px }
+.glossary-topic { border-top: 1px solid var(--line); padding-top: 4px }
+.glossary-topic h3 { margin: 12px 0 6px; font-size: 1.05rem }
+.glossary-topic > p { margin: 0 0 8px }
+.glossary-group + .glossary-group { margin-top: 14px }
+.glossary-sub { display: grid; gap: 2px; margin: 0 0 6px }
+.glossary-sub .label { margin: 0; color: var(--accent) }
+.glossary dl { margin: 0; display: grid; gap: 10px }
+.glossary dt { font-weight: 600 }
+.glossary dd { margin: 2px 0 0; color: var(--muted) }
 /* The demo's band: always at the top of the content, with the way out. */
 .demo-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 14px; margin-bottom: 12px; border-radius: 12px; background: var(--marker-soft); color: var(--fg); font-size: .9rem }
 .checklist-head { display: flex; align-items: center; gap: 8px }

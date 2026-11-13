@@ -47,7 +47,7 @@ test('testListGroupShowsTheListsActivityWithItsProperties', async () => {
   fireEvent.click(await within(await nav()).findByRole('button', { name: /^spesa/ }));
   await screen.findByText('latte');
   for (const chip of ['+ Scadenza', '+ Assegna', '+ Ripeti']) expect(screen.getByRole('button', { name: chip })).toBeTruthy();
-  for (const gone of ['Archivia', 'Torna bozza', 'Modifica Dove', 'Chiudi']) expect(screen.queryByRole('button', { name: gone })).toBeNull();
+  for (const gone of ['Archivia', 'Torna bozza', 'Modifica Dove', 'Indietro']) expect(screen.queryByRole('button', { name: gone })).toBeNull();
   expect(screen.queryByLabelText('Titolo')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '+ Scadenza' }));
   userType(screen.getByLabelText('Scadenza'), '2026-11-14');

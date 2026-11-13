@@ -56,7 +56,7 @@ test('testClosingWithoutATitleDiscards', async () => {
   userClick('+ Scadenza');
   userType(screen.getByLabelText('Scadenza'), '2026-11-20');
   userClick('Aggiungi');
-  userClick('Chiudi');
+  userClick('Indietro');
   await screen.findByRole('region', { name: 'Elenco di developers' });
   expect((await s.primary.listActivities('inv:developers')).map(a => a.title).sort()).toEqual(['Analisi costi']);
 });
@@ -64,7 +64,7 @@ test('testClosingWithoutATitleDiscards', async () => {
 test('testClosingWithATitleSaves', async () => {
   const s = await plusInDevelopers();
   userType(within(detail()).getByLabelText('Titolo'), 'rivedere il backlog');
-  userClick('Chiudi');
+  userClick('Indietro');
   await waitFor(async () => expect(await created(s, 'rivedere il backlog')).toBeTruthy());
 });
 

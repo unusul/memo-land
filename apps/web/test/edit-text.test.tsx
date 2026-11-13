@@ -44,7 +44,7 @@ test('testCloseSavesAnOpenChangedForm', async () => {
   const { s, onClose } = await open('costi', 'Analisi costi');
   userClick('Modifica Scadenza');
   userType(screen.getByLabelText('Scadenza'), '2026-11-10');
-  userClick('Chiudi');
+  userClick('Indietro');
   await waitFor(() => expect(onClose).toHaveBeenCalledWith('Scadenza salvata'));
   expect((await s.primary.getActivity('costi')).activity.props.due).toBe('2026-11-10');
 });
@@ -53,7 +53,7 @@ test('testCloseSavesANewRepeat', async () => {
   const { s, onClose } = await open('idea', 'app gestione core');
   userClick(/^\+ Ripeti/);
   userType(screen.getByLabelText('Ogni'), '2');
-  userClick('Chiudi');
+  userClick('Indietro');
   await waitFor(() => expect(onClose).toHaveBeenCalledWith('Ripeti salvato'));
   expect((await s.primary.getActivity('idea')).activity.props.repeat).toEqual({ mode: 'calendar', rrule: expect.stringMatching(/^FREQ=WEEKLY;INTERVAL=2;BYDAY=/) });
 });
@@ -62,7 +62,7 @@ test('testCloseWithAnUnchangedFormSavesNothing', async () => {
   const { s, onClose } = await open('costi', 'Analisi costi');
   const before = (await s.primary.getActivity('costi')).activity.version;
   userClick('Modifica Scadenza');
-  userClick('Chiudi');
+  userClick('Indietro');
   await waitFor(() => expect(onClose).toHaveBeenCalledWith(undefined));
   expect((await s.primary.getActivity('costi')).activity.version).toBe(before);
 });
@@ -75,7 +75,7 @@ test('testShellSaysWhatChiudiSaved', async () => {
   fireEvent.click((await screen.findAllByText('Analisi costi'))[0]!);
   userClick('Modifica Scadenza');
   userType(screen.getByLabelText('Scadenza'), '2026-11-10');
-  userClick('Chiudi');
+  userClick('Indietro');
   expect(await screen.findByText('Scadenza salvata')).toBeTruthy();
   vi.useRealTimers();
 });
