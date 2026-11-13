@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { addItem, removeItem, setListFixed, suggestItems, toggleItem, undoTo } from '@attivita/core';
+import { addItem, editItem, moveItem, removeItem, setListFixed, splitQuantity, suggestItems, toggleItem, undoTo } from '@attivita/core';
 import type { Activity, ChecklistItem } from '@attivita/core';
 import { Disclosure } from '../shell/Disclosure.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
@@ -8,6 +8,7 @@ import type { SwipeAction } from '../shell/SwipeRow.js';
 import { useToast } from '../shell/toast.js';
 import { Icon } from '../shell/icons.js';
 import { instantNow } from '../dates.js';
+import { useReorder } from './useReorder.js';
 
 /**
  * The list inside an activity: tick, add with Enter, remove. While typing, the texts this list has already seen are
@@ -35,24 +36,37 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
     await change(() => removeItem(a, i.id, me, instantNow()));
     toast({ text: 'Voce tolta', undo: () => void change(() => undoTo(before, latest.current, instantNow())) });
   };
+  // An emptied text takes the item away, as the swipe does, with Annulla.
+  const edit = (i: ChecklistItem, t: string) =>
+    t.trim() ? change(() => editItem(a, i.id, t, me, instantNow())) : remove(i);
+
+  // The items to do are reordered by a handle on their left; the ticked ones stay in their row below.
+  const openList = useRef<HTMLUListElement>(null);
+  const reorder = useReorder(openList, (id, to) => void change(() => moveItem(latest.current, id, to, me, instantNow())));
 
   // Swipes: towards the right ticks (or unticks), towards the left takes the item away, with Annulla.
-  const row = (i: ChecklistItem) => (
-    <li key={i.id} className={i.done ? 'done' : undefined}>
+  const row = (i: ChecklistItem, index: number) => {
+    const moving = editable && !i.done ? reorder.row(index) : {};
+    return (
+    <li key={i.id} className={[i.done ? 'done' : '', moving.className ?? ''].join(' ').trim() || undefined} style={moving.style}>
       <SwipeRow {...(editable ? {
         right: { label: i.done ? 'Togli la spunta' : 'Spunta', icon: 'check', tone: 'done', run: () => tick(i) } as SwipeAction,
         left: { label: 'Togli', icon: 'trash', tone: 'remove', run: () => void remove(i) } as SwipeAction,
       } : {})}>
         <div className="check-row">
-          <label>
-            <input type="checkbox" checked={i.done} disabled={!editable} aria-label={i.text} onChange={() => tick(i)} />
-            <span>{i.text}</span>
-          </label>
+          {editable && !i.done && (
+            <button type="button" className="grip" aria-label={`Sposta ${i.text}`} title="Trascina per spostare" {...reorder.handle(i.id, index)}>
+              <Icon name="grip" size={18} />
+            </button>
+          )}
+          <input type="checkbox" checked={i.done} disabled={!editable} aria-label={i.text} onChange={() => tick(i)} />
+          {editable ? <ItemText item={i} save={t => void edit(i, t)} /> : <span className="item-text"><ItemName text={i.text} /></span>}
           {editable && <button className="link" aria-label={`Togli ${i.text}`} onClick={() => void change(() => removeItem(a, i.id, me, instantNow()))}>×</button>}
         </div>
       </SwipeRow>
     </li>
-  );
+    );
+  };
 
   function add(t: string) {
     if (!t.trim()) return;
@@ -66,7 +80,7 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
         <p className="label">Lista{items.length > 0 && ` · ${items.filter(i => i.done).length}/${items.length}`}</p>
         {copy}
       </div>
-      <ul className="check-items">{toDo.map(row)}</ul>
+      <ul className="check-items" ref={openList}>{toDo.map(row)}</ul>
       {editable && (
         <>
           {/* A form, not an Enter keydown: phone keyboards send Enter as "Unidentified" while composing, but submit forms. */}
@@ -95,5 +109,38 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
         </Disclosure>
       )}
     </section>
+  );
+}
+
+/** The name, and the quantity as a small «×3» at the right when the text ends with one. */
+function ItemName({ text }: { text: string }) {
+  const { name, quantity } = splitQuantity(text);
+  return <><span>{name}</span>{quantity !== null && <span className="qty">×{quantity}</span>}</>;
+}
+
+/**
+ * An item's text: tapping it opens a field, as in a notes app. The return key or leaving the field saves, Escape
+ * gives up; the tick stays on the box beside it.
+ */
+function ItemText({ item, save }: { item: ChecklistItem; save(text: string): void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const done = (keep: boolean) => {
+    if (draft === null) return;
+    setDraft(null);
+    if (keep && draft !== item.text) save(draft);
+  };
+  if (draft === null) {
+    return (
+      <button type="button" className="item-text" aria-label={`Modifica ${item.text}`} onClick={() => setDraft(item.text)}>
+        <ItemName text={item.text} />
+      </button>
+    );
+  }
+  return (
+    <form className="item-edit" onSubmit={e => { e.preventDefault(); done(true); }}>
+      <input autoFocus aria-label={`Testo di ${item.text}`} enterKeyHint="done" value={draft}
+        onChange={e => setDraft(e.target.value)} onBlur={() => done(true)}
+        onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); done(false); } }} />
+    </form>
   );
 }

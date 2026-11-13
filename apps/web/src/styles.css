@@ -233,11 +233,23 @@ textarea { width: 100%; resize: vertical }
 .hist time { font: .75rem var(--mono) }
 .checklist { display: grid; gap: 8px }
 .check-items { list-style: none; margin: 0; padding: 0; display: grid }
-.check-items .check-row { display: flex; align-items: center; gap: 8px; min-height: 44px; border-bottom: 1px solid var(--line) }
-.check-items label { flex: 1; display: flex; align-items: center; gap: 12px; cursor: pointer }
+.check-items .check-row { display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--line) }
 /* flex: none, or a box beside an item on two lines shrinks. */
-.check-items input { flex: none; width: 22px; height: 22px; min-height: 0; accent-color: var(--accent) }
-.check-items li.done span { text-decoration: line-through; color: var(--muted) }
+.check-items input[type="checkbox"] { flex: none; width: 22px; height: 22px; min-height: 0; accent-color: var(--accent) }
+/* The text is a button that opens the field: it looks like plain text and fills the row up to the ×. */
+.check-items .item-text { flex: 1; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: text }
+.check-items .item-text { display: flex; align-items: center; gap: 8px; min-width: 0 }
+.check-items .item-text > span:first-child { flex: 1 }
+/* The quantity: a small count at the row's right, before the ×. */
+.check-items .qty { flex: none; font-size: .85em; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums }
+/* The handle: a narrow strip on the left; touch-action none, or the phone scrolls the page instead of dragging. */
+.check-items .grip { flex: none; display: grid; place-items: center; width: 24px; min-height: 44px; margin-right: -6px; padding: 0; border: 0; background: none; color: var(--muted); cursor: grab; touch-action: none }
+.check-items li { transition: transform .15s ease }
+.check-items li.dragging { position: relative; z-index: 1; transition: none; background: var(--surface, var(--bg)); box-shadow: 0 4px 14px rgb(0 0 0 / .18); border-radius: 8px }
+.check-items li.dragging .grip { cursor: grabbing }
+.check-items .item-edit { flex: 1; display: flex }
+.check-items .item-edit input { flex: 1 }
+.check-items li.done .item-text { text-decoration: line-through; color: var(--muted) }
 .new-item-row { display: flex; gap: 8px; align-items: center }
 .new-item-row .new-item { flex: 1 }
 .suggestions { list-style: none; margin: 0; padding: 0 }

@@ -4,6 +4,7 @@ import { addItem, removeItem } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { GroupPage } from '../src/groups/GroupPage.js';
 import { GroupsView } from '../src/groups/GroupsView.js';
+import { ToastHost } from '../src/shell/toast.js';
 import { memorySession, renderWithSession, userClick, userType } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
@@ -30,6 +31,97 @@ test('testAddItemsAndTickThem', async () => {
   fireEvent.click(await screen.findByRole('checkbox', { name: 'pane' }));
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items)
     .toEqual([expect.objectContaining({ text: 'latte', done: false }), expect.objectContaining({ text: 'pane', done: true })]));
+});
+
+/** Taps an item's text and returns its field, focused, as a notes app opens it. */
+async function editVoice(text: string) {
+  fireEvent.click(await screen.findByRole('button', { name: `Modifica ${text}` }));
+  const field = screen.getByRole('textbox', { name: `Testo di ${text}` });
+  expect(document.activeElement).toBe(field);
+  return field;
+}
+
+test('testTapTheTextToEditIt', async () => {
+  const s = await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  addVoice('lattte');
+  const field = await editVoice('lattte');
+  userType(field, 'latte');
+  fireEvent.submit(field.closest('form')!);
+  await screen.findByRole('checkbox', { name: 'latte' });
+  // Tapping the text edits it, it does not tick it.
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items)
+    .toEqual([expect.objectContaining({ text: 'latte', done: false })]));
+});
+
+test('testLeavingTheFieldSavesAndEscapeGivesUp', async () => {
+  const s = await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  addVoice('pane');
+  let field = await editVoice('pane');
+  userType(field, 'pane nero');
+  fireEvent.blur(field);
+  await screen.findByRole('checkbox', { name: 'pane nero' });
+  field = await editVoice('pane nero');
+  userType(field, 'pane bianco');
+  fireEvent.keyDown(field, { key: 'Escape' });
+  await screen.findByRole('checkbox', { name: 'pane nero' });
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text)).toEqual(['pane nero']));
+});
+
+test('testEmptyingTheTextTakesTheItemAwayWithUndo', async () => {
+  const s = memorySession();
+  renderWithSession(<ToastHost><ActivityDetail activityId="idea" onClose={() => undefined} /></ToastHost>, s);
+  await screen.findByDisplayValue('app gestione core');
+  userClick('+ Lista');
+  addVoice('burro');
+  const field = await editVoice('burro');
+  userType(field, '  ');
+  fireEvent.submit(field.closest('form')!);
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items).toEqual([]));
+  fireEvent.click(await screen.findByRole('button', { name: 'Annulla' }));
+  await screen.findByRole('checkbox', { name: 'burro' });
+});
+
+test('testTheQuantityShowsBesideTheNameAndAddsUp', async () => {
+  const s = await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  addVoice('latte 3');
+  const text = await screen.findByRole('button', { name: 'Modifica latte 3' });
+  expect(within(text).getByText('latte')).toBeTruthy();
+  expect(within(text).getByText('×3')).toBeTruthy();
+  addVoice('latte 2');
+  await screen.findByRole('button', { name: 'Modifica latte 5' });
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text)).toEqual(['latte 5']));
+});
+
+const storedTexts = async (s: ReturnType<typeof memorySession>) =>
+  (await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text);
+
+test('testDragTheHandleToReorder', async () => {
+  const s = await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  for (const t of ['pane', 'latte', 'uova']) { addVoice(t); await screen.findByRole('checkbox', { name: t }); }
+  // jsdom has no layout: each row is 44px tall, one under the other.
+  ['pane', 'latte', 'uova'].forEach((t, k) => {
+    screen.getByRole('button', { name: `Sposta ${t}` }).closest('li')!.getBoundingClientRect = () => ({ top: k * 44, height: 44, bottom: (k + 1) * 44 } as DOMRect);
+  });
+  const handle = screen.getByRole('button', { name: 'Sposta uova' });
+  fireEvent.pointerDown(handle, { pointerId: 1, clientY: 110 });
+  fireEvent.pointerMove(handle, { pointerId: 1, clientY: 30 });
+  expect(handle.closest('li')!.className).toContain('dragging');
+  fireEvent.pointerUp(handle, { pointerId: 1, clientY: 30 });
+  await waitFor(async () => expect(await storedTexts(s)).toEqual(['pane', 'uova', 'latte']));
+});
+
+test('testTheHandleMovesWithTheArrowKeysToo', async () => {
+  const s = await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  for (const t of ['pane', 'latte']) { addVoice(t); await screen.findByRole('checkbox', { name: t }); }
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Sposta latte' }), { key: 'ArrowUp' });
+  await waitFor(async () => expect(await storedTexts(s)).toEqual(['latte', 'pane']));
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Sposta latte' }), { key: 'ArrowDown' });
+  await waitFor(async () => expect(await storedTexts(s)).toEqual(['pane', 'latte']));
 });
 
 test('testSuggestionsFromTheListHistory', async () => {
