@@ -25,7 +25,7 @@ export const groupName = (g: Group) => (g.kind === 'personal' ? 'Idee personali'
  */
 export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () => undefined }: { onOpenGroup?(groupId: string): void; onNewActivity?(groupId: string): void } = {}) {
   const ws = useWs();
-  const { account } = useSession();
+  const { account, demo } = useSession();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [where, setWhere] = useState<'central' | 'google'>('central');
@@ -106,13 +106,14 @@ export function GroupsView({ onOpenGroup = () => undefined, onNewActivity = () =
             <label><input type="radio" name="type" checked={type === 'activities'} onChange={() => setType('activities')} /> Attività</label>
             <label><input type="radio" name="type" checked={type === 'list'} onChange={() => setType('list')} /> Lista</label>
           </fieldset>
-          <fieldset className="where">
+          {/* A group on Google needs a real Google account: in the demo new groups stay in memory. */}
+          {!demo && <fieldset className="where">
             <legend className="label">Dove stanno i dati</legend>
             <label><input type="radio" name="where" checked={where === 'central'} onChange={() => setWhere('central')} /> Gestito da terzi</label>
             <label><input type="radio" name="where" checked={where === 'google'} onChange={() => setWhere('google')} /> Gestione privata</label>
             <p className="muted small">Gestito da terzi: i dati stanno sul server di chi pubblica questa app; il gruppo è pronto subito.<br />
               Gestione privata: i dati stanno nel tuo account Google; va collegato un progetto Firebase, circa 5 minuti.</p>
-          </fieldset>
+          </fieldset>}
           <div className="btns">
             <button className="btn primary" type="submit" disabled={!name.trim()}>{where === 'google' ? 'Continua su Google' : 'Crea'}</button>
             <button className="btn" type="button" onClick={() => setCreating(false)}>Annulla</button>

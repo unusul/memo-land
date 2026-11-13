@@ -5,6 +5,8 @@ export interface LoginActions {
   sendMagicLink(email: string): Promise<string | null>;
   signInWith(provider: OAuthProvider): Promise<void>;
   providers: OAuthProvider[];
+  /** Tries the app with sample data, without an account. */
+  startDemo(): void;
 }
 
 const PROVIDER_LABEL: Record<OAuthProvider, string> = { google: 'Entra con Google', azure: 'Entra con Microsoft' };
@@ -41,6 +43,7 @@ export function LoginScreen({ actions }: { actions: LoginActions }) {
           {actions.providers.map(p => <button key={p} className="btn" onClick={() => actions.signInWith(p)}>{PROVIDER_LABEL[p]}</button>)}
         </div>
       )}
+      <button className="link" onClick={() => actions.startDemo()}>Prova con dati di esempio</button>
     </main>
   );
 }

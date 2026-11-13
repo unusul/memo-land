@@ -33,6 +33,7 @@ test('testRejectNeedsReason', async () => {
   expect(go.disabled).toBe(true);
   userType(screen.getByLabelText('Motivo'), 'non ho tempo');
   userClick('Rifiuta');
+  userClick('Storico');
   expect(await screen.findByText(/pluto ha rifiutato: non ho tempo/)).toBeTruthy();
   expect((await s.primary.getActivity('costi')).activity.props.assignment).toBeUndefined();
 });
@@ -81,4 +82,16 @@ test('testQueuedDraftIsListedAsWaitingForNetwork', async () => {
 test('testDraftsListShowsOnlyMine', async () => {
   renderWithSession(<DraftsView onOpen={() => undefined} />, memorySession(PLUTO));
   expect(await screen.findByText(/Nessuna bozza/)).toBeTruthy();
+});
+
+/** The history is closed under a «Storico» row, as the ticked items: it is read seldom and takes room. */
+test('testHistoryClosedUntilOpened', async () => {
+  renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
+  await screen.findByRole('heading', { name: 'app gestione core' });
+  const row = screen.getByRole('button', { name: 'Storico' });
+  expect(row.getAttribute('aria-expanded')).toBe('false');
+  expect(screen.queryByText(/l'ha creata/)).toBeNull();
+  userClick('Storico');
+  expect(row.getAttribute('aria-expanded')).toBe('true');
+  expect(screen.getByText(/l'ha creata/)).toBeTruthy();
 });

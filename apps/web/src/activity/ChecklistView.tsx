@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { addItem, removeItem, setListFixed, suggestItems, toggleItem } from '@attivita/core';
 import type { Activity, ChecklistItem } from '@attivita/core';
+import { Disclosure } from '../shell/Disclosure.js';
 import { Icon } from '../shell/icons.js';
 import { instantNow } from '../dates.js';
 
@@ -19,7 +20,6 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
   // Ticked items go under a row that opens and closes, as in a notes app: closed each time the list is shown.
   const toDo = items.filter(i => !i.done);
   const ticked = items.filter(i => i.done);
-  const [showTicked, setShowTicked] = useState(false);
   const suggestions = text.trim() ? suggestItems(a, text) : [];
 
   const row = (i: ChecklistItem) => (
@@ -52,6 +52,8 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
           <form className="new-item-row" onSubmit={e => { e.preventDefault(); add(text); }}>
             {/* The keyboard's return key adds the item and the field keeps the focus for the next one, as in a notes app. */}
             <input className="new-item" aria-label="Nuova voce" placeholder="Aggiungi una voce…" enterKeyHint="enter" value={text} onChange={e => setText(e.target.value)} />
+            {/* The + adds too; pressing it does not take the focus, so the phone keyboard stays open for the next item. */}
+            <button type="submit" className="icon-choice" aria-label="Aggiungi la voce" title="Aggiungi la voce" disabled={!text.trim()} onPointerDown={e => e.preventDefault()}><Icon name="plus" /></button>
           </form>
           {suggestions.length > 0 && (
             <ul className="chips suggestions" aria-label="Suggerimenti">
@@ -67,13 +69,9 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
         </>
       )}
       {ticked.length > 0 && (
-        <div className="ticked">
-          <button type="button" className="ticked-row" aria-expanded={showTicked} aria-controls={`ticked-${a.id}`} onClick={() => setShowTicked(v => !v)}>
-            <Icon name="chevron" size={18} />
-            {ticked.length === 1 ? '1 voce spuntata' : `${ticked.length} voci spuntate`}
-          </button>
-          {showTicked && <ul id={`ticked-${a.id}`} className="check-items">{ticked.map(row)}</ul>}
-        </div>
+        <Disclosure label={ticked.length === 1 ? '1 voce spuntata' : `${ticked.length} voci spuntate`}>
+          <ul className="check-items">{ticked.map(row)}</ul>
+        </Disclosure>
       )}
     </section>
   );

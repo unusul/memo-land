@@ -145,3 +145,21 @@ test('testNewItemFieldBeforeTheTickedRow', async () => {
   const field = screen.getByLabelText('Nuova voce');
   expect(field.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
+
+/**
+ * The + beside the field adds the item too, besides the keyboard's return key (taken away on 2026-11-12, asked back
+ * on 2026-11-13). It keeps the focus in the field, so the phone keyboard stays open for the next item.
+ */
+test('testPlusButtonAddsTheItem', async () => {
+  const s = await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  const input = screen.getByLabelText('Nuova voce') as HTMLInputElement;
+  const plus = screen.getByRole('button', { name: 'Aggiungi la voce' }) as HTMLButtonElement;
+  expect(plus.disabled).toBe(true);
+  userType(input, 'uova');
+  const down = fireEvent.pointerDown(plus);
+  expect(down).toBe(false);
+  fireEvent.click(plus);
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text)).toEqual(['uova']));
+  expect(input.value).toBe('');
+});

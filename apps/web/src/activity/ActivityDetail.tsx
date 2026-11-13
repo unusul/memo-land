@@ -17,6 +17,7 @@ import { availableActions } from './actions.js';
 import { Attachments } from './Attachments.js';
 import { ChecklistView } from './ChecklistView.js';
 import { CopyButton } from './CopyButton.js';
+import { Disclosure } from '../shell/Disclosure.js';
 import { SnoozeForm } from './SnoozeForm.js';
 import { describeRepeat } from './timing.js';
 import type { ActionKind } from './actions.js';
@@ -260,10 +261,11 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         </>
       )}
 
-      {!isNew && <>
-        <p className="label">Storico</p>
-        <ol className="hist">{[...a.history].reverse().map((h, i) => <li key={i}><time>{h.at.slice(5, 16).replace('T', ' ')}</time> {historyText(h)}</li>)}</ol>
-      </>}
+      {!isNew && (
+        <Disclosure label="Storico">
+          <ol className="hist">{[...a.history].reverse().map((h, i) => <li key={i}><time>{h.at.slice(5, 16).replace('T', ' ')}</time> {historyText(h)}</li>)}</ol>
+        </Disclosure>
+      )}
     </article>
   );
 }

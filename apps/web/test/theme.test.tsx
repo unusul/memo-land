@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, test } from 'vitest';
 import { SettingsView } from '../src/settings/SettingsView.js';
 import { applyTheme, loadTheme } from '../src/settings/theme.js';
@@ -35,4 +35,19 @@ test('testForcedThemeSetsTheBrowserBarColour', () => {
   expect([...document.querySelectorAll('meta[name="theme-color"]')].map(m => m.getAttribute('content'))).toEqual(['#1b1e28', '#1b1e28']);
   applyTheme('auto');
   expect([...document.querySelectorAll('meta[name="theme-color"]')].map(m => m.getAttribute('content'))).toEqual(['#ffffff', '#1b1e28']);
+});
+
+/** Leaving the account asks first: a stray tap would mean waiting for a new link by email to get back in. */
+test('testSignOutAsksFirst', async () => {
+  const s = memorySession(PIPPO);
+  let out = 0;
+  s.signOut = async () => { out++; };
+  renderWithSession(<SettingsView />, s);
+  fireEvent.click(screen.getByRole('button', { name: "Esci dall'account" }));
+  expect(out).toBe(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Annulla' }));
+  expect(screen.queryByRole('button', { name: 'Conferma uscita' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: "Esci dall'account" }));
+  fireEvent.click(screen.getByRole('button', { name: 'Conferma uscita' }));
+  await waitFor(() => expect(out).toBe(1));
 });

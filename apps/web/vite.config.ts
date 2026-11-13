@@ -16,7 +16,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'memo-land',
         short_name: 'memo-land',
@@ -28,8 +28,15 @@ export default defineConfig({
         scope: base,
         theme_color: '#3b46c9',
         background_color: '#f3f4f8',
-        icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
-        shortcuts: [{ name: 'Nuova bozza', short_name: 'Bozza', url: `${base}?capture=1`, icons: [{ src: 'icon.svg', sizes: 'any' }] }],
+        // PNGs too: some Android launchers ignore an SVG. The maskable one keeps its drawing in the safe zone, so the
+        // launcher's shape (circle, squircle) cuts only the background.
+        icons: [
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+        shortcuts: [{ name: 'Nuova bozza', short_name: 'Bozza', url: `${base}?capture=1`, icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }] }],
       },
       workbox: { navigateFallback: `${base}index.html`, globPatterns: ['**/*.{js,css,html,svg}'] },
     }),

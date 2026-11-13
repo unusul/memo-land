@@ -26,7 +26,10 @@ function copyFromField(text: string): boolean {
   }
 }
 
-/** Copies the activity's content to the clipboard and says, for a couple of seconds, whether it worked. */
+/**
+ * Copia, and Condividi where the system has a share menu (phones): both send the activity's content, and say for a
+ * couple of seconds when something did not work. Closing the share menu without choosing is not a failure.
+ */
 export function CopyButton({ activity }: { activity: Activity }) {
   const [said, setSaid] = useState<string | null>(null);
   useEffect(() => {
@@ -34,6 +37,7 @@ export function CopyButton({ activity }: { activity: Activity }) {
     const t = setTimeout(() => setSaid(null), SHOWN_MS);
     return () => clearTimeout(t);
   }, [said]);
+  const canShare = typeof navigator.share === 'function';
 
   async function copy() {
     const text = activityText(activity);
@@ -41,9 +45,22 @@ export function CopyButton({ activity }: { activity: Activity }) {
     setSaid(done ? 'Copiata' : 'Non sono riuscito a copiare');
   }
 
+  async function share() {
+    try {
+      await navigator.share({ title: activity.title.trim(), text: activityText(activity) });
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === 'AbortError')) setSaid('Non sono riuscito a condividere');
+    }
+  }
+
   return (
     <span className="copy">
       <span role="status" className="small muted">{said}</span>
+      {canShare && (
+        <button type="button" className="icon-choice small" aria-label="Condividi" title="Condividi" onClick={() => void share()}>
+          <Icon name="share" size={18} />
+        </button>
+      )}
       <button type="button" className="icon-choice small" aria-label="Copia il testo" title="Copia il testo" onClick={() => void copy()}>
         <Icon name="copy" size={18} />
       </button>

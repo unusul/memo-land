@@ -24,7 +24,7 @@ import { TodayTitle } from './TodayTitle.js';
 export type Tab = 'agenda' | 'groups' | 'me' | 'settings';
 
 export function Shell() {
-  const { primary: engine, outbox, account } = useSession();
+  const { primary: engine, outbox, account, demo, signOut } = useSession();
   const ws = useWs();
   useBarPrefs();
   // An invite link to a Google group opens the Groups tab, where the wizard waits.
@@ -83,6 +83,12 @@ export function Shell() {
         </div>
       </header>
       <main className="content">
+        {demo && (
+          <section className="demo-band" aria-label="Modalità demo">
+            <span>Modalità demo: niente viene salvato</span>
+            <button className="link" onClick={() => void signOut()}>Esci dalla demo</button>
+          </section>
+        )}
         {ws.error && <p className="error" role="alert">{ws.error} <button className="link" onClick={ws.clearError}>Chiudi</button></p>}
         {ws.notices.map(n => <p key={n} className="muted small" role="status">{n}</p>)}
         {flash && <p className="flash" role="status">{flash}</p>}

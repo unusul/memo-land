@@ -3,7 +3,7 @@ import { expect, test } from 'vitest';
 import { App } from '../src/App.js';
 import { memorySession } from './memory-session.js';
 
-const noLogin = { sendMagicLink: async () => null, signInWith: async () => undefined, providers: [] };
+const noLogin = { sendMagicLink: async () => null, signInWith: async () => undefined, providers: [], startDemo: () => undefined };
 
 test('testShowsLoginWithoutSession', async () => {
   render(<App open={async () => null} login={noLogin} />);

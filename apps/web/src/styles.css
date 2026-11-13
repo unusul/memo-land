@@ -165,13 +165,15 @@ textarea { width: 100%; resize: vertical }
 .copy { display: inline-flex; align-items: center; gap: 8px; margin-left: auto }
 .detail > header .copy + .link { margin-left: 0 }
 .detail > header:has(.copy) { align-items: center }
+/* The demo's band: always at the top of the content, with the way out. */
+.demo-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 14px; margin-bottom: 12px; border-radius: 12px; background: var(--marker-soft); color: var(--fg); font-size: .9rem }
 .checklist-head { display: flex; align-items: center; gap: 8px }
 .checklist-head .label { margin: 0 }
-/* The ticked items' row: closed each time the list is shown, its arrow turns down when open. */
-.ticked-row { display: flex; align-items: center; gap: 8px; min-height: 44px; width: 100%; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; text-align: left }
-.ticked-row:hover { color: var(--fg) }
-.ticked-row svg { transition: transform .15s }
-.ticked-row[aria-expanded="true"] svg { transform: rotate(90deg) }
+/* A row that opens and closes (ticked items, history): its arrow turns down when open. */
+.disclosure-row { display: flex; align-items: center; gap: 8px; min-height: 44px; width: 100%; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; text-align: left }
+.disclosure-row:hover { color: var(--fg) }
+.disclosure-row svg { flex: none; transition: transform .15s }
+.disclosure-row[aria-expanded="true"] svg { transform: rotate(90deg) }
 .text-fields { display: grid; gap: 4px }
 .title-field, .body-field { border-color: transparent; background: transparent; padding: 6px 8px; margin: 0 -8px; width: calc(100% + 16px); max-width: none }
 .title-field { font: 700 1.35rem/1.25 var(--display); min-height: 0 }
@@ -188,13 +190,14 @@ textarea { width: 100%; resize: vertical }
 .check-items { list-style: none; margin: 0; padding: 0; display: grid }
 .check-items li { display: flex; align-items: center; gap: 8px; min-height: 44px; border-bottom: 1px solid var(--line) }
 .check-items label { flex: 1; display: flex; align-items: center; gap: 12px; cursor: pointer }
-.check-items input { width: 22px; height: 22px; min-height: 0; accent-color: var(--accent) }
+/* flex: none, or a box beside an item on two lines shrinks. */
+.check-items input { flex: none; width: 22px; height: 22px; min-height: 0; accent-color: var(--accent) }
 .check-items li.done span { text-decoration: line-through; color: var(--muted) }
 .new-item-row { display: flex; gap: 8px; align-items: center }
 .new-item-row .new-item { flex: 1 }
 .suggestions { list-style: none; margin: 0; padding: 0 }
 .fixed-switch { display: flex; gap: 8px; align-items: center }
-.fixed-switch input { min-height: 0 }
+.fixed-switch input { flex: none; width: 18px; height: 18px; min-height: 0; padding: 0; accent-color: var(--accent) }
 .attachments { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px }
 .thumb { display: block; max-width: min(100%, 320px); max-height: 240px; border-radius: 10px; border: 1px solid var(--line) }
 .card { background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--grp); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 8px }

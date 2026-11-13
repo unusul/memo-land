@@ -117,3 +117,43 @@ test('testCopiedNoticeFades', async () => {
   await screen.findByText('Copiata');
   await waitFor(() => expect(screen.queryByText('Copiata')).toBeNull(), { timeout: 3000 });
 });
+
+/** Where the system can share (phones), Condividi opens its menu with the same text as Copia. */
+test('testShareSendsTheSameText', async () => {
+  const share = vi.fn(async (_: ShareData) => undefined);
+  Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+  try {
+    renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
+    await screen.findByRole('heading', { name: 'app gestione core' });
+    userClick('Condividi');
+    await waitFor(() => expect(share).toHaveBeenCalledWith({ title: 'app gestione core', text: 'app gestione core\nIdea avuta durante la corsa.' }));
+    expect(screen.queryByText('Non sono riuscito a condividere')).toBeNull();
+  } finally {
+    delete (navigator as { share?: unknown }).share;
+  }
+});
+
+/** Closing the system's menu without choosing is not a failure; another error is said. */
+test('testShareCancelIsSilentOtherErrorsAreSaid', async () => {
+  const share = vi.fn(async (_: ShareData) => { throw new DOMException('cancel', 'AbortError'); });
+  Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+  try {
+    renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
+    await screen.findByRole('heading', { name: 'app gestione core' });
+    userClick('Condividi');
+    await waitFor(() => expect(share).toHaveBeenCalled());
+    expect(screen.queryByText('Non sono riuscito a condividere')).toBeNull();
+    share.mockImplementation(async () => { throw new DOMException('no', 'NotAllowedError'); });
+    userClick('Condividi');
+    expect(await screen.findByText('Non sono riuscito a condividere')).toBeTruthy();
+  } finally {
+    delete (navigator as { share?: unknown }).share;
+  }
+});
+
+/** Without the system's sharing (most desktop browsers) there is no Condividi: Copia does the job. */
+test('testNoShareWithoutTheSystemMenu', async () => {
+  renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
+  await screen.findByRole('heading', { name: 'app gestione core' });
+  expect(screen.queryByRole('button', { name: 'Condividi' })).toBeNull();
+});

@@ -10,6 +10,8 @@ export interface Session {
   personalGroupId: GroupId;
   outbox: OutboxStore;
   signOut(): Promise<void>;
+  /** The demo with sample data in memory: a band says so, and signing out leaves the demo. */
+  demo?: true;
   addEngine(e: Engine): void;
 }
 
