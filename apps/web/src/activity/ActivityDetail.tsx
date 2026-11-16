@@ -335,7 +335,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>
       )}
       {/* A list group's page starts with the list: it is what the group is for. */}
-      {asGroupList && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} members={listMembers} copy={!isNew && <CopyButton activity={a} />} />}
+      {asGroupList && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} members={listMembers} modelChoice copy={!isNew && <CopyButton activity={a} />} />}
       {isNew ? (
         <div className="text-fields">
           <input className="title-field" aria-label="Titolo" autoFocus placeholder="Cosa c'è da fare?" value={a.title} onChange={e => setLocal({ ...a, title: e.target.value })} />

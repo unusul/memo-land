@@ -255,3 +255,10 @@ test('testPlusButtonAddsTheItem', async () => {
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text)).toEqual(['uova']));
   expect(input.value).toBe('');
 });
+
+/** A phone keyboard starts the new item in lower case (user's choice, 2026-11-16): «latte», not «Latte». */
+test('testNewItemFieldDoesNotCapitaliseTheFirstLetter', async () => {
+  await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  expect(screen.getByLabelText('Nuova voce').getAttribute('autocapitalize')).toBe('none');
+});

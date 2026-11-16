@@ -51,6 +51,28 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
       expect((await e.getActivity(a.id)).activity.overrides).toEqual(overrides);
     });
 
+    /**
+     * List models (2026-11-16) are activities of their group with a `model` field, and a list names its model in the
+     * checklist: every engine keeps both as it keeps the rest of the document, no column or collection of their own.
+     */
+    test('testListModelRoundTrips', async () => {
+      const { e, a } = await subject();
+      const model = {
+        icon: 'shopping', seq: 1,
+        sections: [{ id: 'frigo', name: 'Frigo' }, { id: 's1', name: 'Bio' }, { id: 'altro', name: 'Altro' }],
+        items: { burrat: { name: 'burrata', section: 's1' } },
+      };
+      await e.saveActivity({ ...a, model }, null);
+      expect((await e.getActivity(a.id)).activity.model).toEqual(model);
+    });
+
+    test('testListNamesItsModel', async () => {
+      const { e, a } = await subject();
+      const checklist = { items: [{ id: 'i1', text: 'burrata', done: false }], fixed: false, known: { burrata: 1 }, seq: 1, model: `${a.id}-model` };
+      await e.saveActivity({ ...a, checklist }, null);
+      expect((await e.getActivity(a.id)).activity.checklist).toEqual(checklist);
+    });
+
     test('testCreateExistingIdConflicts', async () => {
       const { e, a } = await subject();
       await e.saveActivity(a, null);

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { DomainError, EngineUnavailableError, archive, fail } from '@attivita/core';
+import { DomainError, EngineUnavailableError, archive, fail, isModel } from '@attivita/core';
 import type { Activity, ActivityId, AttachmentRef, AttachmentUpload, Engine, Group, GroupId } from '@attivita/core';
 import { instantNow } from '../dates.js';
 import { errorText } from '../labels.js';
@@ -9,8 +9,11 @@ import { EngineRouter } from './routing.js';
 
 export interface Workspace {
   groups: Group[];
+  /** The groups' activities, without the list models: those are hidden everywhere but in Noi. */
   activities: Activity[];
   drafts: Activity[];
+  /** The list models of the groups the account is in, open ones only (2026-11-16). */
+  models: Activity[];
   loaded: boolean;
   error: string | null;
   /** One line per engine that cannot be reached right now; the others stay usable. */
@@ -198,7 +201,9 @@ export function useWorkspace(engineList: Engine[]): Workspace {
     groups: view.groups, loaded, error, save, saveGroup, reload, clearError: () => setError(null),
     engineOf: (groupId: GroupId) => { try { return view.router.forGroup(groupId); } catch { return undefined; } },
     notices: [...new Set([...down].map(unreachableText))],
-    activities: view.all.filter(a => a.groupId !== null),
+    // The one place where the models leave the activities: agenda, counts, group pages, Sposta, Scomponi never see them.
+    activities: view.all.filter(a => a.groupId !== null && !isModel(a)),
+    models: view.all.filter(a => a.groupId !== null && isModel(a) && a.status === 'open'),
     drafts: view.all.filter(a => a.groupId === null && a.accountId === primary.account),
   };
 }

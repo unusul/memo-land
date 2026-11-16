@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { addItem, assignItem, editItem, setListAssignable, moveItem, removeItem, setListFixed, splitQuantity, suggestItems, toggleItem, undoTo } from '@attivita/core';
+import { addItem, assignItem, editItem, setListAssignable, moveItem, removeItem, setListFixed, setListModel, sortBySection, splitQuantity, suggestItems, toggleItem, undoTo } from '@attivita/core';
 import type { Activity, ChecklistItem } from '@attivita/core';
 import { Disclosure } from '../shell/Disclosure.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
@@ -9,14 +9,19 @@ import { useToast } from '../shell/toast.js';
 import { Icon } from '../shell/icons.js';
 import { instantNow } from '../dates.js';
 import { shortName } from '../labels.js';
+import { MenuChoice, PopMenu } from '../shell/PopMenu.js';
+import { iconOr } from '../groups/IconGrid.js';
+import { useWs } from '../workspace/useWorkspace.js';
 import { useReorder } from './useReorder.js';
 
 /**
  * The list inside an activity: tick, add with Enter, remove. While typing, the texts this list has already seen are
  * proposed, most used first. Every change is saved at once through `change`.
  */
-export function ChecklistView({ activity: a, me, editable, change, copy, members }: {
+export function ChecklistView({ activity: a, me, editable, change, copy, members, modelChoice = false }: {
   activity: Activity; me: string; editable: boolean; change(next: () => Activity): Promise<unknown>;
+  /** A list group's list can use a list model from Noi and be sorted by its sections (user's choice, 2026-11-16). */
+  modelChoice?: boolean;
   /** Who an item can go to, the person first; absent where everything is the person's (personal group, draft). */
   members?: readonly string[] | undefined;
   /** Shown at the end of the header: a list group's page has no other row to hold Copia. */
@@ -95,6 +100,15 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
     );
   };
 
+  // The list's model, when the person can see it: a model of a group they are not in stays named, but out of reach.
+  const ws = useWs();
+  const model = ws.models.find(m => m.id === a.checklist?.model);
+  const chooseModel = (id: string | null) => void change(() => setListModel(latest.current, id, me, instantNow()));
+  // Already in order: nothing to save.
+  const sortItems = () => {
+    if (model?.model && sortBySection(a, model.model, me, instantNow()) !== a) void change(() => sortBySection(latest.current, model.model!, me, instantNow()));
+  };
+
   function add(t: string) {
     if (!t.trim()) return;
     setText('');
@@ -114,6 +128,25 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
               <Icon name="me" size={18} />
             </button>
           )}
+          {editable && modelChoice && (
+            <PopMenu className="icon-choice small" label={<Icon name={iconOr(model?.model?.icon, 'documents')} size={18} />} buttonLabel="Modello della lista"
+              menuLabel="Modello della lista" roomBelow={24 + 44 * (ws.models.length + 1)}>
+              {close => <>
+                <MenuChoice label="Nessun modello" value="" checked={!model} onChoose={() => { close(); if (a.checklist?.model) chooseModel(null); }} />
+                {ws.models.map(m => (
+                  <MenuChoice key={m.id} label={`${m.title} · ${ws.groups.find(g => g.id === m.groupId)?.name ?? ''}`} value={m.id} checked={m.id === model?.id}
+                    onChoose={() => { close(); if (m.id !== model?.id) chooseModel(m.id); }} />
+                ))}
+              </>}
+            </PopMenu>
+          )}
+          {/* Sorting is on request (user's choice, 2026-11-16): items added later go at the bottom until the next sort. Only
+              who sees the model (a member of its group) can sort by it. */}
+          {editable && modelChoice && model && (
+            <button type="button" className="icon-choice small" aria-label="Ordina per sezione" title="Ordina per sezione" onClick={sortItems}>
+              <Icon name="sort" size={18} />
+            </button>
+          )}
           {copy}
         </span>
       </div>
@@ -122,8 +155,9 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
         <>
           {/* A form, not an Enter keydown: phone keyboards send Enter as "Unidentified" while composing, but submit forms. */}
           <form className="new-item-row" onSubmit={e => { e.preventDefault(); add(text); }}>
-            {/* The keyboard's return key adds the item and the field keeps the focus for the next one, as in a notes app. */}
-            <input className="new-item" aria-label="Nuova voce" placeholder="Aggiungi una voce…" enterKeyHint="enter" value={text} onChange={e => setText(e.target.value)} />
+            {/* The keyboard's return key adds the item and the field keeps the focus for the next one, as in a notes app.
+                No capital first letter from the phone keyboard (user's choice, 2026-11-16): a list is written in lower case. */}
+            <input className="new-item" aria-label="Nuova voce" placeholder="Aggiungi una voce…" enterKeyHint="enter" autoCapitalize="none" value={text} onChange={e => setText(e.target.value)} />
             {/* The + adds too; pressing it does not take the focus, so the phone keyboard stays open for the next item. */}
             <button type="submit" className="icon-choice" aria-label="Aggiungi la voce" title="Aggiungi la voce" disabled={!text.trim()} onPointerDown={e => e.preventDefault()}><Icon name="plus" /></button>
           </form>

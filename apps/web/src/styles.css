@@ -321,6 +321,16 @@ textarea { width: 100%; resize: vertical }
 .check-items li.done .item-text { text-decoration: line-through; color: var(--muted) }
 .new-item-row { display: flex; gap: 8px; align-items: center }
 .new-item-row .new-item { flex: 1 }
+/* A list model's page in Noi: the sections as list rows with their items as chips under them. */
+.model-items { list-style: none; margin: 0; padding: 6px 0 8px 30px; display: flex; flex-wrap: wrap; gap: 6px }
+.model-items:empty { display: none }
+.model-unplaced .model-items { padding-left: 0 }
+.model-items .chip { min-height: 32px; padding: 4px 12px; font-weight: 500; border-style: solid }
+.model-new-item { display: grid; gap: 8px }
+.model-sections .model-toggle { flex: none; width: auto; min-height: 44px; margin-right: -6px }
+.model-sections .model-count { flex: none; font-variant-numeric: tabular-nums }
+.model-name { margin: 0; flex: 1; min-width: 0 }
+.model-name .item-text { font: inherit; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: text }
 .suggestions { list-style: none; margin: 0; padding: 0 }
 .fixed-switch { display: flex; gap: 8px; align-items: center }
 .fixed-switch input { flex: none; width: 18px; height: 18px; min-height: 0; padding: 0; accent-color: var(--accent) }

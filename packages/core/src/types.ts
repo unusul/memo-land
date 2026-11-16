@@ -103,6 +103,29 @@ export interface Checklist {
   known: Record<string, number>;
   /** Last item number handed out, so item ids never repeat within the list. */
   seq: number;
+  /** The model the list is sorted by: a model activity's id (user's choice, 2026-11-16). */
+  model?: ActivityId;
+}
+
+export interface ModelSection {
+  /** Stable across renames: the items point here, not to the name. */
+  id: string;
+  name: string;
+}
+
+/**
+ * A list model (user's choices, 2026-11-16), kept as a hidden activity of the group it belongs to, so its members see
+ * and change it: an icon, the sections in order (the departments of a supermarket, the genres of a game list) and the
+ * items placed in them. A list using it is sorted section by section on request.
+ */
+export interface ListModel {
+  /** One of the group icons' names. */
+  icon: string;
+  sections: ModelSection[];
+  /** An item's key (`itemKey`) → its name as written and its section id. */
+  items: Record<string, { name: string; section: string }>;
+  /** Last section number handed out, so the ids of added sections never repeat. */
+  seq: number;
 }
 
 export type Status = 'open' | 'done' | 'archived';
@@ -122,6 +145,8 @@ export interface Activity {
   overrides: Record<OccurrenceKey, OccurrenceOverride>;
   /** A list of things to tick inside the activity (shopping, packing). */
   checklist?: Checklist;
+  /** Set on a list model only: the activity is hidden everywhere and holds the model (see ListModel). */
+  model?: ListModel;
   history: HistoryEntry[];
   createdAt: Instant;
   updatedAt: Instant;

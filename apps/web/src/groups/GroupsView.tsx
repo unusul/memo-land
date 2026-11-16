@@ -9,7 +9,9 @@ import { MAX_PINS, movePin, orderSharedGroups, pin, pinsOf, setIcon, unpin, useB
 import { GroupIcon } from './GroupIcon.js';
 import { GroupName } from './GroupName.js';
 import { ManagedBy } from './ManagedBy.js';
-import { GROUP_ICON_SECTIONS, Icon } from '../shell/icons.js';
+import { Icon } from '../shell/icons.js';
+import { IconGrid } from './IconGrid.js';
+import { ModelPage, ModelRows } from './Models.js';
 import { instantNow, newId } from '../dates.js';
 import { KIND_LABEL, ROLE_LABEL, errorText, shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
@@ -40,6 +42,9 @@ export function GroupsView({ onOpenGroup = () => undefined }: { onOpenGroup?(gro
   // The group whose management page is open; the phone's back returns to the rows.
   const [managing, setManaging] = useState<string | null>(null);
   useBackLayer(managing !== null, () => setManaging(null));
+  // The list model whose page is open (2026-11-16); the phone's back returns to Noi.
+  const [modelId, setModelId] = useState<string | null>(null);
+  useBackLayer(modelId !== null, () => setModelId(null));
   useBarPrefs();
   const pins = pinsOf(account);
   const shared = orderSharedGroups(ws.groups, account);
@@ -54,6 +59,9 @@ export function GroupsView({ onOpenGroup = () => undefined }: { onOpenGroup?(gro
   // A group left, or archived, from its page is no longer one to manage: back to the rows.
   const managed = managing ? shared.find(g => g.id === managing) : undefined;
   useEffect(() => { if (managing && !managed) setManaging(null); }, [managing, managed]);
+  // A model deleted, or out of reach, is no longer one to show.
+  const model = modelId ? ws.models.find(m => m.id === modelId) : undefined;
+  useEffect(() => { if (modelId && !model) setModelId(null); }, [modelId, model]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -67,6 +75,7 @@ export function GroupsView({ onOpenGroup = () => undefined }: { onOpenGroup?(gro
     try { await ws.saveGroup(g); setCreating(false); setName(''); setType('activities'); } catch (err) { setProblem(errorText(err)); }
   }
 
+  if (model) return <ModelPage model={model} onBack={() => setModelId(null)} />;
   if (managed) {
     const at = pinned.findIndex(g => g.id === managed.id);
     return (
@@ -119,6 +128,7 @@ export function GroupsView({ onOpenGroup = () => undefined }: { onOpenGroup?(gro
         {pinned.length > 0 && <p className="label">Altri gruppi</p>}
         <ul className="group-rows" aria-label="Altri gruppi">{rows(others)}</ul>
       </>}
+      <ModelRows groups={shared.filter(g => can(g, ws.engineOf(g.id)?.account ?? account, 'editActivity'))} onOpen={setModelId} />
       {archived.length > 0 && (
         <details className="closed" aria-label={`Archiviati (${archived.length})`}>
           <summary>Archiviati ({archived.length})</summary>
@@ -223,19 +233,8 @@ function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { gro
         {mine && <span>tu: {ROLE_LABEL[mine]}</span>}
       </p>
       {picking && (
-        <div className="icon-grid" role="group" aria-label={`Scegli l'icona di ${label}`}>
-          <div className="icon-section">
-            <button className="icon-choice" aria-label="Iniziale" title="Iniziale" onClick={() => choose(null)}><span className="initial">{label.charAt(0).toUpperCase()}</span></button>
-          </div>
-          {GROUP_ICON_SECTIONS.map(sec => (
-            <div key={sec.title} className="icon-section" role="group" aria-label={sec.title}>
-              <p className="label">{sec.title}</p>
-              <div className="icon-row">
-                {sec.icons.map(i => <button key={i.name} className="icon-choice" aria-label={i.label} title={i.label} onClick={() => choose(i.name)}><Icon name={i.name} /></button>)}
-              </div>
-            </div>
-          ))}
-        </div>
+        <IconGrid label={`Scegli l'icona di ${label}`} onChoose={choose}
+          first={<button className="icon-choice" aria-label="Iniziale" title="Iniziale" onClick={() => choose(null)}><span className="initial">{label.charAt(0).toUpperCase()}</span></button>} />
       )}
       {owner && <>
         <p className="label">Cosa contiene</p>
