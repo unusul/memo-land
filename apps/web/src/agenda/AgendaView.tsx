@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { buildAgenda, needsAttention } from '@attivita/core';
-import { highlightsOf, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
+import { highlightsOf, isCollapsed, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
 import type { Activity, AgendaItem, GroupKind, LocalDate } from '@attivita/core';
 import { addDays, dayParts, today } from '../dates.js';
 import { shortName } from '../labels.js';
@@ -10,6 +10,7 @@ import { useAgendaSources } from './sources.js';
 import { useQuickActions } from './quickActions.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
 import { movedNote } from '../activity/occurrence.js';
+import { Icon } from '../shell/icons.js';
 
 export const KIND_COLOR: Record<GroupKind, string> = { domain: 'var(--acc-dom)', invite: 'var(--acc-inv)', personal: 'var(--acc-per)' };
 
@@ -101,14 +102,28 @@ const struck = (it: AgendaItem): boolean => it.done === true || it.skipped === t
 /** A high priority beside the title; normal and low say nothing, so the agenda stays quiet. */
 const High = () => <span className="pill high">alta</span>;
 
+/**
+ * The rows switched by their arrow, by activity and start, for as long as the app stays open (user's choice,
+ * 2026-11-16); at the next opening each row is again reduced when done, skipped or «Sempre ridotta».
+ */
+const folds = new Map<string, boolean>();
+export const clearFolds = (): void => folds.clear();
+const foldKey = (it: AgendaItem) => `${it.activityId}|${it.start}`;
+
 function Item({ it, kind, group, me, high, onOpen }: { it: AgendaItem; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void }) {
+  useBarPrefs();
+  const [, redraw] = useState(0);
   const who = it.assignee ? (it.assignee === me ? 'tu' : shortName(it.assignee)) : 'libera';
+  // Reduced: one lower line, the title on the left and the time on the right (user's choice, 2026-11-16).
+  const small = folds.get(foldKey(it)) ?? (struck(it) || isCollapsed(me, it.activityId));
+  const toggle = () => { folds.set(foldKey(it), !small); redraw(n => n + 1); };
   return (
-    // The row's own start opens it: a moved occurrence has two rows with one key.
-    <button className={`item${struck(it) ? ' done' : ''}`} style={{ '--grp': KIND_COLOR[kind] } as React.CSSProperties}
+    <div className="item-row">
+    {/* The row's own start opens it: a moved occurrence has two rows with one key. */}
+    <button className={`item${struck(it) ? ' done' : ''}${small ? ' reduced' : ''}`} style={{ '--grp': KIND_COLOR[kind] } as React.CSSProperties}
       data-take={takeOf(it, kind, me)} onClick={() => onOpen({ activityId: it.activityId, occurrenceKey: it.start })}>
       <span className="bar" />
-      <span>
+      {small ? <span className="t">{it.title}</span> : <span>
         <span className="t">{it.title}</span>{high && <High />}<br />
         {/* In the personal group «libera» would say nothing: everything there is the person's own. */}
         <span className="meta">{kind === 'personal' ? group : `${group} · ${who}`}</span>
@@ -116,15 +131,19 @@ function Item({ it, kind, group, me, high, onOpen }: { it: AgendaItem; kind: Gro
         {it.done && <span className="pill ok">fatta</span>}
         {it.skipped && <span className="pill">saltata</span>}
         {movedNote(it) && <span className="pill">{movedNote(it)}</span>}
-      </span>
+      </span>}
       <span className="time">{it.start.length > 10 ? `${it.start.slice(11)}${it.end ? `–${it.end.slice(11)}` : ''}` : 'giorno'}</span>
     </button>
+    <button type="button" className="fold" aria-label={`${small ? 'Espandi' : 'Riduci'} ${it.title}`} aria-expanded={!small} onClick={toggle}>
+      <Icon name="chevron" size={16} />
+    </button>
+    </div>
   );
 }
 
-/** "il 6 nov", but "l'8 nov" and "l'11 nov": the article follows the sound of the number. */
 /** «al 13 dic», «all'8 dic». */
 const untilDay = (day: LocalDate) => { const p = dayParts(day); return `${p.day === 8 || p.day === 11 ? "all'" : 'al '}${p.day} ${p.month}`; };
+/** "il 6 nov", but "l'8 nov" and "l'11 nov": the article follows the sound of the number. */
 const onDay = (day: LocalDate) => { const p = dayParts(day); return `${p.day === 8 || p.day === 11 ? "l'" : 'il '}${p.day} ${p.month}`; };
 
 /**

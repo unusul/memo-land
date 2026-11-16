@@ -21,10 +21,14 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
   const [from, setFrom] = useState<LocalDate>(today());
   // The series starts today unless the person asks for another day: the engine needs the day, the person rarely does.
   const [asking, setAsking] = useState(false);
+  // The series' last day (2026-11-16): «per sempre» until the person asks for one.
+  const [until, setUntil] = useState<LocalDate | null>(stored?.until ?? null);
+  const [ending, setEnding] = useState(until !== null);
   const anchor = anchorOf(a);
   const start: LocalDate | LocalDateTime = anchor ?? from;
   const n = Number(count);
-  const valid = Number.isInteger(n) && n > 0 && start !== '' && Object.values(spec.times ?? {}).every(t => !t?.end || t.end >= t.start);
+  const endTooEarly = ending && until !== null && until < start.slice(0, 10);
+  const valid = Number.isInteger(n) && n > 0 && start !== '' && !endTooEarly && Object.values(spec.times ?? {}).every(t => !t?.end || t.end >= t.start);
   const set = (patch: Partial<RepeatSpec>) => setSpec(s => ({ ...s, ...patch }));
 
   // Each day's time starts as the schedule's; only the days that differ are kept with a time of their own. With no
@@ -46,7 +50,8 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
     const timed = setProp(a, 'schedule', { start: `${day}T${b.start}`, ...(b.end ? { end: `${day}T${b.end}` } : {}) }, me, now);
     return a.props.due === undefined ? timed : removeProp(timed, 'due', me, now);
   }
-  const build = (s: RepeatSpec) => setProp(dated(s), 'repeat', toRepeat(own(s), start), me, now);
+  const ended = (s: RepeatSpec): RepeatSpec => { const { until: _old, ...rest } = s; return ending && until ? { ...rest, until } : rest; };
+  const build = (s: RepeatSpec) => setProp(dated(s), 'repeat', toRepeat(own(ended(s)), start), me, now);
 
   function apply(s: RepeatSpec) {
     noteChoice(me, 'repeat', JSON.stringify(s));
@@ -54,12 +59,12 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
   }
 
   // Chiudi saves what the form holds once it differs from what it opened with.
-  const [opened] = useState(() => JSON.stringify({ spec, count, from }));
+  const [opened] = useState(() => JSON.stringify({ spec, count, from, until, ending }));
   useEffect(() => {
-    const changed = JSON.stringify({ spec, count, from }) !== opened;
+    const changed = JSON.stringify({ spec, count, from, until, ending }) !== opened;
     onPending?.(changed && valid ? () => build({ ...spec, every: n }) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spec, count, from]);
+  }, [spec, count, from, until, ending]);
 
   return (
     <div className="stack">
@@ -89,6 +94,11 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
           : asking
             ? <span className="repeat-start"><span className="muted">parte dal</span><DatePicker label="Parte dal" value={from} onChange={setFrom} /></span>
             : <span className="repeat-start muted">parte da oggi · <button type="button" className="link" aria-label="Cambia la partenza" onClick={() => setAsking(true)}>cambia</button></span>}
+        {ending
+          ? <span className="repeat-start"><span className="muted">finisce il</span><DatePicker label="Finisce il" value={until ?? ''} onChange={setUntil} />
+              <button type="button" className="link" aria-label="Per sempre" onClick={() => { setEnding(false); setUntil(null); }}>per sempre</button></span>
+          : <span className="repeat-start muted">per sempre · <button type="button" className="link" aria-label="Imposta la fine" onClick={() => setEnding(true)}>imposta la fine</button></span>}
+        {endTooEarly && <span className="error small" role="alert">La fine viene prima della partenza</span>}
         <button className="btn primary" type="submit" disabled={!valid}>Salva</button>
       </form>
     </div>

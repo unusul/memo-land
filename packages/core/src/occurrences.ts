@@ -39,7 +39,14 @@ export function occurrencesBetween(a: Activity, from: LocalDateTime, to: LocalDa
   return [...own, ...movedIn.map(([key, o]) => toOccurrence(a, key, o.moved!, done))].sort((x, y) => asDateTime(x.start).localeCompare(asDateTime(y.start)));
 }
 
+/** A series' own starts up to its last day, when it has one. */
 function startsOf(a: Activity, anchor: LocalDate | LocalDateTime, from: LocalDateTime, to: LocalDateTime): Array<LocalDate | LocalDateTime> {
+  const until = a.props.repeat?.until;
+  const all = everyStartOf(a, anchor, from, to);
+  return until === undefined ? all : all.filter(s => s.slice(0, 10) <= until);
+}
+
+function everyStartOf(a: Activity, anchor: LocalDate | LocalDateTime, from: LocalDateTime, to: LocalDateTime): Array<LocalDate | LocalDateTime> {
   const repeat = a.props.repeat;
   if (repeat?.mode === 'calendar') {
     if (!repeat.times || isDateOnly(anchor)) return calendarStarts(repeat.rrule, anchor, from, to);

@@ -53,7 +53,7 @@ export function historyText(h: HistoryEntry): string {
     case 'claimed': return `${who} se l'è presa`;
     case 'released': return `${who} l'ha lasciata${d['reason'] ? `: ${d['reason']}` : ''}`;
     case 'conditionMet': return `${who} ha segnato la condizione come avverata`;
-    case 'completed': return `${who} l'ha segnata come fatta`;
+    case 'completed': return d['auto'] ? `fatta da sola alle ${String(d['closedAt'] ?? '').slice(11, 16)}` : `${who} l'ha segnata come fatta`;
     case 'occurrenceTaken': return `${who} copre l'occorrenza ${String(d['key']).replace('T', ' ')}`;
     case 'occurrenceSkipped': return `${who} ha saltato ${shortDay(String(d['key']).slice(0, 10))}`;
     case 'occurrenceMoved': return `${who} ha spostato ${shortDay(String(d['key']).slice(0, 10))} a ${whenText(String(d['to']))}`;

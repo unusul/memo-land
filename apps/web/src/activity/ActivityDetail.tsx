@@ -7,7 +7,7 @@ import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
   accept, archive, assign, assignToName, backToDraft, can, claim, complete, groupTypeOf, moveBetweenGroups, moveToGroup, setProp, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
-  moveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, shapeOf, skipOccurrence, snooze, takeOccurrence,
+  moveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, setClosesItself, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
 import { instantNow, localNow } from '../dates.js';
@@ -19,7 +19,7 @@ import { availableActions } from './actions.js';
 import { movedNote, occurrenceAt } from './occurrence.js';
 import { MoveOccurrenceForm } from './MoveOccurrenceForm.js';
 import { shortDay } from './DatePicker.js';
-import { isHighlighted, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
+import { isCollapsed, isHighlighted, toggleCollapsed, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
 import { Attachments } from './Attachments.js';
 import { Links } from './Links.js';
 import { ChecklistView } from './ChecklistView.js';
@@ -329,7 +329,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
-        {!isNew && <span className="row-end"><HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
+        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<CollapsedButton id={a.id} me={me} /><HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
       </header>}
       {asGroupList && closed && group && can(group, me, 'editActivity') && (
         <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>
@@ -428,6 +428,31 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         </Disclosure>
       )}
     </article>
+  );
+}
+
+/**
+ * «Si chiude da sola» (2026-11-16): only on an activity with a date and time; on, the activity is marked done by itself
+ * at the end of its time, a series one time after the other. For what is only to know about: «Anna al lavoro 8–17:30».
+ */
+function ClosesItselfButton({ on, onToggle }: { on: boolean; onToggle(on: boolean): void }) {
+  return (
+    <button type="button" className="icon-choice small" aria-label="Si chiude da sola" aria-pressed={on}
+      title="Si chiude da sola: alla fine dell'orario si segna fatta" onClick={() => onToggle(!on)}>
+      <Icon name="autoDone" size={18} />
+    </button>
+  );
+}
+
+/** «Sempre ridotta» (2026-11-16): the activity on one line in the person's Agenda; theirs only, like the star. */
+function CollapsedButton({ id, me }: { id: string; me: string }) {
+  useBarPrefs();
+  const on = isCollapsed(me, id);
+  return (
+    <button type="button" className="icon-choice small" aria-label="Sempre ridotta" aria-pressed={on}
+      title="Sempre ridotta: nell'Agenda la vedi su una riga sola" onClick={() => toggleCollapsed(me, id)}>
+      <Icon name="fold" size={18} />
+    </button>
   );
 }
 

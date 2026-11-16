@@ -2,12 +2,14 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { newActivity } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
-import { AgendaView } from '../src/agenda/AgendaView.js';
+import { AgendaView, clearFolds } from '../src/agenda/AgendaView.js';
 import { Shell } from '../src/shell/Shell.js';
 import { OSPITE, PIPPO, benchBackend, memorySession, pickDateTime, renderWithSession, userClick } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
+  // The arrows' choices last while the app stays open: each test starts as at an opening.
+  clearFolds();
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(2026, 10, 2, 9, 0));
 });
@@ -43,6 +45,9 @@ test('testAgendaShowsSkippedStruckThrough', async () => {
   await screen.findAllByText('Controllo backup');
   const [tuesday] = rowsOf('Controllo backup');
   expect(tuesday!.className).toMatch(/\bdone\b/);
+  // Reduced at first, as every time done or skipped (2026-11-16): its arrow shows «saltata».
+  expect(tuesday!.className).toMatch(/\breduced\b/);
+  fireEvent.click(within(tuesday!.parentElement!).getByRole('button', { name: 'Espandi Controllo backup' }));
   expect(within(tuesday!).getByText('saltata')).toBeTruthy();
 });
 
@@ -62,7 +67,9 @@ test('testMoveThisOccurrenceShowsOnBothDays', async () => {
   renderWithSession(<AgendaView from="2026-11-02" days={7} onOpen={t => opened.push(t.occurrenceKey)} />, s);
   await screen.findAllByText('Controllo backup');
   const rows = rowsOf('Controllo backup');
-  const left = rows.find(r => /spostata a/.test(r.textContent!))!;
+  // The day it left is reduced at first, as every time done or skipped (2026-11-16): its arrow shows where it went.
+  const left = rows.find(r => /\breduced\b/.test(r.className))!;
+  fireEvent.click(within(left.parentElement!).getByRole('button', { name: 'Espandi Controllo backup' }));
   const arrived = rows.find(r => /spostata da/.test(r.textContent!))!;
   expect(left.className).toMatch(/\bdone\b/);
   expect(within(left).getByText('spostata a ven 6 nov alle 20:00')).toBeTruthy();

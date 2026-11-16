@@ -80,6 +80,17 @@ export function toggleHighlight(account: AccountId, id: ActivityId): void {
   setHighlights(account, ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
 }
 
+const collapsedKey = (account: AccountId) => `attivita:collapsed:${account}`;
+/** «Sempre ridotta» (2026-11-16): the activities the person keeps on one line in the Agenda; theirs only, like the star. */
+export const collapsedOf = (account: AccountId): ActivityId[] => read<ActivityId[]>(collapsedKey(account), []);
+export const setCollapsed = (account: AccountId, ids: ActivityId[]): void => write(collapsedKey(account), ids);
+export const isCollapsed = (account: AccountId, id: ActivityId): boolean => collapsedOf(account).includes(id);
+
+export function toggleCollapsed(account: AccountId, id: ActivityId): void {
+  const ids = collapsedOf(account);
+  setCollapsed(account, ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+}
+
 /** Calls `listener` when pins, icons or highlights change, in this tab; returns the way to stop. */
 export function onBarPrefsChange(listener: () => void): () => void {
   listeners.add(listener);

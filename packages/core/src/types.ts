@@ -21,10 +21,14 @@ export type TimeOfDay = string;
 /** A day's own time in a weekly series; without an end it keeps the schedule's duration. */
 export type DayTime = { start: TimeOfDay; end?: TimeOfDay };
 
+/**
+ * `times`: a weekly series may give some of its days a time of their own; the others keep the schedule's. `until`: the
+ * last day of the series (user's choice, 2026-11-16, a date only): no time after it, and the last time done closes the
+ * activity. Absent, the series goes on for ever, as before.
+ */
 export type Repeat =
-  /** `times`: a weekly series may give some of its days a time of their own; the others keep the schedule's. */
-  | { mode: 'calendar'; rrule: string; times?: Partial<Record<Weekday, DayTime>> }
-  | { mode: 'fromCompletion'; every: { unit: Unit; count: number } };
+  | { mode: 'calendar'; rrule: string; times?: Partial<Record<Weekday, DayTime>>; until?: LocalDate }
+  | { mode: 'fromCompletion'; every: { unit: Unit; count: number }; until?: LocalDate };
 
 /**
  * `external`: the assignee is a name typed for someone outside the group (user's choice, 2026-11-16), not an account;
@@ -147,6 +151,11 @@ export interface Activity {
   checklist?: Checklist;
   /** Set on a list model only: the activity is hidden everywhere and holds the model (see ListModel). */
   model?: ListModel;
+  /**
+   * «Si chiude da sola» (2026-11-16): marked done by itself at the end of its time; `since` is the local time it was
+   * switched on, and only the times ending after it count.
+   */
+  closesItself?: { since: LocalDateTime };
   history: HistoryEntry[];
   createdAt: Instant;
   updatedAt: Instant;

@@ -26,6 +26,7 @@ import { ToastHost } from './toast.js';
 import { Icon } from './icons.js';
 import { TodayTitle } from './TodayTitle.js';
 import { useLinkedWaits } from '../workspace/linkedWaits.js';
+import { useClosesItself } from '../workspace/closesItself.js';
 
 export type Tab = 'agenda' | 'groups' | 'me' | 'settings' | 'help';
 
@@ -37,6 +38,8 @@ export function Shell() {
   useBarPrefs();
   // What waits for an activity now done comes back by itself.
   useLinkedWaits();
+  // What «Si chiude da sola» closes at the end of its time, when the app is opened after it.
+  useClosesItself();
   // An invite link to a Google group opens the Groups tab, where the wizard waits.
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).has('firebase') ? 'groups' : 'agenda'));
   const [open, setOpen] = useState<OpenTarget | null>(null);

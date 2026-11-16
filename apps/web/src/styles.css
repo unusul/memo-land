@@ -134,6 +134,14 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .item .t { font-weight: 600; overflow-wrap: anywhere }
 .item .meta { font-size: .82rem; color: var(--muted) }
 .item.done .t { text-decoration: line-through; color: var(--muted) }
+/* A row and its arrow (2026-11-16): reduced, one lower line with the title on the left and the time on the right. */
+.item-row { display: flex; align-items: center }
+.item-row > .item { flex: 1; min-width: 0 }
+.item.reduced { min-height: 32px; padding: 4px 0 }
+.item.reduced .t { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.item-row .fold { flex: none; display: grid; place-items: center; width: 32px; min-height: 32px; margin-right: -8px; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer }
+.item-row .fold svg { transform: rotate(90deg); transition: transform .15s }
+.item-row .fold[aria-expanded="true"] svg { transform: rotate(-90deg) }
 /* Free, taken by the person or by someone else: the bottom third of the bar on the left, under the group's colour. */
 .item[data-take] .bar { background: linear-gradient(var(--grp) 0 calc(66.6% - 1px), transparent 0 calc(66.6% + 1px), var(--take) 0) }
 /* The text's colour: black on the light theme; on the dark one black would vanish, so it turns light as the text does. */
@@ -183,6 +191,8 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .row-end { display: inline-flex; align-items: center; gap: 8px; margin-left: auto }
 .highlight[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
 .highlight[aria-pressed="true"] svg { fill: currentColor }
+/* «Si chiude da sola», on: lit as the switches are. */
+.icon-choice[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
 .attach { position: relative; display: inline-flex }
 .attach .menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 200px; display: grid; padding: 6px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18) }

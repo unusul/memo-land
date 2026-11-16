@@ -13,12 +13,20 @@ export function complete(a: Activity, by: AccountId, doneOn: LocalDate | LocalDa
   const repeat = a.props.repeat;
   if (!repeat) return touch({ ...a, status: 'done' }, { kind: 'completed', detail: { doneOn } }, by, now);
   if (repeat.mode === 'fromCompletion') {
-    return touch({ ...resetForNextRound(a), lastCompletedAt: doneOn }, { kind: 'completed', detail: { doneOn } }, by, now);
+    // The next time would fall after the series' last day: this was the last one, and it closes the activity.
+    const last = repeat.until !== undefined && addUnits(doneOn, repeat.every.unit, repeat.every.count).slice(0, 10) > repeat.until;
+    return touch({ ...resetForNextRound(a), lastCompletedAt: doneOn, ...(last ? { status: 'done' as const } : {}) }, { kind: 'completed', detail: { doneOn } }, by, now);
   }
   if (key !== undefined && !isOccurrence(a, key)) fail('INVALID_INPUT', `"${key}" is not an occurrence of this activity`);
   const target = key ?? currentPendingOccurrence(a, doneOn);
   if (target === undefined) fail('INVALID_STATE', 'no pending occurrence to complete');
-  return touch(resetForNextRound(a), { kind: 'completed', detail: { key: target, doneOn } }, by, now);
+  const closes = repeat.until !== undefined && isLastOccurrence(a, target, repeat.until);
+  return touch({ ...resetForNextRound(a), ...(closes ? { status: 'done' as const } : {}) }, { kind: 'completed', detail: { key: target, doneOn } }, by, now);
+}
+
+/** No time of the series after `key` up to its last day, a skipped one aside: `key` is the last one. */
+function isLastOccurrence(a: Activity, key: OccurrenceKey, until: LocalDate): boolean {
+  return !occurrencesBetween(a, asDateTime(key), `${until}T23:59`).some(o => o.key !== key && asDateTime(o.start) > asDateTime(key) && !o.skipped);
 }
 
 /** Next due date of a fromCompletion recurrence: last completion + interval, or the anchor if never completed. */

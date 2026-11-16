@@ -66,6 +66,21 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
       expect((await e.getActivity(a.id)).activity.model).toEqual(model);
     });
 
+    /** A series' last day (2026-11-16) lives in props.repeat, next to the rule: no column of its own. */
+    test('testSeriesEndRoundTrips', async () => {
+      const { e, a } = await subject();
+      const repeat = { mode: 'calendar' as const, rrule: 'FREQ=WEEKLY;BYDAY=MO', until: '2026-12-14' };
+      await e.saveActivity({ ...a, props: { ...a.props, due: '2026-11-16', repeat } }, null);
+      expect((await e.getActivity(a.id)).activity.props.repeat).toEqual(repeat);
+    });
+
+    /** «Si chiude da sola» (2026-11-16) is a field of the activity's document: no column of its own. */
+    test('testClosesItselfRoundTrips', async () => {
+      const { e, a } = await subject();
+      await e.saveActivity({ ...a, closesItself: { since: '2026-11-16T10:00' } }, null);
+      expect((await e.getActivity(a.id)).activity.closesItself).toEqual({ since: '2026-11-16T10:00' });
+    });
+
     test('testListNamesItsModel', async () => {
       const { e, a } = await subject();
       const checklist = { items: [{ id: 'i1', text: 'burrata', done: false }], fixed: false, known: { burrata: 1 }, seq: 1, model: `${a.id}-model` };

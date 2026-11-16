@@ -1,5 +1,6 @@
 import { addUnits, fromFloating, toFloating } from '@attivita/core';
 import type { DayTime, LocalDate, LocalDateTime, Repeat, Unit, Weekday } from '@attivita/core';
+import { dayParts } from '../dates.js';
 
 export type SnoozeUnit = 'minute' | 'hour' | Unit;
 export type { Weekday };
@@ -15,6 +16,8 @@ export interface RepeatSpec {
   monthly: 'day' | 'nth';
   /** Weekly calendar rules: the days with a time of their own; the others keep the schedule's. */
   times?: DayTimes;
+  /** The series' last day; absent, it goes on for ever (2026-11-16). */
+  until?: LocalDate;
 }
 
 export type DayTimes = Partial<Record<Weekday, DayTime>>;
@@ -44,14 +47,15 @@ export function snoozeUntil(from: LocalDateTime, count: number, unit: SnoozeUnit
 export const describeSnooze = (count: number, unit: SnoozeUnit) => `tra ${count} ${plural(count, unit)}`;
 
 export function toRepeat(spec: RepeatSpec, start: LocalDate | LocalDateTime): Repeat {
-  if (spec.mode === 'fromCompletion') return { mode: 'fromCompletion', every: { unit: spec.unit, count: spec.every } };
+  const end = spec.until ? { until: spec.until } : {};
+  if (spec.mode === 'fromCompletion') return { mode: 'fromCompletion', every: { unit: spec.unit, count: spec.every }, ...end };
   const parts = [`FREQ=${FREQ[spec.unit]}`, ...(spec.every > 1 ? [`INTERVAL=${spec.every}`] : [])];
   const days = spec.weekdays.length ? sortDays(spec.weekdays) : [weekdayOf(start)];
   if (spec.unit === 'week') parts.push(`BYDAY=${days.join(',')}`);
   if (spec.unit === 'month') parts.push(spec.monthly === 'nth' ? `BYDAY=${nthOf(start)}${weekdayOf(start)}` : `BYMONTHDAY=${toFloating(start).getUTCDate()}`);
   // Only the rule's own days keep a time: a day taken out of the rule takes its time away too.
   const times = spec.unit === 'week' ? Object.fromEntries(days.filter(d => spec.times?.[d]).map(d => [d, spec.times![d]!])) : {};
-  return { mode: 'calendar', rrule: parts.join(';'), ...(Object.keys(times).length ? { times } : {}) };
+  return { mode: 'calendar', rrule: parts.join(';'), ...(Object.keys(times).length ? { times } : {}), ...end };
 }
 
 /** The weekday of a date or date-time, as RRULE writes it. */
@@ -59,7 +63,8 @@ export const weekdayOf = (start: LocalDate | LocalDateTime) => WEEKDAY_OF_DATE[t
 
 /** The form values for a stored rule, so it can be edited; null for a rule the form cannot express. */
 export function specOf(r: Repeat): RepeatSpec | null {
-  if (r.mode === 'fromCompletion') return { mode: r.mode, every: r.every.count, unit: r.every.unit, weekdays: [], monthly: 'day' };
+  const end = r.until ? { until: r.until } : {};
+  if (r.mode === 'fromCompletion') return { mode: r.mode, every: r.every.count, unit: r.every.unit, weekdays: [], monthly: 'day', ...end };
   const rule = parseRule(r.rrule);
   const unit = UNIT_OF_FREQ[rule['FREQ'] ?? ''];
   if (!unit) return null;
@@ -67,7 +72,7 @@ export function specOf(r: Repeat): RepeatSpec | null {
   const weekdays = unit === 'week' ? byDay.filter((d): d is Weekday => WEEKDAYS.some(([k]) => k === d)) : [];
   return {
     mode: 'calendar', every: Number(rule['INTERVAL'] ?? 1), unit, weekdays, monthly: unit === 'month' && byDay.length ? 'nth' : 'day',
-    ...(r.times ? { times: r.times } : {}),
+    ...(r.times ? { times: r.times } : {}), ...end,
   };
 }
 
@@ -89,6 +94,16 @@ export const isWeekly = (r: Repeat | undefined): boolean => r?.mode === 'calenda
  * (`base`) a weekly series says the time of every day, once at the end when they all share it.
  */
 export function describeRepeat(r: Repeat, base?: DayTime): string {
+  return r.until ? `${describeRule(r, base)}, fino ${untilDay(r.until)}` : describeRule(r, base);
+}
+
+/** «al 14 dic», «all'8 gen». */
+function untilDay(day: LocalDate): string {
+  const p = dayParts(day);
+  return `${p.day === 8 || p.day === 11 ? "all'" : 'al '}${p.day} ${p.month}`;
+}
+
+function describeRule(r: Repeat, base?: DayTime): string {
   if (r.mode === 'fromCompletion') return `${every(r.every.count, r.every.unit)} da quando la completi`;
   const rule = parseRule(r.rrule);
   const unit = UNIT_OF_FREQ[rule['FREQ'] ?? ''];
