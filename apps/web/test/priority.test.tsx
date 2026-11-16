@@ -3,7 +3,7 @@ import { beforeEach, expect, test } from 'vitest';
 import { setProp } from '@attivita/core';
 import { AgendaView } from '../src/agenda/AgendaView.js';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
-import { PIPPO, memorySession, renderWithSession, userClick } from './memory-session.js';
+import { PIPPO, expandAgendaRows, memorySession, renderWithSession, userClick } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 
@@ -35,7 +35,9 @@ test('testHighPriorityIsMarkedInTheAgenda', async () => {
   const { activity } = await s.primary.getActivity('sal');
   await s.primary.saveActivity(setProp(activity, 'priority', 'high', PIPPO, '2026-11-13T10:00:00Z'), activity.version);
   renderWithSession(<AgendaView from="2026-11-02" days={14} onOpen={() => undefined} />, s);
-  const sal = (await screen.findByText('Stato avanzamento')).closest('.item') as HTMLElement;
+  await screen.findByText('Stato avanzamento');
+  expandAgendaRows();
+  const sal = screen.getByText('Stato avanzamento').closest('.item') as HTMLElement;
   expect(within(sal).getByText('alta')).toBeTruthy();
   const backup = screen.getAllByText('Controllo backup')[0]!.closest('.item') as HTMLElement;
   expect(within(backup).queryByText('alta')).toBeNull();

@@ -167,5 +167,5 @@ test('testDetailTopRowBackLeftCopyRight', async () => {
   await screen.findByRole('heading', { name: 'app gestione core' });
   expect(screen.queryByRole('button', { name: 'Chiudi' })).toBeNull();
   const buttons = within(document.querySelector('.detail > header') as HTMLElement).getAllByRole('button').map(b => b.getAttribute('aria-label'));
-  expect(buttons).toEqual(['Indietro', 'Sempre ridotta', 'In evidenza', 'Copia il testo']);
+  expect(buttons).toEqual(['Indietro', 'Sempre espansa', 'In evidenza', 'Copia il testo']);
 });

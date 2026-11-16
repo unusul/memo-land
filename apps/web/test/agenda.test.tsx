@@ -32,7 +32,7 @@ test('testConflictReloadsAndExplains', async () => {
 /** An event with an end says both times, «09:00–09:30»; one without says its start only (asked on 2026-11-16). */
 test('testTimedRowsShowTheirEnd', async () => {
   renderWithSession(<AgendaView from="2026-11-02" days={3} onOpen={() => undefined} />, memorySession());
-  const row = (await screen.findAllByText('Controllo backup'))[0]!.closest('.item') as HTMLElement;
+  const row = (await screen.findAllByText('Controllo backup'))[0]!.closest('.item-row') as HTMLElement;
   expect(row.querySelector('.time')?.textContent).toBe('09:00–09:30');
 });
 

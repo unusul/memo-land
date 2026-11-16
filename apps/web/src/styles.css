@@ -118,6 +118,9 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
   border-radius: var(--r); padding: 10px 14px 10px 10px; margin-bottom: 10px }
 .day .d { align-self: start; padding-top: 6px; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); text-align: center }
 .day .d b { display: block; font: 800 1.45rem/1.1 var(--display); color: var(--fg); letter-spacing: -.02em }
+/* With rows reduced at first (2026-11-16) a day of one or two is shorter than its date: the rows sit in the middle of
+   it, the empty room split above and below, instead of all of it below (the date on one line was tried, and dropped). */
+.day > .items { align-self: center }
 .attention { display: grid; gap: 8px; margin-bottom: 4px }
 .attention h3 { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--marker) }
 .attention h4 { margin: 4px 0 0; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted) }
@@ -139,7 +142,11 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .item-row > .item { flex: 1; min-width: 0 }
 .item.reduced { min-height: 32px; padding: 4px 0 }
 .item.reduced .t { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-.item-row .fold { flex: none; display: grid; place-items: center; width: 32px; min-height: 32px; margin-right: -8px; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer }
+/* Reduced, the bar keeps only the group's colour (user's choice, 2026-11-16): free or taken shows once expanded. */
+.item.reduced[data-take] .bar { background: var(--grp) }
+.item-row > .item { grid-template-columns: 4px minmax(0, 1fr) }
+.item-row .fold { flex: none; display: flex; align-items: center; gap: 8px; min-height: 32px; margin-right: -8px; padding: 0 8px 0 12px; border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer }
+.item-row .fold:hover { color: var(--fg) }
 .item-row .fold svg { transform: rotate(90deg); transition: transform .15s }
 .item-row .fold[aria-expanded="true"] svg { transform: rotate(-90deg) }
 /* Free, taken by the person or by someone else: the bottom third of the bar on the left, under the group's colour. */
@@ -149,6 +156,8 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 /* Taken is taken, whoever took it: the text under the title says who. */
 .item[data-take="mine"], .item[data-take="other"] { --take: var(--ok) }
 .time { font-size: .82rem; font-weight: 600; color: var(--muted); white-space: nowrap }
+/* «GIORNO» small in capitals, as the weekday of the date (user's choice, 2026-11-16): beside «10:00–11:00» it read larger. */
+.time.allday { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em }
 .pill { display: inline-block; margin-left: 6px; font-size: .72rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--chip); color: var(--muted) }
 .pill.cover { color: var(--warn); background: var(--warn-soft) }
 .pill.ok { color: var(--ok); background: var(--ok-soft) }

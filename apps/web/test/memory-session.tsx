@@ -99,6 +99,11 @@ export async function manage(name: string): Promise<HTMLElement> {
   return screen.findByRole('article', { name });
 }
 
+/** Every row of the Agenda in full, by its arrow: they start reduced (user's choice, 2026-11-16). */
+export function expandAgendaRows(): void {
+  for (const b of screen.queryAllByRole('button', { name: /^Espandi / })) fireEvent.click(b);
+}
+
 /** Chooses `value` in the app's drop-down named `label` (MenuSelect): opens it and taps that choice. */
 export function chooseIn(label: string, value: string): void {
   fireEvent.click(screen.getByRole('button', { name: label }));

@@ -46,7 +46,7 @@ test('testTheAgendaShowsEachDaysTime', async () => {
   const { activity } = await s.primary.getActivity('backup');
   await s.primary.saveActivity({ ...activity, props: { ...activity.props, repeat: { mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH', times: { TH: { start: '18:00', end: '19:15' } } } } }, activity.version);
   renderWithSession(<AgendaView from="2026-11-02" days={7} onOpen={() => undefined} />, s);
-  const rows = (await screen.findAllByText('Controllo backup')).map(t => t.closest('.item')!.querySelector('.time')!.textContent);
+  const rows = (await screen.findAllByText('Controllo backup')).map(t => t.closest('.item-row')!.querySelector('.time')!.textContent);
   expect(rows).toEqual(['09:00–09:30', '18:00–19:15']);
 });
 

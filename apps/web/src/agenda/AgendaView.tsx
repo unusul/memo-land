@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { buildAgenda, needsAttention } from '@attivita/core';
-import { highlightsOf, isCollapsed, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
+import { highlightsOf, isExpanded, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
 import type { Activity, AgendaItem, GroupKind, LocalDate } from '@attivita/core';
 import { addDays, dayParts, today } from '../dates.js';
 import { shortName } from '../labels.js';
@@ -104,7 +104,7 @@ const High = () => <span className="pill high">alta</span>;
 
 /**
  * The rows switched by their arrow, by activity and start, for as long as the app stays open (user's choice,
- * 2026-11-16); at the next opening each row is again reduced when done, skipped or «Sempre ridotta».
+ * 2026-11-16); at the next opening every row is again reduced, «Sempre espansa» aside.
  */
 const folds = new Map<string, boolean>();
 export const clearFolds = (): void => folds.clear();
@@ -114,8 +114,9 @@ function Item({ it, kind, group, me, high, onOpen }: { it: AgendaItem; kind: Gro
   useBarPrefs();
   const [, redraw] = useState(0);
   const who = it.assignee ? (it.assignee === me ? 'tu' : shortName(it.assignee)) : 'libera';
-  // Reduced: one lower line, the title on the left and the time on the right (user's choice, 2026-11-16).
-  const small = folds.get(foldKey(it)) ?? (struck(it) || isCollapsed(me, it.activityId));
+  // Reduced: one lower line, the title on the left and the time on the right; every row at first (user's choice,
+  // 2026-11-16), but those the person keeps «Sempre espansa».
+  const small = folds.get(foldKey(it)) ?? !isExpanded(me, it.activityId);
   const toggle = () => { folds.set(foldKey(it), !small); redraw(n => n + 1); };
   return (
     <div className="item-row">
@@ -132,9 +133,10 @@ function Item({ it, kind, group, me, high, onOpen }: { it: AgendaItem; kind: Gro
         {it.skipped && <span className="pill">saltata</span>}
         {movedNote(it) && <span className="pill">{movedNote(it)}</span>}
       </span>}
-      <span className="time">{it.start.length > 10 ? `${it.start.slice(11)}${it.end ? `–${it.end.slice(11)}` : ''}` : 'giorno'}</span>
     </button>
+    {/* The time and the arrow are one button (user's choice, 2026-11-16): a tap on the time expands or reduces too. */}
     <button type="button" className="fold" aria-label={`${small ? 'Espandi' : 'Riduci'} ${it.title}`} aria-expanded={!small} onClick={toggle}>
+      <span className={it.start.length > 10 ? 'time' : 'time allday'}>{it.start.length > 10 ? `${it.start.slice(11)}${it.end ? `–${it.end.slice(11)}` : ''}` : 'giorno'}</span>
       <Icon name="chevron" size={16} />
     </button>
     </div>

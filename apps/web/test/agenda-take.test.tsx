@@ -3,7 +3,7 @@ import { expect, test } from 'vitest';
 import { newActivity } from '@attivita/core';
 import { AgendaView } from '../src/agenda/AgendaView.js';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
-import { PIPPO, PLUTO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
+import { PIPPO, PLUTO, benchBackend, expandAgendaRows, memorySession, renderWithSession } from './memory-session.js';
 
 const rowOf = (title: string) => screen.getAllByText(title)[0]!.closest('.item') as HTMLElement;
 
@@ -30,7 +30,9 @@ test('testPersonalGroupHasNoBandAndNoFree', async () => {
   backend.activities.set('palestra', newActivity({ id: 'palestra', accountId: PIPPO, title: 'Palestra', groupId: `personal:${PIPPO}` }, '2026-11-01T08:00:00Z'));
   backend.activities.get('palestra')!.props = { schedule: { start: '2026-11-03T18:30', end: '2026-11-03T19:30' } };
   renderWithSession(<AgendaView from="2026-11-02" days={14} onOpen={() => undefined} />, memorySession(PIPPO, {}, backend));
-  const row = (await screen.findByText('Palestra')).closest('.item') as HTMLElement;
+  await screen.findByText('Palestra');
+  expandAgendaRows();
+  const row = screen.getByText('Palestra').closest('.item') as HTMLElement;
   expect(row.dataset.take).toBeUndefined();
   expect(within(row).getByText('Personale').textContent).toBe('Personale');
   expect(row.textContent).not.toMatch(/libera/);

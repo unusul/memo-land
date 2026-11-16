@@ -3,13 +3,14 @@ import { beforeEach, expect, test } from 'vitest';
 import { complete } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { AgendaView, clearFolds } from '../src/agenda/AgendaView.js';
-import { isCollapsed, toggleCollapsed } from '../src/groups/barPrefs.js';
+import { isExpanded, toggleExpanded } from '../src/groups/barPrefs.js';
 import { PIPPO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
 
 /*
- * Rows reduced and expanded in the Agenda (user's choices, 2026-11-16): a done, skipped or moved-away time is shown
- * on one lower line, title on the left and time on the right; an open one in full; a small arrow switches each row for
- * as long as the app stays open. «Sempre ridotta», the person's own like the star, keeps an activity reduced.
+ * Rows reduced and expanded in the Agenda (user's choices, 2026-11-16): every row starts reduced, one lower line with
+ * the title on the left and the time on the right; a small arrow switches each row for as long as the app stays open.
+ * «Sempre espansa», the person's own like the star, keeps an activity in full. Before, only done, skipped or moved-away
+ * times started reduced, and the switch was «Sempre ridotta»: the user chose all reduced at first.
  */
 
 beforeEach(() => { localStorage.clear(); clearFolds(); });
@@ -28,45 +29,58 @@ const rows = async () => {
 };
 const reduced = (row: HTMLElement) => row.querySelector('.item.reduced') !== null;
 
-test('testADoneTimeIsReducedAndAnOpenOneExpanded', async () => {
+/** Done or open, every row starts reduced: title and time on one line. */
+test('testEveryRowStartsReduced', async () => {
   renderWithSession(<AgendaView from="2026-11-03" days={3} onOpen={() => undefined} />, bench());
   const [done, open] = await rows();
-  expect(reduced(done!)).toBe(true);
-  expect(done!.querySelector('.meta')).toBeNull();
-  expect(done!.querySelector('.time')?.textContent).toBe('09:00–09:30');
-  expect(reduced(open!)).toBe(false);
-  expect(open!.querySelector('.meta')).not.toBeNull();
+  for (const row of [done!, open!]) {
+    expect(reduced(row)).toBe(true);
+    expect(row.querySelector('.meta')).toBeNull();
+    expect(row.querySelector('.time')?.textContent).toBe('09:00–09:30');
+  }
 });
 
 /** The arrow switches the row both ways. */
 test('testTheArrowExpandsAndReduces', async () => {
   renderWithSession(<AgendaView from="2026-11-03" days={3} onOpen={() => undefined} />, bench());
-  const [done, open] = await rows();
-  const expand = within(done!).getByRole('button', { name: 'Espandi Controllo backup' });
+  const [, open] = await rows();
+  const expand = within(open!).getByRole('button', { name: 'Espandi Controllo backup' });
   expect(expand.getAttribute('aria-expanded')).toBe('false');
   fireEvent.click(expand);
-  await waitFor(() => expect(reduced(done!)).toBe(false));
+  await waitFor(() => expect(reduced(open!)).toBe(false));
+  expect(open!.querySelector('.meta')).not.toBeNull();
   fireEvent.click(within(open!).getByRole('button', { name: 'Riduci Controllo backup' }));
   await waitFor(() => expect(reduced(open!)).toBe(true));
 });
 
-/** «Sempre ridotta» in the detail, beside «Si chiude da sola»: the person's own, kept in their prefs. */
-test('testAlwaysReducedFromTheDetail', async () => {
-  renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, bench());
-  await screen.findByRole('heading', { name: 'Controllo backup' });
-  const sw = screen.getByRole('button', { name: 'Sempre ridotta' });
-  expect(sw.previousElementSibling?.getAttribute('aria-label')).toBe('Si chiude da sola');
-  fireEvent.click(sw);
-  expect(isCollapsed(PIPPO, 'backup')).toBe(true);
-  expect(screen.getByRole('button', { name: 'Sempre ridotta' }).getAttribute('aria-pressed')).toBe('true');
+/** The time is part of the arrow's button (user's choice, 2026-11-16): a tap on it expands too, and does not open the detail. */
+test('testATapOnTheTimeExpands', async () => {
+  const opened: string[] = [];
+  renderWithSession(<AgendaView from="2026-11-03" days={3} onOpen={t => opened.push(t.activityId)} />, bench());
+  const [, open] = await rows();
+  fireEvent.click(open!.querySelector('.time')!);
+  await waitFor(() => expect(reduced(open!)).toBe(false));
+  expect(opened).toEqual([]);
 });
 
-/** Always reduced, an open time is reduced too; the arrow still expands it. */
-test('testAlwaysReducedRowsStartReduced', async () => {
-  toggleCollapsed(PIPPO, 'backup');
+/** «Sempre espansa» in the detail, beside «Si chiude da sola»: the person's own, kept in their prefs. */
+test('testAlwaysExpandedFromTheDetail', async () => {
+  renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, bench());
+  await screen.findByRole('heading', { name: 'Controllo backup' });
+  const sw = screen.getByRole('button', { name: 'Sempre espansa' });
+  expect(sw.previousElementSibling?.getAttribute('aria-label')).toBe('Si chiude da sola');
+  fireEvent.click(sw);
+  expect(isExpanded(PIPPO, 'backup')).toBe(true);
+  expect(screen.getByRole('button', { name: 'Sempre espansa' }).getAttribute('aria-pressed')).toBe('true');
+});
+
+/** Always expanded, its rows start in full; the arrow still reduces them. */
+test('testAlwaysExpandedRowsStartInFull', async () => {
+  toggleExpanded(PIPPO, 'backup');
   renderWithSession(<AgendaView from="2026-11-03" days={3} onOpen={() => undefined} />, bench());
-  const [, open] = await rows();
-  expect(reduced(open!)).toBe(true);
-  fireEvent.click(within(open!).getByRole('button', { name: 'Espandi Controllo backup' }));
-  await waitFor(() => expect(reduced(open!)).toBe(false));
+  const [done, open] = await rows();
+  expect(reduced(done!)).toBe(false);
+  expect(reduced(open!)).toBe(false);
+  fireEvent.click(within(open!).getByRole('button', { name: 'Riduci Controllo backup' }));
+  await waitFor(() => expect(reduced(open!)).toBe(true));
 });

@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, test } from 'vitest';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { AgendaView } from '../src/agenda/AgendaView.js';
-import { PIPPO, PLUTO, benchBackend, memorySession, pickDate, pickDateTime, renderWithSession, userClick } from './memory-session.js';
+import { PIPPO, PLUTO, benchBackend, expandAgendaRows, memorySession, pickDate, pickDateTime, renderWithSession, userClick } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 
@@ -160,7 +160,9 @@ test('testAgendaShowsTheNameOutside', async () => {
   const { activity } = await s.primary.getActivity('backup');
   await s.primary.saveActivity({ ...activity, props: { ...activity.props, assignment: { state: 'accepted', assignee: 'idraulico', assignedBy: PIPPO, external: true } } }, activity.version);
   renderWithSession(<AgendaView from="2026-11-02" days={3} onOpen={() => undefined} />, s);
-  const row = (await screen.findAllByText('Controllo backup'))[0]!.closest('.item') as HTMLElement;
+  await screen.findAllByText('Controllo backup');
+  expandAgendaRows();
+  const row = screen.getAllByText('Controllo backup')[0]!.closest('.item') as HTMLElement;
   expect(within(row).getByText('altereos.com · idraulico')).toBeTruthy();
   expect(row.dataset.take).toBe('other');
 });

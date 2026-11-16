@@ -19,7 +19,7 @@ import { availableActions } from './actions.js';
 import { movedNote, occurrenceAt } from './occurrence.js';
 import { MoveOccurrenceForm } from './MoveOccurrenceForm.js';
 import { shortDay } from './DatePicker.js';
-import { isCollapsed, isHighlighted, toggleCollapsed, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
+import { isExpanded, isHighlighted, toggleExpanded, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
 import { Attachments } from './Attachments.js';
 import { Links } from './Links.js';
 import { ChecklistView } from './ChecklistView.js';
@@ -329,7 +329,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
-        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<CollapsedButton id={a.id} me={me} /><HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
+        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<ExpandedButton id={a.id} me={me} /><HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
       </header>}
       {asGroupList && closed && group && can(group, me, 'editActivity') && (
         <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>
@@ -444,14 +444,14 @@ function ClosesItselfButton({ on, onToggle }: { on: boolean; onToggle(on: boolea
   );
 }
 
-/** «Sempre ridotta» (2026-11-16): the activity on one line in the person's Agenda; theirs only, like the star. */
-function CollapsedButton({ id, me }: { id: string; me: string }) {
+/** «Sempre espansa» (2026-11-16): the activity in full in the person's Agenda, where rows start reduced; theirs only. */
+function ExpandedButton({ id, me }: { id: string; me: string }) {
   useBarPrefs();
-  const on = isCollapsed(me, id);
+  const on = isExpanded(me, id);
   return (
-    <button type="button" className="icon-choice small" aria-label="Sempre ridotta" aria-pressed={on}
-      title="Sempre ridotta: nell'Agenda la vedi su una riga sola" onClick={() => toggleCollapsed(me, id)}>
-      <Icon name="fold" size={18} />
+    <button type="button" className="icon-choice small" aria-label="Sempre espansa" aria-pressed={on}
+      title="Sempre espansa: nell'Agenda la vedi per intero" onClick={() => toggleExpanded(me, id)}>
+      <Icon name="unfold" size={18} />
     </button>
   );
 }

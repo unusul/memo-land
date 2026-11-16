@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { AccountId, ActivityId, GroupId } from '@attivita/core';
-import { collapsedOf, highlightsOf, iconsOf, onBarPrefsChange, pinsOf, setCollapsed, setHighlights, setIcons, setPins } from '../groups/barPrefs.js';
+import { expandedOf, highlightsOf, iconsOf, onBarPrefsChange, pinsOf, setExpanded, setHighlights, setIcons, setPins } from '../groups/barPrefs.js';
 import type { GroupIconName } from '../shell/icons.js';
 import { loadTheme, onThemeChange, saveTheme } from './theme.js';
 import type { Theme } from './theme.js';
@@ -8,8 +8,8 @@ import type { Theme } from './theme.js';
 /** What follows the account from one device to another: the bar, the groups' icons, the theme, what is «In evidenza». */
 export interface SyncedPrefs {
   pins: GroupId[]; icons: Record<GroupId, GroupIconName>; theme: Theme; highlights: ActivityId[];
-  /** «Sempre ridotta» (2026-11-16); absent in prefs saved before it. */
-  collapsed?: ActivityId[];
+  /** «Sempre espansa» (2026-11-16); absent in prefs saved before it. */
+  expanded?: ActivityId[];
 }
 /** Where the account keeps them (on the central engine, the account's metadata). */
 export interface PrefsStore { load(): Promise<Partial<SyncedPrefs> | null>; save(p: SyncedPrefs): Promise<void> }
@@ -27,7 +27,7 @@ export const retryPrefsSync = (): void => retry?.();
 /** Re-renders the caller when the sync status changes. */
 export const useSyncStatus = (): SyncStatus => useSyncExternalStore(w => { watchers.add(w); return () => watchers.delete(w); }, () => status);
 
-const collect = (account: AccountId): SyncedPrefs => ({ pins: pinsOf(account), icons: iconsOf(account), theme: loadTheme(), highlights: highlightsOf(account), collapsed: collapsedOf(account) });
+const collect = (account: AccountId): SyncedPrefs => ({ pins: pinsOf(account), icons: iconsOf(account), theme: loadTheme(), highlights: highlightsOf(account), expanded: expandedOf(account) });
 const hhmm = (d = new Date()) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const failed = () => setStatus({ state: 'failed', offline: !navigator.onLine });
 
@@ -63,7 +63,7 @@ export function startPrefsSync(account: AccountId, store: PrefsStore, delayMs = 
       if (remote.icons) setIcons(account, remote.icons);
       if (remote.theme) saveTheme(remote.theme);
       if (remote.highlights) setHighlights(account, remote.highlights);
-      if (remote.collapsed) setCollapsed(account, remote.collapsed);
+      if (remote.expanded) setExpanded(account, remote.expanded);
     } finally {
       applying = false;
     }

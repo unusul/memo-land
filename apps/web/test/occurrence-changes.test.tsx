@@ -4,7 +4,7 @@ import { newActivity } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { AgendaView, clearFolds } from '../src/agenda/AgendaView.js';
 import { Shell } from '../src/shell/Shell.js';
-import { OSPITE, PIPPO, benchBackend, memorySession, pickDateTime, renderWithSession, userClick } from './memory-session.js';
+import { OSPITE, PIPPO, benchBackend, expandAgendaRows, memorySession, pickDateTime, renderWithSession, userClick } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -66,16 +66,16 @@ test('testMoveThisOccurrenceShowsOnBothDays', async () => {
   const opened: Array<string | undefined> = [];
   renderWithSession(<AgendaView from="2026-11-02" days={7} onOpen={t => opened.push(t.occurrenceKey)} />, s);
   await screen.findAllByText('Controllo backup');
+  // Every row starts reduced (2026-11-16): their arrows show where it went and where it came from.
+  expandAgendaRows();
   const rows = rowsOf('Controllo backup');
-  // The day it left is reduced at first, as every time done or skipped (2026-11-16): its arrow shows where it went.
-  const left = rows.find(r => /\breduced\b/.test(r.className))!;
-  fireEvent.click(within(left.parentElement!).getByRole('button', { name: 'Espandi Controllo backup' }));
+  const left = rows.find(r => /spostata a/.test(r.textContent!))!;
   const arrived = rows.find(r => /spostata da/.test(r.textContent!))!;
   expect(left.className).toMatch(/\bdone\b/);
   expect(within(left).getByText('spostata a ven 6 nov alle 20:00')).toBeTruthy();
   expect(within(arrived).getByText('spostata da mar 3 nov')).toBeTruthy();
   expect(arrived.className).not.toMatch(/\bdone\b/);
-  expect(within(arrived).getByText('20:00–20:30')).toBeTruthy();
+  expect(within(arrived.parentElement!).getByText('20:00–20:30')).toBeTruthy();
   fireEvent.click(arrived);
   cleanup();
 

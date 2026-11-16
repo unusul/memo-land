@@ -31,7 +31,7 @@ const SHELL_PATHS = {
   highlight: <path d="m12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z" />,
   copy: <><rect x="8.5" y="8.5" width="12" height="12" rx="2" /><path d="M15.5 8.5V5A1.5 1.5 0 0 0 14 3.5H5A1.5 1.5 0 0 0 3.5 5v9A1.5 1.5 0 0 0 5 15.5h3.5" /></>,
   sort: <path d="M8 19.5v-15M4 8.5l4-4 4 4M16 4.5v15M12 15.5l4 4 4-4" />,
-  fold: <path d="M4 5h16M4 19h16M8 9.5l4 3 4-3" />,
+  unfold: <path d="M4 5h16M4 19h16M8 13.5l4-3 4 3" />,
   autoDone: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l2.5 1.5" /><path d="m14.5 18 2 2 4-4.5" /></>,
 };
 
