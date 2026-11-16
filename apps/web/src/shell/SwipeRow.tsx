@@ -26,6 +26,9 @@ export function SwipeRow({ right, left, children }: { right?: SwipeAction | unde
 
   function down(e: React.PointerEvent) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // The click a swipe would leave comes before the next press, if it comes at all (a finger that moved often gives
+    // none): a new press is a new tap, and its click goes through.
+    swallowClick.current = false;
     start.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
     dragging.current = false;
   }

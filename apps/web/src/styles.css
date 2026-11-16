@@ -188,8 +188,14 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18) }
 .attach .menu.end { left: auto; right: 0 }
 .attach .menu.up { top: auto; bottom: calc(100% + 6px) }
-.attach .menu button { min-height: 44px; border: 0; background: none; color: var(--fg); text-align: left; padding: 8px 12px; border-radius: 8px; font: inherit; cursor: pointer }
-.attach .menu button:hover, .attach .menu button:focus-visible { background: var(--surface-2) }
+.attach .menu > button { min-height: 44px; border: 0; background: none; color: var(--fg); text-align: left; padding: 8px 12px; border-radius: 8px; font: inherit; cursor: pointer }
+.attach .menu > button:hover, .attach .menu > button:focus-visible { background: var(--surface-2) }
+.attach .menu > button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
+/* A date in a menu: the shortcuts and the month, as in the forms. */
+.attach .menu .cal { width: min(320px, calc(100vw - 48px)) }
+.attach .menu.panel { padding: 12px }
+.attach .menu.panel .form { flex-wrap: wrap }
+.attach .menu .menu-note { padding: 8px 12px; color: var(--muted) }
 .chip[aria-pressed="true"] { border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft) }
 [role="group"] .chip[aria-pressed="true"] { background: var(--accent); color: var(--surface) }
 .chip .n { font-size: .7rem; color: var(--muted); margin-left: 4px }
@@ -284,6 +290,26 @@ textarea { width: 100%; resize: vertical }
 .check-items .item-text > span:first-child { flex: 1 }
 /* The quantity: a small count at the row's right, before the ×. */
 .check-items .qty { flex: none; font-size: .85em; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums }
+/* Who has the item, as small and quiet as the quantity. The row's icon buttons centre their icon: an inline svg sits
+   on the text baseline, a couple of pixels above the name beside it. */
+/* Who has the item: its name, small and quiet, and the person icon; together they open the menu under them. */
+.check-items .who-pick { position: relative; flex: none; display: inline-flex }
+.check-items .who-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: .85em; cursor: pointer }
+.check-items .who-btn svg { display: block; color: var(--accent) }
+.check-items .who-name { max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.check-items .who-menu { position: absolute; top: calc(100% - 4px); right: 0; z-index: 5; min-width: 10em; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / .25) }
+/* The swipe hides what leaves the row: the row whose menu is open lets it out, above the rows below. */
+.check-items li.picking { position: relative; z-index: 4 }
+.check-items li.picking .swipe { overflow: visible }
+.check-items .who-menu ul { list-style: none; margin: 0; padding: 0 }
+.check-items .who-menu li { padding: 10px 12px; border-radius: 8px; color: var(--fg); cursor: pointer }
+.check-items .who-menu li:hover { background: var(--surface-2) }
+.check-items .who-menu li[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
+.check-items .who-other { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer }
+.check-items .who-menu form { margin-top: 4px }
+.check-items .who-menu input { width: 100%; min-height: 40px }
+.check-items .check-row > button.link { display: grid; place-items: center; min-height: 44px }
+.check-items .check-row > button.link svg { display: block }
 /* The handle: a narrow strip on the left; touch-action none, or the phone scrolls the page instead of dragging. */
 .check-items .grip { flex: none; display: grid; place-items: center; width: 24px; min-height: 44px; margin-right: -6px; padding: 0; border: 0; background: none; color: var(--muted); cursor: grab; touch-action: none }
 .check-items li { transition: transform .15s ease }

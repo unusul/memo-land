@@ -98,9 +98,26 @@ export function moveItem(a: Activity, itemId: string, toIndex: number, _by: Acco
   return withList(a, { ...list, items: list.items.map(i => (i.done ? i : order[next++]!)) }, now);
 }
 
+/** Gives an item to one person (an account or a typed name), or to nobody with null or a blank name. */
+export function assignItem(a: Activity, itemId: string, to: string | null, _by: AccountId, now: Instant): Activity {
+  const assignee = to?.trim() || null;
+  const list = a.checklist ?? fail('NOT_FOUND', 'no list');
+  if (!list.items.some(i => i.id === itemId)) fail('NOT_FOUND', `item ${itemId}`);
+  const items = list.items.map(i => {
+    if (i.id !== itemId) return i;
+    const { assignee: _old, ...rest } = i;
+    return assignee === null ? rest : { ...rest, assignee };
+  });
+  return withList(a, { ...list, items }, now);
+}
+
 export function removeItem(a: Activity, itemId: string, _by: AccountId, now: Instant): Activity {
   const list = a.checklist ?? fail('NOT_FOUND', 'no list');
   return withList(a, { ...list, items: list.items.filter(i => i.id !== itemId) }, now);
+}
+
+export function setListAssignable(a: Activity, assignable: boolean, _by: AccountId, now: Instant): Activity {
+  return withList(a, { ...(a.checklist ?? EMPTY), assignable }, now);
 }
 
 export function setListFixed(a: Activity, fixed: boolean, _by: AccountId, now: Instant): Activity {

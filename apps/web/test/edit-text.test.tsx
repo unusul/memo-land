@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { Shell } from '../src/shell/Shell.js';
-import { PLUTO, memorySession, renderWithSession, userClick, userType, pickDate } from './memory-session.js';
+import { PLUTO, memorySession, renderWithSession, userClick, userType, pickDate, pickDateTime } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 
@@ -39,14 +39,17 @@ test('testEmptyTitleIsNotSaved', async () => {
   expect((await s.primary.getActivity('idea')).activity.title).toBe('app gestione core');
 });
 
-/** Before, Chiudi dropped a changed form without a word: the new date was lost. */
+/**
+ * Before, Chiudi dropped a changed form without a word: the new date was lost. Data e ora keeps its form; Scadenza is
+ * a menu now (2026-11-16) and saves at once, so it leaves nothing open.
+ */
 test('testCloseSavesAnOpenChangedForm', async () => {
   const { s, onClose } = await open('costi', 'Analisi costi');
-  userClick('Modifica Scadenza');
-  pickDate('Scadenza', '2026-11-10');
+  userClick(/^\+ Data e ora/);
+  pickDateTime('Data e ora', '2026-11-10T10:10');
   userClick('Indietro');
-  await waitFor(() => expect(onClose).toHaveBeenCalledWith('Scadenza salvata'));
-  expect((await s.primary.getActivity('costi')).activity.props.due).toBe('2026-11-10');
+  await waitFor(() => expect(onClose).toHaveBeenCalledWith('Data e ora salvata'));
+  expect((await s.primary.getActivity('costi')).activity.props.schedule?.start).toBe('2026-11-10T10:10');
 });
 
 test('testCloseSavesANewRepeat', async () => {
@@ -59,12 +62,12 @@ test('testCloseSavesANewRepeat', async () => {
 });
 
 test('testCloseWithAnUnchangedFormSavesNothing', async () => {
-  const { s, onClose } = await open('costi', 'Analisi costi');
-  const before = (await s.primary.getActivity('costi')).activity.version;
-  userClick('Modifica Scadenza');
+  const { s, onClose } = await open('sal', 'Stato avanzamento');
+  const before = (await s.primary.getActivity('sal')).activity.version;
+  userClick('Modifica Data e ora');
   userClick('Indietro');
   await waitFor(() => expect(onClose).toHaveBeenCalledWith(undefined));
-  expect((await s.primary.getActivity('costi')).activity.version).toBe(before);
+  expect((await s.primary.getActivity('sal')).activity.version).toBe(before);
 });
 
 test('testShellSaysWhatChiudiSaved', async () => {
@@ -73,9 +76,9 @@ test('testShellSaysWhatChiudiSaved', async () => {
   // Pluto finds "Analisi costi" among the overdue ones (due 6 Nov, proposed to him).
   renderWithSession(<Shell />, memorySession(PLUTO));
   fireEvent.click((await screen.findAllByText('Analisi costi'))[0]!);
-  userClick('Modifica Scadenza');
-  pickDate('Scadenza', '2026-11-10');
+  userClick(/^\+ Data e ora/);
+  pickDateTime('Data e ora', '2026-11-10T10:10');
   userClick('Indietro');
-  expect(await screen.findByText('Scadenza salvata')).toBeTruthy();
+  expect(await screen.findByText('Data e ora salvata')).toBeTruthy();
   vi.useRealTimers();
 });

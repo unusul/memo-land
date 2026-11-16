@@ -7,14 +7,13 @@ import { PIPPO, memorySession, renderWithSession, userClick } from './memory-ses
 
 beforeEach(() => localStorage.clear());
 
-/** Three levels: alta, normale (nothing set) and bassa; set from a chip like the other properties. */
+/** Three levels: alta, normale (nothing set) and bassa; chosen in the menu its chip opens, applied at once. */
 test('testPriorityIsSetFromItsChip', async () => {
   const s = memorySession();
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Analisi costi' });
   userClick('+ Priorità');
-  fireEvent.change(screen.getByLabelText('Priorità'), { target: { value: 'high' } });
-  userClick('Aggiungi');
+  fireEvent.click(within(screen.getByRole('menu', { name: 'Priorità' })).getByRole('menuitemradio', { name: 'Alta' }));
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.priority).toBe('high'));
   expect(await screen.findByRole('button', { name: 'Modifica Priorità' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Modifica Priorità' }).textContent).toBe('alta');

@@ -90,7 +90,6 @@ test('testDueIsChosenOnTheCalendar', async () => {
   userClick('Modifica Scadenza');
   expect(pickedDate('Scadenza')).toBe('2026-11-06');
   pickDate('Scadenza', '2026-12-02');
-  userClick('Salva');
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.due).toBe('2026-12-02'));
 });
 

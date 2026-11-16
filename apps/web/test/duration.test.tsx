@@ -42,6 +42,6 @@ test('testAnEndOfOnesOwn', async () => {
   userType(screen.getByLabelText('Ora'), '10:00');
   expect(durations().getByRole('button', { name: 'nessuna' }).getAttribute('aria-pressed')).toBe('true');
   userType(screen.getByLabelText('Fine'), '12:30');
-  userClick('Aggiungi');
+  userClick('Salva');
   await waitFor(async () => expect(await stored(s, 'costi')).toEqual({ start: '2026-11-20T10:00', end: '2026-11-20T12:30' }));
 });

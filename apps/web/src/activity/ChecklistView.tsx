@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { addItem, editItem, moveItem, removeItem, setListFixed, splitQuantity, suggestItems, toggleItem, undoTo } from '@attivita/core';
+import { addItem, assignItem, editItem, setListAssignable, moveItem, removeItem, setListFixed, splitQuantity, suggestItems, toggleItem, undoTo } from '@attivita/core';
 import type { Activity, ChecklistItem } from '@attivita/core';
 import { Disclosure } from '../shell/Disclosure.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
@@ -8,19 +8,39 @@ import type { SwipeAction } from '../shell/SwipeRow.js';
 import { useToast } from '../shell/toast.js';
 import { Icon } from '../shell/icons.js';
 import { instantNow } from '../dates.js';
+import { shortName } from '../labels.js';
 import { useReorder } from './useReorder.js';
 
 /**
  * The list inside an activity: tick, add with Enter, remove. While typing, the texts this list has already seen are
  * proposed, most used first. Every change is saved at once through `change`.
  */
-export function ChecklistView({ activity: a, me, editable, change, copy }: {
+export function ChecklistView({ activity: a, me, editable, change, copy, members }: {
   activity: Activity; me: string; editable: boolean; change(next: () => Activity): Promise<unknown>;
+  /** Who an item can go to, the person first; absent where everything is the person's (personal group, draft). */
+  members?: readonly string[] | undefined;
   /** Shown at the end of the header: a list group's page has no other row to hold Copia. */
   copy?: ReactNode;
 }) {
   const [text, setText] = useState('');
   const items = a.checklist?.items ?? [];
+  // The item whose menu of names is open: one at a time, opened by its icon or by the swipe.
+  const [picking, setPicking] = useState<string | null>(null);
+  // Only a shared list can be made assignable, and only once switched on: off, it behaves as before.
+  const shared = members !== undefined && members.length > 1;
+  const canAssign = editable && shared && a.checklist?.assignable === true;
+  // A member is an account, shown by its short name; anyone else is the name typed for them.
+  const nameOf = (who: string) => (who === me ? 'tu' : members?.includes(who) ? shortName(who) : who);
+  // Names typed before in this list come back as choices, after the members.
+  const typed = [...new Set(items.map(i => i.assignee).filter((w): w is string => w !== undefined && !members?.includes(w)))];
+  const choices = [...(members ?? []), ...typed];
+  const assign = (i: ChecklistItem, who: string | null) => void change(() => assignItem(a, i.id, who, me, instantNow()));
+  /** A typed name that is already a choice («nessuno», «tu», a member, a name used before) is that choice, in any case. */
+  const resolve = (typedName: string): string | null => {
+    const t = typedName.trim().toLocaleLowerCase('it');
+    if (t === '' || t === 'nessuno') return null;
+    return choices.find(w => nameOf(w).toLocaleLowerCase('it') === t || w.toLocaleLowerCase('it') === t) ?? typedName.trim();
+  };
   // Ticked items go under a row that opens and closes, as in a notes app: closed each time the list is shown.
   const toDo = items.filter(i => !i.done);
   const ticked = items.filter(i => i.done);
@@ -44,14 +64,17 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
   const openList = useRef<HTMLUListElement>(null);
   const reorder = useReorder(openList, (id, to) => void change(() => moveItem(latest.current, id, to, me, instantNow())));
 
-  // Swipes: towards the right ticks (or unticks), towards the left takes the item away, with Annulla.
+  // Swipes: towards the right ticks (or unticks); towards the left gives the item to someone, in a shared list, or takes
+  // it away, with Annulla, where nobody else could take it (user's choice, 2026-11-16: the × removes in a shared list).
   const row = (i: ChecklistItem, index: number) => {
     const moving = editable && !i.done ? reorder.row(index) : {};
     return (
-    <li key={i.id} className={[i.done ? 'done' : '', moving.className ?? ''].join(' ').trim() || undefined} style={moving.style}>
+    <li key={i.id} className={[i.done ? 'done' : '', picking === i.id ? 'picking' : '', moving.className ?? ''].filter(Boolean).join(' ') || undefined} style={moving.style}>
       <SwipeRow {...(editable ? {
         right: { label: i.done ? 'Togli la spunta' : 'Spunta', icon: 'check', tone: 'done', run: () => tick(i) } as SwipeAction,
-        left: { label: 'Togli', icon: 'trash', tone: 'remove', run: () => void remove(i) } as SwipeAction,
+        left: (canAssign
+          ? { label: 'Assegna', icon: 'me', tone: 'later', run: () => setPicking(i.id) }
+          : { label: 'Togli', icon: 'trash', tone: 'remove', run: () => void remove(i) }) as SwipeAction,
       } : {})}>
         <div className="check-row">
           {editable && !i.done && (
@@ -61,7 +84,11 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
           )}
           <input type="checkbox" checked={i.done} disabled={!editable} aria-label={i.text} onChange={() => tick(i)} />
           {editable ? <ItemText item={i} save={t => void edit(i, t)} /> : <span className="item-text"><ItemName text={i.text} /></span>}
-          {editable && <button className="link" aria-label={`Togli ${i.text}`} onClick={() => void change(() => removeItem(a, i.id, me, instantNow()))}>×</button>}
+          {canAssign && (
+            <AssigneePicker item={i} choices={choices} nameOf={nameOf} resolve={resolve} onAssign={who => assign(i, who)}
+              open={picking === i.id} setOpen={on => setPicking(on ? i.id : null)} />
+          )}
+          {editable && <button className="link" aria-label={`Togli ${i.text}`} title="Togli" onClick={() => void change(() => removeItem(a, i.id, me, instantNow()))}><Icon name="close" size={16} /></button>}
         </div>
       </SwipeRow>
     </li>
@@ -78,7 +105,17 @@ export function ChecklistView({ activity: a, me, editable, change, copy }: {
     <section className="checklist" aria-label="Lista">
       <div className="checklist-head">
         <p className="label">Lista{items.length > 0 && ` · ${items.filter(i => i.done).length}/${items.length}`}</p>
-        {copy}
+        {/* Beside Copia, as an icon that stays lit while on (user's choice, 2026-11-16): the line of text took a row. */}
+        <span className="row-end">
+          {editable && shared && (
+            <button type="button" role="switch" className="icon-choice small" aria-label="Voci assegnabili" aria-checked={a.checklist?.assignable === true}
+              title="Voci assegnabili: ogni voce può andare a una persona"
+              onClick={() => void change(() => setListAssignable(a, a.checklist?.assignable !== true, me, instantNow()))}>
+              <Icon name="me" size={18} />
+            </button>
+          )}
+          {copy}
+        </span>
       </div>
       <ul className="check-items" ref={openList}>{toDo.map(row)}</ul>
       {editable && (
@@ -142,5 +179,56 @@ function ItemText({ item, save }: { item: ChecklistItem; save(text: string): voi
         onChange={e => setDraft(e.target.value)} onBlur={() => done(true)}
         onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); done(false); } }} />
     </form>
+  );
+}
+
+/**
+ * Who has the item, inline in its row (user's choice, 2026-11-16): the name and the person icon open a small menu of
+ * the app's own, under them, with «nessuno», the members, the names typed before in this list and «Altro nome…», which
+ * turns into a field in the menu. The browser's own drop-down was tried first: it cannot follow the app's look.
+ */
+function AssigneePicker({ item, choices, nameOf, resolve, onAssign, open, setOpen }: {
+  item: ChecklistItem; choices: readonly string[]; nameOf(who: string): string; resolve(typed: string): string | null;
+  onAssign(who: string | null): void; open: boolean; setOpen(on: boolean): void;
+}) {
+  const [typing, setTyping] = useState(false);
+  const [name, setName] = useState('');
+  const box = useRef<HTMLSpanElement>(null);
+  const close = () => { setOpen(false); setTyping(false); setName(''); };
+  const choose = (who: string | null) => { close(); if (who !== (item.assignee ?? null)) onAssign(who); };
+  // A tap outside closes the menu, as Esc does.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) close(); };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  });
+  const option = (who: string | null, label: string) => (
+    <li key={who ?? ''} role="option" aria-selected={(item.assignee ?? null) === who} tabIndex={-1}
+      onClick={() => choose(who)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(who); } }}>{label}</li>
+  );
+  return (
+    <span className="who-pick" ref={box} onKeyDown={e => { if (e.key === 'Escape') close(); }}>
+      <button type="button" className="who-btn" aria-label={`Assegna ${item.text}`} aria-haspopup="listbox" aria-expanded={open}
+        title="Assegna" onClick={() => (open ? close() : setOpen(true))}>
+        {item.assignee && <span className="who-name">{nameOf(item.assignee)}</span>}
+        <Icon name="me" size={16} />
+      </button>
+      {open && (
+        <div className="who-menu">
+          <ul role="listbox" aria-label={`A chi va ${item.text}`}>
+            {option(null, 'nessuno')}
+            {choices.map(w => option(w, nameOf(w)))}
+          </ul>
+          {typing ? (
+            <form onSubmit={e => { e.preventDefault(); choose(resolve(name)); }}>
+              <input aria-label={`Altro nome per ${item.text}`} placeholder="Nome…" autoFocus value={name} onChange={e => setName(e.target.value)} />
+            </form>
+          ) : (
+            <button type="button" className="who-other" onClick={() => setTyping(true)}>Altro nome…</button>
+          )}
+        </div>
+      )}
+    </span>
   );
 }

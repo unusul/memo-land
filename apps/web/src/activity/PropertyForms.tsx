@@ -81,7 +81,7 @@ export function PropertyForm({ chip, activity: a, group, groups, me, personalGro
         <input aria-label="Condizione" placeholder="es. chiusura della ops 412" required value={value} onChange={e => { setValue(e.target.value); setLinked(''); }} />
         <WaitedActivity self={a} linked={linked} text={value} onLink={(id, title) => { setLinked(id); if (id) setValue(title); }} />
       </>}
-      <button className="btn primary" type="submit" disabled={chip === 'assignment' && !group}>{chip === 'groupId' && a.groupId !== null ? 'Sposta' : editing ? 'Salva' : 'Aggiungi'}</button>
+      <button className="btn primary" type="submit" disabled={chip === 'assignment' && !group}>{chip === 'groupId' ? (a.groupId !== null ? 'Sposta' : editing ? 'Salva' : 'Aggiungi') : 'Salva'}</button>
     </form>
   );
 }

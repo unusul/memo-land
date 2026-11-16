@@ -1,11 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { readBytes } from '../capture/CaptureSheet.js';
 import { shrinkImage } from '../capture/images.js';
 import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, archive, backToDraft, can, claim, complete, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, archive, assign, backToDraft, can, claim, complete, setProp, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
@@ -26,6 +27,8 @@ import { CopyButton } from './CopyButton.js';
 import { Disclosure } from '../shell/Disclosure.js';
 import { useBackLayer } from '../shell/back.js';
 import { Icon } from '../shell/icons.js';
+import { MenuChoice, PopMenu } from '../shell/PopMenu.js';
+import { DatePicker } from './DatePicker.js';
 import { SnoozeForm } from './SnoozeForm.js';
 import { describeRepeat, isWeekly } from './timing.js';
 import type { ActionKind } from './actions.js';
@@ -34,6 +37,11 @@ import { TextFields } from './TextFields.js';
 import { PropertyForm } from './PropertyForms.js';
 import type { Chip } from './PropertyForms.js';
 
+/** The chips that open a menu under themselves instead of a form (user's choice, 2026-11-16). */
+type InlineKey = 'priority' | 'assignment' | 'due';
+const INLINE: ReadonlySet<Chip> = new Set<Chip>(['priority', 'assignment', 'due']);
+/** The properties with more fields at once: a panel under the chip or row, over the page (user's choice, 2026-11-16). */
+const PANEL: ReadonlySet<Chip> = new Set<Chip>(['schedule', 'repeat', 'waitingFor']);
 const CHIP_PROPS: readonly PropKey[] = ['due', 'schedule', 'repeat', 'assignment', 'waitingFor', 'priority'];
 const ACTION_LABEL: Record<ActionKind, string> = {
   accept: 'Accetta', reject: 'Rifiuta…', release: 'Lascia…', claim: 'Me la prendo', cover: 'Copro io questa', complete: 'Fatto', reopenOccurrence: 'Togli fatta',
@@ -77,6 +85,19 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   // The phone's back closes the activity as Chiudi does (a list group's page is the group's, not a layer of its own).
   const closeOnBack = useRef<() => void>(() => onClose());
   useBackLayer(!asGroupList, () => closeOnBack.current());
+  // A panel (Data e ora, Ripeti, In attesa di) opens over the page under what was tapped; a press outside it closes it
+  // saving what was changed, as the phone's back does (user's choice, 2026-11-16). Esc closes it without saving.
+  const panelBox = useRef<HTMLSpanElement | null>(null);
+  const savePanel = useRef<() => void>(() => undefined);
+  const [panelPlace, setPanelPlace] = useState({ left: 0, width: 360 });
+  useEffect(() => {
+    if (!form || !PANEL.has(form as Chip)) return;
+    // All of it in sight: a panel opened low on the page would end under the bottom bar.
+    panelBox.current?.querySelector('.panel')?.scrollIntoView?.({ block: 'nearest' });
+    const away = (e: PointerEvent) => { if (!panelBox.current?.contains(e.target as Node)) savePanel.current(); };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, [form]);
 
   const a = local ?? [...ws.activities, ...ws.drafts].find(x => x.id === activityId);
   const isNew = local !== null;
@@ -121,6 +142,23 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   }
 
   closeOnBack.current = () => void close();
+  savePanel.current = () => {
+    const next = pending.current;
+    if (next) void run(next, () => setForm(null));
+    else setForm(null);
+  };
+  /** Opens a panel under `anchor`, kept inside the screen with a 16px margin on each side. */
+  function openPanel(k: Chip, anchor: Element) {
+    if (form === k) return savePanel.current();
+    const at = anchor.getBoundingClientRect();
+    const width = Math.min(360, window.innerWidth - 32);
+    setPanelPlace({ width, left: Math.max(16 - at.left, Math.min(0, window.innerWidth - 16 - width - at.left)) });
+    setForm(k);
+  }
+  const panelOf = (k: Chip) => form === k && (
+    <div className="menu panel" role="dialog" aria-label={k === 'groupId' ? 'Gruppo' : PROP_LABEL[k]} style={{ left: panelPlace.left, width: panelPlace.width }}
+      onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setForm(null); } }}>{propForm}</div>
+  );
 
   /** The activity first, then its files, then the activity again with them. Offline it becomes a draft, with its files. */
   async function create(it: Activity) {
@@ -213,6 +251,40 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
     }
   }
 
+  // Who a list item can go to: the person first, then the others; none in the personal group or on a draft.
+  const listMembers = group && group.kind !== 'personal' ? [me, ...Object.keys(group.members).filter(m => m !== me)] : undefined;
+  /** Sets a property chosen in a chip's menu, as a form's Aggiungi did, and counts the use for the chips' order. */
+  const applyInline = (k: InlineKey, next: () => Activity) => run(next, () => setUsage(noteUse(me, k)));
+  // A chip whose value is one choice among a few opens a menu under itself; the others keep their form below the chips.
+  // A function, not a component: a component declared here would be a new one at each render, and lose its open menu.
+  function inlineChip(k: InlineKey) {
+    return <PopMenu key={k} label={`+ ${PROP_LABEL[k]}`} menuLabel={PROP_LABEL[k]}>{inlineChoices(k)}</PopMenu>;
+  }
+  /**
+   * The choices of a chip's menu, the same for the row of a property already set, where the value now is marked; there
+   * Priorità also offers «Normale», which takes it away.
+   */
+  function inlineChoices(k: InlineKey) {
+    const it = a!;
+    return (close: () => void) => {
+      const set = (next: () => Activity) => { close(); void applyInline(k, next); };
+      if (k === 'priority') {
+        const now = it.props.priority;
+        return <>
+          <MenuChoice label="Alta" checked={now === 'high'} onChoose={() => set(() => setProp(it, 'priority', 'high', me, instantNow()))} />
+          {now !== undefined && <MenuChoice label="Normale" onChoose={() => set(() => removeProp(it, 'priority', me, instantNow()))} />}
+          <MenuChoice label="Bassa" checked={now === 'low'} onChoose={() => set(() => setProp(it, 'priority', 'low', me, instantNow()))} />
+        </>;
+      }
+      if (k === 'assignment') return group ? <>
+        {[me, ...Object.keys(group.members).filter(m => m !== me)].map(m => (
+          <MenuChoice key={m} label={m === me ? 'a me' : shortName(m)} checked={it.props.assignment?.assignee === m}
+            onChoose={() => set(() => assign(it, m, me, role, instantNow()))} />
+        ))}
+      </> : <span className="menu-note">Prima mettila in un gruppo.</span>;
+      return <DatePicker label="Scadenza" value={it.props.due?.slice(0, 10) ?? ''} onChange={day => set(() => setProp(it, 'due', day, me, instantNow()))} />;
+    };
+  }
   const chips: Chip[] = [...(a.groupId === null ? ['groupId' as const] : []), ...rankProps(usage, CHIP_PROPS).filter(k => !a.props[k])];
   // A weekly series says its days and their times in Ripeti: the date it starts from is no row of its own.
   const set = CHIP_PROPS.filter(k => a.props[k] !== undefined && !(isWeekly(a.props.repeat) && (k === 'due' || k === 'schedule')));
@@ -250,7 +322,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>
       )}
       {/* A list group's page starts with the list: it is what the group is for. */}
-      {asGroupList && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} copy={!isNew && <CopyButton activity={a} />} />}
+      {asGroupList && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} members={listMembers} copy={!isNew && <CopyButton activity={a} />} />}
       {isNew ? (
         <div className="text-fields">
           <input className="title-field" aria-label="Titolo" autoFocus placeholder="Cosa c'è da fare?" value={a.title} onChange={e => setLocal({ ...a, title: e.target.value })} />
@@ -263,7 +335,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       {isNew
         ? files.length > 0 && <ul className="attachments">{files.map((f, i) => <li key={i}>{f.name} <button type="button" className="link" aria-label={`Togli ${f.name}`} onClick={() => setFiles(l => l.filter((_, j) => j !== i))}>togli</button></li>)}</ul>
         : <Attachments activity={a} />}
-      {!asGroupList && (a.checklist || listOpen) && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} />}
+      {!asGroupList && (a.checklist || listOpen) && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} members={listMembers} />}
       <dl className="kv">
         {/* A list group's page says the group above, and a list is always an "idea": neither row tells anything there. */}
         {!asGroupList && <>
@@ -273,13 +345,15 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         </>}
         {set.map(k => (
           <PropRow key={k} label={PROP_LABEL[k]} value={describe(a, k)} editing={form === k}
-            onEdit={editable(k) ? () => setForm(form === k ? null : k) : undefined}
+            onEdit={editable(k) && !INLINE.has(k) ? (e => (PANEL.has(k) ? openPanel(k, e.currentTarget) : setForm(form === k ? null : k))) : undefined}
+            panel={PANEL.has(k) ? panelOf(k) : undefined} boxRef={form === k && PANEL.has(k) ? panelBox : undefined}
+            menu={editable(k) && INLINE.has(k) ? inlineChoices(k as InlineKey) : undefined}
             onRemove={removable(k) && !startsTheSeries(k) ? () => run(() => removeProp(a, k, me, instantNow())) : undefined}
             note={editable(k) && startsTheSeries(k) ? 'per toglierla, togli prima Ripeti' : undefined} />
         ))}
         {occ && <><dt>Occorrenza</dt><dd>{occ.start.replace('T', ' ')} · {occ.assignee ? shortName(occ.assignee) : 'libera'}{occ.coveredFor ? ` (copre ${shortName(occ.coveredFor)})` : ''}{occ.done ? ' · fatta' : ''}{occ.skipped ? ' · saltata' : ''}{movedNote(occ) ? ` · ${movedNote(occ)}` : ''}</dd></>}
       </dl>
-      {editingSet && propForm}
+      {editingSet && !PANEL.has(form as Chip) && propForm}
 
       {!isNew && actions.length > 0 && (
         <div className="btns">
@@ -310,15 +384,20 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
           {/* Most used first: the order says it, the label need not. */}
           <p className="label">Aggiungi proprietà</p>
           <div className="chips">
-            {chips.map(k => (
+            {chips.map(k => (INLINE.has(k) ? inlineChip(k as InlineKey) : PANEL.has(k) ? (
+              <span key={k} className="attach" ref={form === k ? panelBox : undefined}>
+                <button className="chip" aria-pressed={form === k} onClick={e => openPanel(k, e.currentTarget)}>+ {PROP_LABEL[k as PropKey]}</button>
+                {!editingSet && panelOf(k)}
+              </span>
+            ) : (
               <button key={k} className="chip" aria-pressed={form === k} onClick={() => setForm(form === k ? null : k)}>
                 + {k === 'groupId' ? 'Gruppo' : PROP_LABEL[k]}
               </button>
-            ))}
+            )))}
             {!a.checklist && !listOpen && !asGroupList && <button className="chip" onClick={() => setListOpen(true)}>+ Lista</button>}
             <AttachMenu disabled={saving} onFiles={f => void addFiles(f)} />
           </div>
-          {!editingSet && propForm}
+          {!editingSet && !PANEL.has(form as Chip) && propForm}
         </>
       )}
 
@@ -343,14 +422,24 @@ function HighlightButton({ id, me }: { id: string; me: string }) {
   );
 }
 
-function PropRow({ label, value, editing, onEdit, onRemove, note }: {
-  label: string; value: string; editing: boolean; onEdit?: (() => void) | undefined; onRemove?: (() => void) | undefined; note?: string | undefined;
+function PropRow({ label, value, editing, onEdit, onRemove, note, menu, panel, boxRef }: {
+  label: string; value: string; editing: boolean; onEdit?: ((e: React.MouseEvent<HTMLButtonElement>) => void) | undefined; onRemove?: (() => void) | undefined; note?: string | undefined;
+  /** The panel open under the value, over the page, and the box a press outside of closes it. */
+  panel?: ReactNode; boxRef?: React.Ref<HTMLSpanElement> | undefined;
+  /** The value opens this menu under itself instead of a form under the row. */
+  menu?: ((close: () => void) => ReactNode) | undefined;
 }) {
   return (
     <>
       <dt>{label}</dt>
       <dd>
-        {onEdit ? <button className="link value" aria-label={`Modifica ${label}`} aria-expanded={editing} onClick={onEdit}>{value}</button> : value}
+        {menu ? <PopMenu className="link value" buttonLabel={`Modifica ${label}`} label={value} menuLabel={label}>{menu}</PopMenu>
+          : onEdit ? (
+            <span className="attach" ref={boxRef}>
+              <button className="link value" aria-label={`Modifica ${label}`} aria-expanded={editing} onClick={onEdit}>{value}</button>
+              {panel}
+            </span>
+          ) : value}
         {onRemove && <button className="link" aria-label={`Togli ${label}`} onClick={onRemove}>togli</button>}
         {note && <span className="muted"> · {note}</span>}
       </dd>

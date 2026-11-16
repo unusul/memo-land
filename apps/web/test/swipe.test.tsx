@@ -56,6 +56,25 @@ test('testSwipeRowWithoutThatAction', () => {
   expect(left).not.toHaveBeenCalled();
 });
 
+/**
+ * A finger that moved often gives no click after the swipe: the next tap on the row must not be swallowed in its place.
+ * Before 2026-11-16 the row waited for that click forever, and ate the next real tap (the × of a list item).
+ */
+test('testATapAfterASwipeWithoutClickGoesThrough', () => {
+  const left = vi.fn(), clicked = vi.fn();
+  render(<SwipeRow left={{ label: 'Assegna', icon: 'me', tone: 'later', run: left }}><button onClick={clicked}>riga</button></SwipeRow>);
+  const row = screen.getByRole('button', { name: 'riga' });
+  fireEvent.pointerDown(row, { clientX: 300, clientY: 300, pointerId: 1, pointerType: 'touch' });
+  fireEvent.pointerMove(row, { clientX: 200, clientY: 300, pointerId: 1, pointerType: 'touch' });
+  fireEvent.pointerMove(row, { clientX: 150, clientY: 300, pointerId: 1, pointerType: 'touch' });
+  fireEvent.pointerUp(row, { clientX: 150, clientY: 300, pointerId: 1, pointerType: 'touch' });
+  expect(left).toHaveBeenCalledOnce();
+  fireEvent.pointerDown(row, { clientX: 300, clientY: 300, pointerId: 2, pointerType: 'touch' });
+  fireEvent.pointerUp(row, { clientX: 300, clientY: 300, pointerId: 2, pointerType: 'touch' });
+  fireEvent.click(row);
+  expect(clicked).toHaveBeenCalledOnce();
+});
+
 /** In the agenda, towards the right is Fatto for that occurrence, with Annulla that puts it back as it was. */
 test('testAgendaSwipeRightIsDoneWithUndo', async () => {
   const s = memorySession(PIPPO);

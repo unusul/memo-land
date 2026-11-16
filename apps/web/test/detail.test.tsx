@@ -56,7 +56,6 @@ test('testAddDueDateTurnsIdeaIntoTask', async () => {
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.groupId).toBe(`personal:${PIPPO}`));
   userClick(/^\+ Scadenza/);
   pickDate('Scadenza', '2026-11-20');
-  userClick('Aggiungi');
   expect(await screen.findByText('cosa da fare')).toBeTruthy();
 });
 

@@ -82,12 +82,19 @@ export interface ChecklistItem {
   id: string;
   text: string;
   done: boolean;
+  /**
+   * Who takes this item: a member's account, or a name typed for someone outside the group (user's choice, 2026-11-16).
+   * A hint for the others, nothing more (no agenda, no notice).
+   */
+  assignee?: string;
 }
 
 export interface Checklist {
   items: ChecklistItem[];
   /** A fixed list keeps its items when a recurring activity is completed, only unticked; otherwise ticked items go. */
   fixed: boolean;
+  /** Items can go to one person each; off unless switched on (user's choice, 2026-11-16). */
+  assignable?: boolean;
   /** Every text the list has seen, with how many times it was added: the suggestions while typing. */
   known: Record<string, number>;
   /** Last item number handed out, so item ids never repeat within the list. */

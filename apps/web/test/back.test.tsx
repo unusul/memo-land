@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { Shell } from '../src/shell/Shell.js';
-import { PIPPO, memorySession, renderWithSession, userClick, pickDate } from './memory-session.js';
+import { PIPPO, memorySession, renderWithSession, userClick, pickDate, pickDateTime } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -24,12 +24,13 @@ test('testBackClosesTheDetailSavingTheOpenForm', async () => {
   fireEvent.click(within(await nav()).getByRole('button', { name: /^Io/ }));
   fireEvent.click(await screen.findByText('app gestione core'));
   await screen.findByRole('heading', { name: 'app gestione core' });
-  userClick(/^\+ Scadenza/);
-  pickDate('Scadenza', '2026-11-20');
+  // Data e ora keeps its form (Scadenza now applies from its menu at once, with nothing left open).
+  userClick(/^\+ Data e ora/);
+  pickDateTime('Data e ora', '2026-11-20T10:10');
   await back();
-  expect(await screen.findByText('Scadenza salvata')).toBeTruthy();
+  expect(await screen.findByText('Data e ora salvata')).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'app gestione core' })).toBeNull();
-  expect((await s.primary.getActivity('idea')).activity.props.due).toBe('2026-11-20');
+  expect((await s.primary.getActivity('idea')).activity.props.schedule?.start).toBe('2026-11-20T10:10');
 });
 
 /** With nothing open, back walks back: the group's page, then Noi, then the agenda. */

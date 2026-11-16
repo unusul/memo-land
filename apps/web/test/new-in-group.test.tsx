@@ -36,7 +36,6 @@ test('testNewActivityIsSavedWithItsPropertiesAndFiles', async () => {
   userType(within(detail()).getByLabelText('Titolo'), 'preparare la demo');
   userClick('+ Scadenza');
   pickDate('Scadenza', '2026-11-20');
-  userClick('Aggiungi');
   expect(await created(s, 'preparare la demo')).toBeUndefined();
   firePaste(detail(), new File([new Uint8Array([1, 2])], 'schema.png', { type: 'image/png' }));
   await screen.findByText('schema.png');
@@ -55,7 +54,6 @@ test('testClosingWithoutATitleDiscards', async () => {
   const s = await plusInDevelopers();
   userClick('+ Scadenza');
   pickDate('Scadenza', '2026-11-20');
-  userClick('Aggiungi');
   userClick('Indietro');
   await screen.findByRole('region', { name: 'Elenco di developers' });
   expect((await s.primary.listActivities('inv:developers')).map(a => a.title).sort()).toEqual(['Analisi costi']);

@@ -106,7 +106,7 @@ test('testRepeatFormShowsTheStartAndWritesTheRule', async () => {
   userClick('ven');
   // The days come with a time already written; emptied, the series is of whole days and starts from a due date.
   userType(screen.getByLabelText('Inizio lun'), '');
-  userClick('Aggiungi');
+  userClick('Salva');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props).toMatchObject({
     due: '2026-11-04', repeat: { mode: 'calendar', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,FR' },
   }));
@@ -125,7 +125,7 @@ test('testTheStartIsAskedOnlyFromCambia', async () => {
   userClick('Cambia la partenza');
   expect(pickedDate('Parte dal')).toBe('2026-11-04');
   pickDate('Parte dal', '2026-11-09');
-  userClick('Aggiungi');
+  userClick('Salva');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props).toMatchObject({
     schedule: { start: '2026-11-09T23:00', end: '2026-11-09T23:59' }, repeat: { mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=MO' },
   }));
@@ -140,7 +140,7 @@ test('testRepeatOnDatedActivityStartsFromItsDate', async () => {
   expect(screen.getByText(/parte dalla scadenza, 2026-11-06/)).toBeTruthy();
   userType(screen.getByLabelText('Unità di ripetizione'), 'month');
   userType(screen.getByLabelText('Modo'), 'fromCompletion');
-  userClick('Aggiungi');
+  userClick('Salva');
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.repeat)
     .toEqual({ mode: 'fromCompletion', every: { unit: 'month', count: 1 } }));
 });

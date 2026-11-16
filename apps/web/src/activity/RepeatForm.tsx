@@ -93,7 +93,7 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
           : asking
             ? <span className="repeat-start"><span className="muted">parte dal</span><DatePicker label="Parte dal" value={from} onChange={setFrom} /></span>
             : <span className="repeat-start muted">parte da oggi · <button type="button" className="link" aria-label="Cambia la partenza" onClick={() => setAsking(true)}>cambia</button></span>}
-        <button className="btn primary" type="submit" disabled={!valid}>{a.props.repeat ? 'Salva' : 'Aggiungi'}</button>
+        <button className="btn primary" type="submit" disabled={!valid}>Salva</button>
       </form>
     </div>
   );

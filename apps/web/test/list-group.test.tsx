@@ -51,7 +51,6 @@ test('testListGroupShowsTheListsActivityWithItsProperties', async () => {
   expect(screen.queryByLabelText('Titolo')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '+ Scadenza' }));
   pickDate('Scadenza', '2026-11-14');
-  fireEvent.click(screen.getByRole('button', { name: 'Aggiungi' }));
   await waitFor(async () => expect((await s.primary.getActivity('inv:spesa#list')).activity.props.due).toBe('2026-11-14'));
 });
 

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { addItem, complete, editItem, moveItem, removeItem, setListFixed, splitQuantity, suggestItems, toggleItem } from '../src/index.js';
+import { addItem, assignItem, complete, setListAssignable, editItem, moveItem, removeItem, setListFixed, splitQuantity, suggestItems, toggleItem } from '../src/index.js';
 import { base, t1, t2, task } from './fixtures.js';
 
 const texts = (a: typeof base) => a.checklist?.items.map(i => `${i.done ? 'x' : ' '} ${i.text}`);
@@ -123,4 +123,25 @@ test('testCompletingAOneOffActivityKeepsItsList', () => {
   let a = addItem(task, 'latte', 'u1', t1);
   a = toggleItem(a, a.checklist!.items[0]!.id, 'u1', t1);
   expect(texts(complete(a, 'u1', '2026-11-10', t2))).toEqual(['x latte']);
+});
+
+test('testListsAreNotAssignableUntilSwitchedOn', () => {
+  const a = addItem(task, 'latte', 'u1', t1);
+  expect(a.checklist?.assignable).toBeUndefined();
+  expect(setListAssignable(a, true, 'u1', t2).checklist).toMatchObject({ assignable: true, items: [expect.objectContaining({ text: 'latte' })] });
+});
+
+/** An item goes to one person (user's choice, 2026-11-16); null takes it back. Editing or ticking keeps who has it. */
+test('testAssignAnItemAndTakeItBack', () => {
+  let a = addItem(addItem(task, 'latte', 'u1', t1), 'pane', 'u1', t1);
+  a = assignItem(a, 'i1', 'pluto', 'u1', t2);
+  expect(a.checklist?.items.map(i => i.assignee)).toEqual(['pluto', undefined]);
+  expect(a.updatedAt).toBe(t2);
+  a = toggleItem(editItem(a, 'i1', 'latte 2', 'u1', t2), 'i1', 'u1', t2);
+  expect(a.checklist?.items[0]).toMatchObject({ text: 'latte 2', done: true, assignee: 'pluto' });
+  a = assignItem(a, 'i1', null, 'u1', t2);
+  expect(a.checklist?.items[0]).not.toHaveProperty('assignee');
+  expect(assignItem(a, 'i2', '  nonna ', 'u1', t2).checklist?.items[1]?.assignee).toBe('nonna');
+  expect(assignItem(assignItem(a, 'i2', 'nonna', 'u1', t2), 'i2', '  ', 'u1', t2).checklist?.items[1]).not.toHaveProperty('assignee');
+  expect(() => assignItem(a, 'i9', 'pluto', 'u1', t2)).toThrow(expect.objectContaining({ code: 'NOT_FOUND' }));
 });

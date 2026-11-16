@@ -139,16 +139,15 @@ test('testAssigneeReleasesIt', async () => {
   expect((await s.primary.getActivity('backup')).activity.history.at(-1)?.kind).toBe('released');
 });
 
-/** Who edits the group changes the assignee from the Assegna row. */
+/** Who edits the group changes the assignee from the Assegna row: its menu marks who has it now, a choice applies. */
 test('testEditorChangesTheAssignee', async () => {
   const s = memorySession(PIPPO);
   renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, s);
   await screen.findByLabelText('Titolo');
   fireEvent.click(screen.getByRole('button', { name: 'Modifica Assegna' }));
-  const select = screen.getByLabelText('Assegna a') as HTMLSelectElement;
-  expect(select.value).toBe(PIPPO);
-  fireEvent.change(select, { target: { value: 'pluto@altereos.com' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+  const menu = screen.getByRole('menu', { name: 'Assegna' });
+  expect(within(menu).getByRole('menuitemradio', { name: 'a me' }).getAttribute('aria-checked')).toBe('true');
+  fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'pluto' }));
   await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.props.assignment)
     .toEqual({ state: 'proposed', assignee: 'pluto@altereos.com', assignedBy: PIPPO }));
 });
