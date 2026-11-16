@@ -68,7 +68,7 @@ test('testMoveThisOccurrenceShowsOnBothDays', async () => {
   expect(within(left).getByText('spostata a ven 6 nov alle 20:00')).toBeTruthy();
   expect(within(arrived).getByText('spostata da mar 3 nov')).toBeTruthy();
   expect(arrived.className).not.toMatch(/\bdone\b/);
-  expect(within(arrived).getByText('20:00')).toBeTruthy();
+  expect(within(arrived).getByText('20:00–20:30')).toBeTruthy();
   fireEvent.click(arrived);
   cleanup();
 

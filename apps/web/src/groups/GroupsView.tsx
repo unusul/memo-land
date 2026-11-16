@@ -17,6 +17,7 @@ import { configFromInvite, googleConfigOf, inviteLink } from '../session/google-
 import { useWs } from '../workspace/useWorkspace.js';
 import { useBackLayer } from '../shell/back.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
+import { MenuChoice, PopMenu } from '../shell/PopMenu.js';
 import { GoogleGroupWizard, InviteLink, appBase } from './GoogleGroupWizard.js';
 
 export const groupName = (g: Group) => (g.kind === 'personal' ? 'Idee personali' : g.name);
@@ -178,7 +179,6 @@ function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { gro
   // On a Google project the identity is the Google account that signed in there.
   const account = engine?.account ?? session.account;
   const google = googleConfigOf(engine);
-  const [inviting, setInviting] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('member');
   const [leaving, setLeaving] = useState(false);
@@ -190,9 +190,9 @@ function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { gro
   const owner = g.kind === 'invite' && mine === 'owner';
   const canLeave = g.kind !== 'personal' && g.ownerId !== account;
 
-  async function invite(e: React.FormEvent) {
+  async function invite(e: React.FormEvent, close: () => void) {
     e.preventDefault();
-    try { await ws.saveGroup(addMember(g, email.trim().toLowerCase(), role, account)); setInviting(false); setEmail(''); setProblem(null); } catch (err) { setProblem(errorText(err)); }
+    try { await ws.saveGroup(addMember(g, email.trim().toLowerCase(), role, account)); close(); setEmail(''); setProblem(null); } catch (err) { setProblem(errorText(err)); }
   }
 
   /** Activities is the absence of a type, as on groups made before types. */
@@ -250,17 +250,23 @@ function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { gro
       <ul className="people">
         {Object.entries(g.members).map(([m, r]) => <li key={m}><span>{m === account ? 'tu' : shortName(m)}</span><span className="muted small">{ROLE_LABEL[r]}</span></li>)}
       </ul>
-      {can(g, account, 'invite') && !inviting && <button className="btn" aria-label={`Invita in ${label}`} onClick={() => setInviting(true)}><Icon name="invite" size={18} /> Invita</button>}
-      {inviting && (
-        <form className="form" onSubmit={invite}>
-          <input aria-label="Email" type="email" required autoFocus placeholder="nome@esempio.it" value={email} onChange={e => setEmail(e.target.value)} />
-          <select aria-label="Ruolo" value={role} onChange={e => setRole(e.target.value as Role)}>
-            <option value="member">membro</option>
-            <option value="guest">ospite</option>
-          </select>
-          <button className="btn primary" type="submit" disabled={!email.trim()}>Invia invito</button>
-          <button className="btn" type="button" onClick={() => setInviting(false)}>Annulla</button>
-        </form>
+      {/* A panel under Invita, over the page (2026-11-16). A press outside closes it keeping what was typed: sending an
+          invite stays a tap of its own. */}
+      {can(g, account, 'invite') && (
+        <PopMenu className="btn" buttonLabel={`Invita in ${label}`} label={<><Icon name="invite" size={18} /> Invita</>} menuLabel={`Invita in ${label}`} panel>
+          {close => (
+            <form className="form" onSubmit={e => void invite(e, close)}>
+              <input aria-label="Email" type="email" required autoFocus placeholder="nome@esempio.it" value={email} onChange={e => setEmail(e.target.value)} />
+              <PopMenu className="btn" buttonLabel="Ruolo" label={`${role === 'member' ? 'membro' : 'ospite'} ▾`} menuLabel="Ruolo" roomBelow={120}>
+                {closeRole => (['member', 'guest'] as const).map(r => (
+                  <MenuChoice key={r} label={r === 'member' ? 'membro' : 'ospite'} checked={role === r} onChoose={() => { setRole(r); closeRole(); }} />
+                ))}
+              </PopMenu>
+              <button className="btn primary" type="submit" disabled={!email.trim()}>Invia invito</button>
+              <button className="btn" type="button" onClick={() => { setEmail(''); close(); }}>Annulla</button>
+            </form>
+          )}
+        </PopMenu>
       )}
       {google && can(g, account, 'invite') && <InviteLink link={inviteLink(google, appBase())} />}
       <p className="label">Barra in basso</p>

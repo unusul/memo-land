@@ -6,7 +6,7 @@ import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, archive, assign, backToDraft, can, claim, complete, setProp, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, archive, assign, backToDraft, can, claim, complete, groupTypeOf, moveBetweenGroups, moveToGroup, setProp, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
@@ -27,7 +27,7 @@ import { CopyButton } from './CopyButton.js';
 import { Disclosure } from '../shell/Disclosure.js';
 import { useBackLayer } from '../shell/back.js';
 import { Icon } from '../shell/icons.js';
-import { MenuChoice, PopMenu } from '../shell/PopMenu.js';
+import { MenuChoice, PopMenu, panelFit } from '../shell/PopMenu.js';
 import { DatePicker } from './DatePicker.js';
 import { SnoozeForm } from './SnoozeForm.js';
 import { describeRepeat, isWeekly } from './timing.js';
@@ -150,9 +150,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   /** Opens a panel under `anchor`, kept inside the screen with a 16px margin on each side. */
   function openPanel(k: Chip, anchor: Element) {
     if (form === k) return savePanel.current();
-    const at = anchor.getBoundingClientRect();
-    const width = Math.min(360, window.innerWidth - 32);
-    setPanelPlace({ width, left: Math.max(16 - at.left, Math.min(0, window.innerWidth - 16 - width - at.left)) });
+    setPanelPlace(panelFit(anchor));
     setForm(k);
   }
   const panelOf = (k: Chip) => form === k && (
@@ -257,6 +255,21 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const applyInline = (k: InlineKey, next: () => Activity) => run(next, () => setUsage(noteUse(me, k)));
   // A chip whose value is one choice among a few opens a menu under itself; the others keep their form below the chips.
   // A function, not a component: a component declared here would be a new one at each render, and lose its open menu.
+  /**
+   * Where it can go, as a menu: from the «+ Gruppo» chip of a draft, the Dove row and «Sposta in un gruppo» (2026-11-16).
+   * Not where it is, not where the person is a guest, not into a list group (it would not be seen there).
+   */
+  function groupChoices(close: () => void) {
+    const it = a!;
+    const targets = ws.groups.filter(g => g.id !== it.groupId && roleIn(g, me) !== 'guest' && groupTypeOf(g) !== 'list');
+    if (targets.length === 0) return <span className="menu-note">Nessun altro gruppo.</span>;
+    return targets.map(g => (
+      <MenuChoice key={g.id} label={g.kind === 'personal' ? 'Idee personali' : g.name} onChoose={() => {
+        close();
+        void run(() => (it.groupId === null ? moveToGroup(it, g.id, me, instantNow()) : moveBetweenGroups(it, g.id, me, instantNow())));
+      }} />
+    ));
+  }
   function inlineChip(k: InlineKey) {
     return <PopMenu key={k} label={`+ ${PROP_LABEL[k]}`} menuLabel={PROP_LABEL[k]}>{inlineChoices(k)}</PopMenu>;
   }
@@ -341,7 +354,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         {!asGroupList && <>
           <dt>Forma</dt><dd><span className="pill prop">{SHAPE_LABEL[shape]}</span></dd>
           <PropRow label="Dove" value={group ? `${group.kind === 'personal' ? 'Idee personali' : group.name} · tu: ${ROLE_LABEL[role]}` : 'bozza, la vedi solo tu'}
-            editing={form === 'groupId'} onEdit={movable ? () => setForm(form === 'groupId' ? null : 'groupId') : undefined} />
+            editing={false} menu={movable ? groupChoices : undefined} />
         </>}
         {set.map(k => (
           <PropRow key={k} label={PROP_LABEL[k]} value={describe(a, k)} editing={form === k}
@@ -357,7 +370,12 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
 
       {!isNew && actions.length > 0 && (
         <div className="btns">
-          {actions.map(k => <button key={k} className={`btn${PRIMARY.has(k) ? ' primary' : ''}`} onClick={() => act(k)}>{labelOf(k)}</button>)}
+          {actions.map(k => (k === 'moveToGroup' ? <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Gruppo">{groupChoices}</PopMenu>
+            : k === 'snooze' ? (
+              <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Rimanda" panel>
+                {close => <SnoozeForm me={me} onSnooze={until => { close(); void run(() => snooze(a, until, me, instantNow()), () => onClose()); }} />}
+              </PopMenu>
+            ) : <button key={k} className={`btn${PRIMARY.has(k) ? ' primary' : ''}`} onClick={() => act(k)}>{labelOf(k)}</button>))}
         </div>
       )}
       {form === 'reject' && (
@@ -376,7 +394,6 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       {form === 'moveOccurrence' && occ && (
         <MoveOccurrenceForm from={occ.start} onMove={to => run(() => moveOccurrence(a, occ.key, to, me, role, instantNow()), () => setForm(null))} />
       )}
-      {form === 'snooze' && <SnoozeForm me={me} onSnooze={until => run(() => snooze(a, until, me, instantNow()), () => onClose())} />}
       {problem && <p className="error" role="alert">{problem}</p>}
 
       {canEdit && (
@@ -384,14 +401,14 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
           {/* Most used first: the order says it, the label need not. */}
           <p className="label">Aggiungi proprietà</p>
           <div className="chips">
-            {chips.map(k => (INLINE.has(k) ? inlineChip(k as InlineKey) : PANEL.has(k) ? (
+            {chips.map(k => (k === 'groupId' ? <PopMenu key={k} label="+ Gruppo" menuLabel="Gruppo">{groupChoices}</PopMenu> : INLINE.has(k) ? inlineChip(k as InlineKey) : PANEL.has(k) ? (
               <span key={k} className="attach" ref={form === k ? panelBox : undefined}>
                 <button className="chip" aria-pressed={form === k} onClick={e => openPanel(k, e.currentTarget)}>+ {PROP_LABEL[k as PropKey]}</button>
                 {!editingSet && panelOf(k)}
               </span>
             ) : (
               <button key={k} className="chip" aria-pressed={form === k} onClick={() => setForm(form === k ? null : k)}>
-                + {k === 'groupId' ? 'Gruppo' : PROP_LABEL[k]}
+                + {PROP_LABEL[k]}
               </button>
             )))}
             {!a.checklist && !listOpen && !asGroupList && <button className="chip" onClick={() => setListOpen(true)}>+ Lista</button>}

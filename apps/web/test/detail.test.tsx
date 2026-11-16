@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { costTask, inviteGroup } from '@attivita/core/test/fixtures';
 import { newActivity } from '@attivita/core';
@@ -52,7 +52,7 @@ test('testAddDueDateTurnsIdeaIntoTask', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick('+ Gruppo');
-  userClick('Aggiungi');
+  fireEvent.click(within(screen.getByRole('menu', { name: 'Gruppo' })).getByRole('menuitemradio', { name: 'Idee personali' }));
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.groupId).toBe(`personal:${PIPPO}`));
   userClick(/^\+ Scadenza/);
   pickDate('Scadenza', '2026-11-20');

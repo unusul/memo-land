@@ -42,7 +42,7 @@ test('testPersonalIdeaHasMoveToAGroup', async () => {
   backend.activities.set('libro', newActivity({ id: 'libro', accountId: PIPPO, title: 'Leggere il libro', groupId: `personal:${PIPPO}` }, '2026-11-01T08:00:00Z'));
   renderWithSession(<ActivityDetail activityId="libro" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
   fireEvent.click(await screen.findByRole('button', { name: 'Sposta in un gruppo' }));
-  expect(screen.getByRole('button', { name: 'Modifica Dove' }).getAttribute('aria-expanded')).toBe('true');
+  expect(within(screen.getByRole('menu', { name: 'Gruppo' })).getAllByRole('menuitemradio').length).toBeGreaterThan(0);
 });
 
 /** Someone else's activity in a shared group: no such button (moving it is its author's). */

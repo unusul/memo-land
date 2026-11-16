@@ -86,16 +86,15 @@ test('testOnlyTheAuthorSeesTorna', async () => {
   expect(screen.queryByRole('button', { name: 'Torna bozza' })).toBeNull();
 });
 
-/** Where it is can be changed by its author: the row opens the group choice, without the group it is in. */
+/** Where it is can be changed by its author: the row opens a menu of groups, without the one it is in; a tap moves it. */
 test('testAuthorMovesAnActivityToAnotherGroup', async () => {
   const s = memorySession(PIPPO);
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
   await screen.findByLabelText('Titolo');
   fireEvent.click(screen.getByRole('button', { name: 'Modifica Dove' }));
-  const select = screen.getByLabelText('Gruppo') as HTMLSelectElement;
-  expect([...select.options].map(o => o.textContent)).toEqual(['Idee personali', 'altereos.com']);
-  fireEvent.change(select, { target: { value: 'domain:altereos.com' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Sposta' }));
+  const menu = screen.getByRole('menu', { name: 'Dove' });
+  expect(within(menu).getAllByRole('menuitemradio').map(o => o.textContent)).toEqual(['Idee personali', 'altereos.com']);
+  fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'altereos.com' }));
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.groupId).toBe('domain:altereos.com'));
   expect((await s.primary.getActivity('costi')).activity.props.assignment).toBeUndefined();
 });
@@ -115,11 +114,11 @@ test('testOpenFormClosesWhenTheActivityIsArchivedMeanwhile', async () => {
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
   await screen.findByLabelText('Titolo');
   fireEvent.click(screen.getByRole('button', { name: 'Modifica Dove' }));
-  expect(screen.getByRole('button', { name: 'Sposta' })).toBeTruthy();
+  expect(screen.getByRole('menu', { name: 'Dove' })).toBeTruthy();
   const stored = (await s.primary.getActivity('costi')).activity;
   await s.primary.saveActivity(archive(stored, PIPPO, T), stored.version);
   await screen.findByText('archiviata', {}, { timeout: 3000 });
-  expect(screen.queryByRole('button', { name: 'Sposta' })).toBeNull();
+  expect(screen.queryByRole('menu', { name: 'Dove' })).toBeNull();
 });
 
 /** The role used to show as stored ("owner"): it reads in Italian, as on the group cards. */

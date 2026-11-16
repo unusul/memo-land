@@ -111,7 +111,7 @@ function Item({ it, kind, group, me, high, onOpen }: { it: AgendaItem; kind: Gro
         {it.skipped && <span className="pill">saltata</span>}
         {movedNote(it) && <span className="pill">{movedNote(it)}</span>}
       </span>
-      <span className="time">{it.start.length > 10 ? it.start.slice(11) : 'giorno'}</span>
+      <span className="time">{it.start.length > 10 ? `${it.start.slice(11)}${it.end ? `–${it.end.slice(11)}` : ''}` : 'giorno'}</span>
     </button>
   );
 }
