@@ -1,5 +1,7 @@
 import { fail } from './errors.js';
-import type { AccountId, Activity, Checklist, Instant } from './types.js';
+// A cycle with model.ts (it splits quantities from here): safe, as both only call each other inside functions.
+import { itemKey } from './model.js';
+import type { AccountId, Activity, Checklist, Instant, ListModel } from './types.js';
 
 /*
  * The list inside an activity. Ticking and adding items leave no history entry: a shopping list would bury the
@@ -124,16 +126,25 @@ export function setListFixed(a: Activity, fixed: boolean, _by: AccountId, now: I
   return withList(a, { ...(a.checklist ?? EMPTY), fixed }, now);
 }
 
-/** Texts the list has seen that start with `prefix` (any case) and are not open in it now; most added first. */
-export function suggestItems(a: Activity, prefix: string, limit = 6): string[] {
+/**
+ * Texts the list has seen that start with `prefix` (any case) and are not open in it now; most added first. With a
+ * model, its items follow by name (2026-11-16: a list that had never seen yogurt proposed nothing for «yogu»), leaving
+ * out what is open in the list or already proposed, singular or plural alike.
+ */
+export function suggestItems(a: Activity, prefix: string, limit = 6, model?: ListModel): string[] {
   const list = a.checklist;
   if (!list) return [];
   const p = prefix.trim().toLocaleLowerCase('it');
-  return Object.entries(list.known)
+  const own = Object.entries(list.known)
     .filter(([t]) => t.toLocaleLowerCase('it').startsWith(p) && !list.items.some(i => !i.done && same(nameOf(i.text), t)))
     .sort((x, y) => y[1] - x[1])
-    .slice(0, limit)
     .map(([t]) => t);
+  const taken = new Set([...own, ...list.items.filter(i => !i.done).map(i => i.text)].map(itemKey));
+  const fromModel = Object.values(model?.items ?? {})
+    .map(it => it.name)
+    .filter(n => n.toLocaleLowerCase('it').startsWith(p) && !taken.has(itemKey(n)))
+    .sort((x, y) => x.localeCompare(y, 'it', { sensitivity: 'base' }));
+  return [...own, ...fromModel].slice(0, limit);
 }
 
 /** After a recurring activity is completed: a fixed list is unticked, any other loses its ticked items. */

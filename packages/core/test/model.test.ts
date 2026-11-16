@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import {
   SUPERMARKET_ITEMS, SUPERMARKET_SECTIONS, addItem, addSection, isModel, itemKey, itemsIn, moveSection, newModel, placeItem,
   removeModelItem, removeSection, renameModel, renameSection, sectionOf, setListModel, setModelIcon, sortBySection,
-  toggleItem, unplacedItems,
+  suggestItems, toggleItem, unplacedItems,
 } from '../src/index.js';
 import type { Activity } from '../src/index.js';
 import { base, t1, t2 } from './fixtures.js';
@@ -172,4 +172,20 @@ test('testReadyModelHasNoItemTwice', () => {
     }
   }
   expect(twice).toEqual([]);
+});
+
+/**
+ * With a model the suggestions take its items too (user's choice, 2026-11-16: «yogu» proposed nothing in a list that
+ * had never seen yogurt): the list's own texts first, most used first, then the model's by name; at most 6 in all; an
+ * item open in the list is not proposed, singular or plural alike.
+ */
+test('testSuggestionsTakeTheModelItemsAfterTheListOwn', () => {
+  const m = ready().model!;
+  let l = withItems('yogurt greco');
+  l = toggleItem(l, l.checklist!.items[0]!.id, 'u1', t1);
+  expect(suggestItems(l, 'yogu', 6, m)).toEqual(['yogurt greco', 'yogurt']);
+  expect(suggestItems(withItems('x'), 'Yogu', 6, m)).toEqual(['yogurt']);
+  expect(suggestItems(withItems('zucchine'), 'zucc', 6, m)).toEqual(['zucca', 'zucchero']);
+  expect(suggestItems(withItems('x'), 'p', 6, m)).toHaveLength(6);
+  expect(suggestItems(withItems('x'), 'yogu')).toEqual([]);
 });

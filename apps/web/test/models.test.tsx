@@ -196,3 +196,12 @@ test('testNoModelChoiceInAnActivityList', async () => {
   userClick('+ Lista');
   expect(screen.queryByRole('button', { name: 'Modello della lista' })).toBeNull();
 });
+
+/** With a model, typing proposes its items too: «yogu» gives «yogurt» in a list that never had it. */
+test('testSuggestionsFromTheListModel', async () => {
+  const s = bench({ items: ['lenticchie'], uses: true });
+  await openList(s);
+  userType(screen.getByLabelText('Nuova voce'), 'yogu');
+  fireEvent.click(within(screen.getByRole('list', { name: 'Suggerimenti' })).getByRole('button', { name: 'yogurt' }));
+  await waitFor(async () => expect((await stored(s, LIST)).checklist!.items.map(i => i.text)).toEqual(['lenticchie', 'yogurt']));
+});

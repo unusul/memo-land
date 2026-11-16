@@ -49,7 +49,10 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
   // Ticked items go under a row that opens and closes, as in a notes app: closed each time the list is shown.
   const toDo = items.filter(i => !i.done);
   const ticked = items.filter(i => i.done);
-  const suggestions = text.trim() ? suggestItems(a, text) : [];
+  // The list's model, when the person can see it: a model of a group they are not in stays named, but out of reach.
+  const ws = useWs();
+  const model = ws.models.find(m => m.id === a.checklist?.model);
+  const suggestions = text.trim() ? suggestItems(a, text, 6, model?.model) : [];
 
   // The activity as last shown: Annulla puts back what was before, on top of the version stored by then.
   const latest = useRef(a);
@@ -100,9 +103,6 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
     );
   };
 
-  // The list's model, when the person can see it: a model of a group they are not in stays named, but out of reach.
-  const ws = useWs();
-  const model = ws.models.find(m => m.id === a.checklist?.model);
   const chooseModel = (id: string | null) => void change(() => setListModel(latest.current, id, me, instantNow()));
   // Already in order: nothing to save.
   const sortItems = () => {
