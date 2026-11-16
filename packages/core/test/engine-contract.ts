@@ -43,6 +43,14 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
       expect((await e.getActivity(a.id)).activity.props.priority).toBe(low.props.priority);
     });
 
+    /** A skipped and a moved occurrence (2026-11-16) live in the activity's overrides, next to the covers. */
+    test('testSkippedAndMovedOccurrencesRoundTrip', async () => {
+      const { e, a } = await subject();
+      const overrides = { '2026-10-27T09:00': { skipped: true as const }, '2026-10-29T09:00': { moved: '2026-10-30T20:00', assignee: 'pluto', takenBy: 'pluto' } };
+      await e.saveActivity({ ...a, overrides }, null);
+      expect((await e.getActivity(a.id)).activity.overrides).toEqual(overrides);
+    });
+
     test('testCreateExistingIdConflicts', async () => {
       const { e, a } = await subject();
       await e.saveActivity(a, null);

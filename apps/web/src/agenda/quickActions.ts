@@ -1,4 +1,5 @@
-import { can as allowed, complete, undoTo } from '@attivita/core';
+import { can as allowed, complete, reopenOccurrence, roleIn, skipOccurrence, undoTo } from '@attivita/core';
+import type { Activity } from '@attivita/core';
 import { availableActions } from '../activity/actions.js';
 import { occurrenceAt } from '../activity/occurrence.js';
 import { instantNow, localNow } from '../dates.js';
@@ -10,9 +11,9 @@ import { useWs } from '../workspace/useWorkspace.js';
 import type { OpenTarget } from './AgendaView.js';
 
 /**
- * The swipes of an agenda row: towards the right Fatto, towards the left «Sposta la data» (the activity opens with its
- * date ready to change). Fatto only where the detail offers it, for the same occurrence, and it can be taken back with
- * Annulla; the date only on a one-off activity the person may edit (a series is not moved from one of its rows).
+ * The swipes of an agenda row. Towards the right Fatto, or «Togli fatta» on an occurrence already done; towards the left
+ * «Salta» on one occurrence of a series, «Sposta la data» on a one-off activity (it opens with its date ready to change).
+ * Each only where the detail offers it, for the same occurrence; Fatto and Salta can be taken back with Annulla.
  */
 export function useQuickActions(onOpen: (t: OpenTarget) => void) {
   const ws = useWs();
@@ -26,19 +27,25 @@ export function useQuickActions(onOpen: (t: OpenTarget) => void) {
     const me = ws.engineOf(a.groupId)?.account ?? account;
     const occ = occurrenceAt(a, key);
     const can = availableActions(a, occ, group, me);
-    const done = async () => {
+    const save = async (next: Activity, text: string, undo: boolean) => {
       try {
-        const saved = await ws.save(complete(a, me, occ?.key ?? localNow(), instantNow(), occ?.key));
-        toast({ text: 'Fatta', undo: () => { ws.save(undoTo(a, saved, instantNow())).catch(e => toast({ text: errorText(e) })); } });
+        const saved = await ws.save(next);
+        toast({ text, ...(undo ? { undo: () => { ws.save(undoTo(a, saved, instantNow())).catch(e => toast({ text: errorText(e) })); } } : {}) });
       } catch (e) {
         toast({ text: errorText(e) });
       }
     };
+    const role = group ? roleIn(group, me) ?? 'guest' : 'owner';
     const dateProp = a.props.due !== undefined ? 'due' : a.props.schedule !== undefined ? 'schedule' : null;
     const movable = dateProp && !a.props.repeat && group && allowed(group, me, 'editActivity');
-    return {
-      ...(can.includes('complete') ? { right: { label: 'Fatto', icon: 'check', tone: 'done', run: () => void done() } as SwipeAction } : {}),
-      ...(movable ? { left: { label: 'Sposta la data', icon: 'deadline', tone: 'later', run: () => onOpen({ activityId, form: dateProp }) } as SwipeAction } : {}),
-    };
+    const right: SwipeAction | undefined = can.includes('complete')
+      ? { label: 'Fatto', icon: 'check', tone: 'done', run: () => void save(complete(a, me, occ?.key ?? localNow(), instantNow(), occ?.key), 'Fatta', true) }
+      : can.includes('reopenOccurrence')
+        ? { label: 'Togli fatta', icon: 'reopen', tone: 'done', run: () => void save(reopenOccurrence(a, occ!.key, me, instantNow()), 'Tolta la spunta', false) }
+        : undefined;
+    const left: SwipeAction | undefined = can.includes('skip')
+      ? { label: 'Salta', icon: 'deadline', tone: 'later', run: () => void save(skipOccurrence(a, occ!.key, me, role, instantNow()), 'Saltata', true) }
+      : movable ? { label: 'Sposta la data', icon: 'deadline', tone: 'later', run: () => onOpen({ activityId, form: dateProp }) } : undefined;
+    return { ...(right ? { right } : {}), ...(left ? { left } : {}) };
   };
 }

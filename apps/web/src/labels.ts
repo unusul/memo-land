@@ -1,5 +1,7 @@
 import { DomainError } from '@attivita/core';
 import type { DomainErrorCode, GroupKind, HistoryEntry, Priority, PropKey, Role, Shape } from '@attivita/core';
+import { shortDay } from './activity/DatePicker.js';
+import { whenText } from './activity/occurrence.js';
 
 export const SHAPE_LABEL: Record<Shape, string> = {
   draft: 'bozza', idea: 'idea', waiting: 'in attesa', snoozed: 'rimandata', recurring: 'ricorrente',
@@ -53,6 +55,10 @@ export function historyText(h: HistoryEntry): string {
     case 'conditionMet': return `${who} ha segnato la condizione come avverata`;
     case 'completed': return `${who} l'ha segnata come fatta`;
     case 'occurrenceTaken': return `${who} copre l'occorrenza ${String(d['key']).replace('T', ' ')}`;
+    case 'occurrenceSkipped': return `${who} ha saltato ${shortDay(String(d['key']).slice(0, 10))}`;
+    case 'occurrenceMoved': return `${who} ha spostato ${shortDay(String(d['key']).slice(0, 10))} a ${whenText(String(d['to']))}`;
+    case 'occurrenceRestored': return `${who} ha rimesso ${shortDay(String(d['key']).slice(0, 10))} al suo giorno`;
+    case 'occurrenceReopened': return `${who} ha tolto fatta a ${shortDay(String(d['key']).slice(0, 10))}`;
     case 'unassignedOnLeave': return `${who} è uscito dal gruppo: ${d['reason']}`;
     case 'snoozed': return `${who} l'ha rimandata al ${d['until']}`;
     case 'resumed': return 'è tornata dal rimando';

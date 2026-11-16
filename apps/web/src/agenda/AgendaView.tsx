@@ -9,6 +9,7 @@ import { useWs } from '../workspace/useWorkspace.js';
 import { useAgendaSources } from './sources.js';
 import { useQuickActions } from './quickActions.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
+import { movedNote } from '../activity/occurrence.js';
 
 export const KIND_COLOR: Record<GroupKind, string> = { domain: 'var(--acc-dom)', invite: 'var(--acc-inv)', personal: 'var(--acc-per)' };
 
@@ -54,7 +55,7 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
           <div key={day} className={`day${day === today() ? ' today' : ''}`}>
             <div className="d">{p.weekday}<b>{p.day}</b>{p.month}</div>
             <ul className="items">
-              {items.map(it => <li key={`${it.activityId}|${it.key}`}><SwipeRow {...quick(it.activityId, it.key)}><Item it={it} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
+              {items.map(it => <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
                 high={ws.activities.find(a => a.id === it.activityId)?.props.priority === 'high'} /></SwipeRow></li>)}
             </ul>
           </div>
@@ -84,9 +85,12 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
  * thirds keeping the group's colour. Not in the personal group, where nobody else can take it, nor once it is done.
  */
 function takeOf(it: AgendaItem, kind: GroupKind, me: string): 'free' | 'mine' | 'other' | undefined {
-  if (kind === 'personal' || it.done) return undefined;
+  if (kind === 'personal' || struck(it)) return undefined;
   return !it.assignee ? 'free' : it.assignee === me ? 'mine' : 'other';
 }
+
+/** Done, skipped, or the day a moved occurrence left: struck through, still on its day (user's choice, 2026-11-16). */
+const struck = (it: AgendaItem): boolean => it.done === true || it.skipped === true || it.movedTo !== undefined;
 
 /** A high priority beside the title; normal and low say nothing, so the agenda stays quiet. */
 const High = () => <span className="pill high">alta</span>;
@@ -94,8 +98,9 @@ const High = () => <span className="pill high">alta</span>;
 function Item({ it, kind, group, me, high, onOpen }: { it: AgendaItem; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void }) {
   const who = it.assignee ? (it.assignee === me ? 'tu' : shortName(it.assignee)) : 'libera';
   return (
-    <button className={`item${it.done ? ' done' : ''}`} style={{ '--grp': KIND_COLOR[kind] } as React.CSSProperties}
-      data-take={takeOf(it, kind, me)} onClick={() => onOpen({ activityId: it.activityId, occurrenceKey: it.key })}>
+    // The row's own start opens it: a moved occurrence has two rows with one key.
+    <button className={`item${struck(it) ? ' done' : ''}`} style={{ '--grp': KIND_COLOR[kind] } as React.CSSProperties}
+      data-take={takeOf(it, kind, me)} onClick={() => onOpen({ activityId: it.activityId, occurrenceKey: it.start })}>
       <span className="bar" />
       <span>
         <span className="t">{it.title}</span>{high && <High />}<br />
@@ -103,6 +108,8 @@ function Item({ it, kind, group, me, high, onOpen }: { it: AgendaItem; kind: Gro
         <span className="meta">{kind === 'personal' ? group : `${group} · ${who}`}</span>
         {it.coveredFor && <span className="pill cover">copre {shortName(it.coveredFor)}</span>}
         {it.done && <span className="pill ok">fatta</span>}
+        {it.skipped && <span className="pill">saltata</span>}
+        {movedNote(it) && <span className="pill">{movedNote(it)}</span>}
       </span>
       <span className="time">{it.start.length > 10 ? it.start.slice(11) : 'giorno'}</span>
     </button>

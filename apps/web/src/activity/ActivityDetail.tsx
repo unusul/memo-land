@@ -6,7 +6,7 @@ import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
   accept, archive, backToDraft, can, claim, complete, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
-  reject, release, removeProp, reopen, roleIn, shapeOf, snooze, takeOccurrence,
+  moveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
 import { instantNow, localNow } from '../dates.js';
@@ -15,7 +15,9 @@ import { useSession } from '../session/SessionContext.js';
 import { loadUsage, noteUse } from '../usage/usageStore.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { availableActions } from './actions.js';
-import { occurrenceAt } from './occurrence.js';
+import { movedNote, occurrenceAt } from './occurrence.js';
+import { MoveOccurrenceForm } from './MoveOccurrenceForm.js';
+import { shortDay } from './DatePicker.js';
 import { isHighlighted, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
 import { Attachments } from './Attachments.js';
 import { Links } from './Links.js';
@@ -34,7 +36,8 @@ import type { Chip } from './PropertyForms.js';
 
 const CHIP_PROPS: readonly PropKey[] = ['due', 'schedule', 'repeat', 'assignment', 'waitingFor', 'priority'];
 const ACTION_LABEL: Record<ActionKind, string> = {
-  accept: 'Accetta', reject: 'Rifiuta…', release: 'Lascia…', claim: 'Me la prendo', cover: 'Copro io questa', complete: 'Fatto',
+  accept: 'Accetta', reject: 'Rifiuta…', release: 'Lascia…', claim: 'Me la prendo', cover: 'Copro io questa', complete: 'Fatto', reopenOccurrence: 'Togli fatta',
+  skip: 'Salta questa volta', moveOccurrence: 'Sposta questa volta…', restore: 'Rimetti',
   met: 'Segna avverata', moveToGroup: 'Sposta in un gruppo', keepAsIdea: 'Tienila come idea', decompose: 'Scomponi…',
   snooze: 'Rimanda…', archive: 'Archivia', toDraft: 'Torna bozza',
 };
@@ -64,7 +67,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const [local, setLocal] = useState<Activity | null>(fresh ?? null);
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<Chip | 'reject' | 'release' | 'decompose' | 'snooze' | null>(initialForm ?? null);
+  const [form, setForm] = useState<Chip | 'reject' | 'release' | 'decompose' | 'snooze' | 'moveOccurrence' | null>(initialForm ?? null);
   const [reason, setReason] = useState('');
   const [usage, setUsage] = useState(() => loadUsage(me));
   const [problem, setProblem] = useState<string | null>(null);
@@ -89,7 +92,12 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const canEdit = !closed && !group?.archived && (a.groupId === null || (group !== null && role !== 'guest'));
 
   // On a list group the button says what completing does: the list ends, or starts again when it repeats.
-  const labelOf = (k: ActionKind) => (asGroupList && k === 'complete' ? (a.props.repeat ? 'Completa e ricomincia' : 'Completa la lista') : ACTION_LABEL[k]);
+  // A moved occurrence goes back to its own day, which the button names.
+  const labelOf = (k: ActionKind) => {
+    if (asGroupList && k === 'complete') return a.props.repeat ? 'Completa e ricomincia' : 'Completa la lista';
+    if (k === 'restore' && occ && !occ.skipped) return `Rimetti al ${shortDay(occ.key.slice(0, 10))}`;
+    return ACTION_LABEL[k];
+  };
 
   async function run(change: () => Activity, after?: () => void): Promise<boolean> {
     try {
@@ -108,7 +116,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   async function close() {
     if (isNew) return create(pending.current ? pending.current() : a!);
     const next = pending.current;
-    if (!next || !form || form === 'reject' || form === 'release' || form === 'decompose' || form === 'snooze') return onClose(undefined);
+    if (!next || !form || form === 'reject' || form === 'release' || form === 'decompose' || form === 'snooze' || form === 'moveOccurrence') return onClose(undefined);
     if (await run(next)) onClose(SAVED[form]);
   }
 
@@ -191,6 +199,10 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       case 'claim': return run(() => claim(it, me, role, now));
       case 'cover': return run(() => takeOccurrence(it, occ!.key, me, role, now));
       case 'complete': return run(() => complete(it, me, occ?.key ?? localNow(), now, occ?.key));
+      case 'reopenOccurrence': return run(() => reopenOccurrence(it, occ!.key, me, now));
+      case 'skip': return run(() => skipOccurrence(it, occ!.key, me, role, now));
+      case 'moveOccurrence': return setForm(form === 'moveOccurrence' ? null : 'moveOccurrence');
+      case 'restore': return run(() => restoreOccurrence(it, occ!.key, me, role, now));
       case 'met': return run(() => markConditionMet(it, me, role, now));
       case 'moveToGroup': return setForm('groupId');
       case 'keepAsIdea': return run(() => keepAsIdea(it, personalGroupId, me, now));
@@ -216,7 +228,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const movable = !isNew && !asGroupList && canEdit && a.groupId !== null && a.accountId === me;
   const editingSet = form !== null && ((set as string[]).includes(form) || (form === 'groupId' && a.groupId !== null));
   // canEdit too: a form left open closes when someone else archives or completes the activity meanwhile.
-  const propForm = canEdit && form && form !== 'reject' && form !== 'release' && form !== 'decompose' && form !== 'snooze' && (
+  const propForm = canEdit && form && form !== 'reject' && form !== 'release' && form !== 'decompose' && form !== 'snooze' && form !== 'moveOccurrence' && (
     <PropertyForm key={form} chip={form} activity={a} group={group} groups={ws.groups} me={me} personalGroupId={personalGroupId} now={instantNow()}
       onApply={next => run(() => next, () => { if (form !== 'groupId' && !editingSet) setUsage(noteUse(me, form)); setForm(null); })}
       onPending={build => { pending.current = build; }} />
@@ -265,7 +277,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
             onRemove={removable(k) && !startsTheSeries(k) ? () => run(() => removeProp(a, k, me, instantNow())) : undefined}
             note={editable(k) && startsTheSeries(k) ? 'per toglierla, togli prima Ripeti' : undefined} />
         ))}
-        {occ && <><dt>Occorrenza</dt><dd>{occ.start.replace('T', ' ')} · {occ.assignee ? shortName(occ.assignee) : 'libera'}{occ.coveredFor ? ` (copre ${shortName(occ.coveredFor)})` : ''}{occ.done ? ' · fatta' : ''}</dd></>}
+        {occ && <><dt>Occorrenza</dt><dd>{occ.start.replace('T', ' ')} · {occ.assignee ? shortName(occ.assignee) : 'libera'}{occ.coveredFor ? ` (copre ${shortName(occ.coveredFor)})` : ''}{occ.done ? ' · fatta' : ''}{occ.skipped ? ' · saltata' : ''}{movedNote(occ) ? ` · ${movedNote(occ)}` : ''}</dd></>}
       </dl>
       {editingSet && propForm}
 
@@ -287,6 +299,9 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         </form>
       )}
       {form === 'decompose' && <DecomposeForm parent={a} onDone={() => onClose()} />}
+      {form === 'moveOccurrence' && occ && (
+        <MoveOccurrenceForm from={occ.start} onMove={to => run(() => moveOccurrence(a, occ.key, to, me, role, instantNow()), () => setForm(null))} />
+      )}
       {form === 'snooze' && <SnoozeForm me={me} onSnooze={until => run(() => snooze(a, until, me, instantNow()), () => onClose())} />}
       {problem && <p className="error" role="alert">{problem}</p>}
 

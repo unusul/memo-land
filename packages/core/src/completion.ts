@@ -28,12 +28,28 @@ export function nextDue(a: Activity): LocalDate | LocalDateTime | undefined {
   return addUnits(a.lastCompletedAt, repeat.every.unit, repeat.every.count);
 }
 
+/** Occurrences done, in history order: a reopen takes one back, a later completion makes it done again. */
 export function completedKeys(a: Activity): Set<OccurrenceKey> {
-  return new Set(a.history.filter(h => h.kind === 'completed' && typeof h.detail?.['key'] === 'string').map(h => h.detail?.['key'] as string));
+  const keys = new Set<OccurrenceKey>();
+  for (const h of a.history) {
+    const key = h.detail?.['key'];
+    if (typeof key !== 'string') continue;
+    if (h.kind === 'completed') keys.add(key);
+    else if (h.kind === 'occurrenceReopened') keys.delete(key);
+  }
+  return keys;
 }
 
+/** Takes back «done» from one occurrence of a calendar series. */
+export function reopenOccurrence(a: Activity, key: OccurrenceKey, by: AccountId, now: Instant): Activity {
+  if (!completedKeys(a).has(key)) fail('INVALID_STATE', `occurrence "${key}" is not done`);
+  return touch(a, { kind: 'occurrenceReopened', detail: { key } }, by, now);
+}
+
+/** The latest occurrence still to do: not done, not skipped, and not the day a moved one left. */
 function currentPendingOccurrence(a: Activity, doneOn: LocalDate | LocalDateTime): OccurrenceKey | undefined {
   const anchor = anchorOf(a);
   if (anchor === undefined) return undefined;
-  return occurrencesBetween(a, asDateTime(anchor), endOfDay(doneOn)).filter(o => !o.done).at(-1)?.key;
+  const open = occurrencesBetween(a, asDateTime(anchor), endOfDay(doneOn)).filter(o => !o.done && !o.skipped && o.movedTo === undefined);
+  return open.at(-1)?.key;
 }

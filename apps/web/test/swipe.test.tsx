@@ -70,7 +70,8 @@ test('testAgendaSwipeRightIsDoneWithUndo', async () => {
 
 /**
  * Towards the left is «Sposta la data»: the activity opens with its date ready to change. Only on one-off activities the
- * person may edit; a series is not moved from one row. (Rimanda was proposed first, but exists for drafts only.)
+ * person may edit; on a series the left is «Salta» (occurrence-changes.test.tsx). (Rimanda was proposed first, but exists
+ * for drafts only.)
  */
 test('testAgendaSwipeLeftMovesTheDate', async () => {
   renderWithSession(<Shell />, memorySession(PIPPO));

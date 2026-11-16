@@ -47,14 +47,21 @@ export type Priority = 'high' | 'low';
 
 export type PropKey = keyof Props;
 
+/** What changes on one occurrence of a series, under its original key. */
 export interface OccurrenceOverride {
-  assignee: AccountId;
-  takenBy: AccountId;
+  /** Set together with takenBy when someone covers the occurrence. */
+  assignee?: AccountId;
+  takenBy?: AccountId;
+  /** The occurrence does not take place; it stays in the agenda, struck through. */
+  skipped?: true;
+  /** The new start (a day for a series of whole days); the duration stays the series'. */
+  moved?: LocalDateTime | LocalDate;
 }
 
 export type HistoryKind =
   | 'created' | 'propSet' | 'propRemoved' | 'assigned' | 'accepted' | 'rejected' | 'released'
   | 'claimed' | 'conditionMet' | 'completed' | 'occurrenceTaken' | 'unassignedOnLeave'
+  | 'occurrenceSkipped' | 'occurrenceMoved' | 'occurrenceRestored' | 'occurrenceReopened'
   | 'snoozed' | 'resumed' | 'archived' | 'reopened' | 'movedToGroup' | 'movedToDrafts' | 'decomposed' | 'textEdited';
 
 export interface HistoryEntry {

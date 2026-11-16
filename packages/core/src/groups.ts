@@ -1,7 +1,7 @@
 import { fail } from './errors.js';
 import { touch, withProps } from './props.js';
 import { DEFAULT_PUBLIC_DOMAINS } from './public-domains.js';
-import type { AccountId, Activity, GroupId, Instant, Role } from './types.js';
+import type { AccountId, Activity, GroupId, Instant, OccurrenceOverride, Role } from './types.js';
 
 export type GroupKind = 'personal' | 'domain' | 'invite';
 /** What the group is for: activities with their properties, or one list to tick. Only invite groups are lists. */
@@ -96,13 +96,19 @@ function dropMember(group: Group, account: AccountId, activities: Activity[], re
   return { group: { ...group, members }, changed };
 }
 
-/** Removes the account's assignment and covers; returns the same reference when nothing changes. */
+/** Removes the account's assignment and covers, keeping skips and moves; returns the same reference when nothing changes. */
 function releaseFrom(a: Activity, account: AccountId, reason: string, by: AccountId, now: Instant): Activity {
   const assigned = a.props.assignment?.assignee === account;
-  const keptOverrides = Object.fromEntries(Object.entries(a.overrides).filter(([, o]) => o.assignee !== account));
-  const coversDropped = Object.keys(keptOverrides).length !== Object.keys(a.overrides).length;
+  const coversDropped = Object.values(a.overrides).some(o => o.assignee === account);
+  const keptOverrides = Object.fromEntries(Object.entries(a.overrides)
+    .map(([k, o]) => [k, o.assignee === account ? withoutCover(o) : o] as const)
+    .filter(([, o]) => Object.keys(o).length > 0));
   if (!assigned && !coversDropped) return a;
   const { assignment: _old, ...rest } = a.props;
   const released = withProps({ ...a, overrides: keptOverrides }, assigned ? rest : a.props);
   return touch(released, { kind: 'unassignedOnLeave', detail: { reason, account } }, by, now);
+}
+
+function withoutCover({ assignee: _a, takenBy: _t, ...rest }: OccurrenceOverride): OccurrenceOverride {
+  return rest;
 }

@@ -16,7 +16,7 @@ export function TodayTitle({ current, onClick }: { current: boolean; onClick(): 
   const { account } = useSession();
   const sources = useAgendaSources();
   const day = today();
-  const open = (buildAgenda(sources, `${day}T00:00`, `${day}T23:59`).days[day] ?? []).filter(it => !it.done).length;
+  const open = (buildAgenda(sources, `${day}T00:00`, `${day}T23:59`).days[day] ?? []).filter(it => !it.done && !it.skipped && it.movedTo === undefined).length;
   const waits = needsAttention(sources, account, day);
   const urgent = [
     ...(waits.overdue.length ? [plural(waits.overdue.length, 'scaduta', 'scadute')] : []),
