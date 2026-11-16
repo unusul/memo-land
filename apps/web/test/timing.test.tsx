@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { calendarStarts } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { describeRepeat, snoozeUntil, toRepeat } from '../src/activity/timing.js';
-import { PIPPO, memorySession, renderWithSession, userClick, userType, pickDate, pickDateTime, pickedDate } from './memory-session.js';
+import { PIPPO, memorySession, renderWithSession, userClick, userType, pickDate, pickDateTime, pickedDate, chooseIn } from './memory-session.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -60,7 +60,7 @@ test('testSnoozeInTwoHoursFromTheDetail', async () => {
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick('Rimanda…');
   userType(screen.getByLabelText('Quanti'), '2');
-  userType(screen.getByLabelText('Unità'), 'hour');
+  chooseIn('Unità', 'hour');
   userClick('Rimanda');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props.resumeAt).toBe('2026-11-05T01:30'));
 });
@@ -81,7 +81,7 @@ test('testUsedSnoozeBecomesAShortcut', async () => {
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick('Rimanda…');
   userType(screen.getByLabelText('Quanti'), '3');
-  userType(screen.getByLabelText('Unità'), 'day');
+  chooseIn('Unità', 'day');
   userClick('Rimanda');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props.resumeAt).toBe('2026-11-07T23:30'));
   view.unmount();
@@ -101,7 +101,7 @@ test('testRepeatFormShowsTheStartAndWritesTheRule', async () => {
   expect(screen.queryByRole('group', { name: 'Parte dal' })).toBeNull();
   expect(screen.getByText(/parte da oggi/)).toBeTruthy();
   userType(screen.getByLabelText('Ogni'), '2');
-  userType(screen.getByLabelText('Unità di ripetizione'), 'week');
+  chooseIn('Unità di ripetizione', 'week');
   userClick('lun');
   userClick('ven');
   // The days come with a time already written; emptied, the series is of whole days and starts from a due date.
@@ -138,8 +138,8 @@ test('testRepeatOnDatedActivityStartsFromItsDate', async () => {
   userClick(/^\+ Ripeti/);
   expect(screen.queryByLabelText('Parte dal')).toBeNull();
   expect(screen.getByText(/parte dalla scadenza, 2026-11-06/)).toBeTruthy();
-  userType(screen.getByLabelText('Unità di ripetizione'), 'month');
-  userType(screen.getByLabelText('Modo'), 'fromCompletion');
+  chooseIn('Unità di ripetizione', 'month');
+  chooseIn('Modo', 'fromCompletion');
   userClick('Salva');
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.repeat)
     .toEqual({ mode: 'fromCompletion', every: { unit: 'month', count: 1 } }));

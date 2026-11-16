@@ -305,9 +305,10 @@ textarea { width: 100%; resize: vertical }
 .check-items .who-menu li { padding: 10px 12px; border-radius: 8px; color: var(--fg); cursor: pointer }
 .check-items .who-menu li:hover { background: var(--surface-2) }
 .check-items .who-menu li[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
-.check-items .who-other { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer }
+.check-items .who-other, .attach .menu .who-other { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer }
 .check-items .who-menu form { margin-top: 4px }
 .check-items .who-menu input { width: 100%; min-height: 40px }
+.attach .menu form input { width: 100%; min-height: 40px }
 .check-items .check-row > button.link { display: grid; place-items: center; min-height: 44px }
 .check-items .check-row > button.link svg { display: block }
 /* The handle: a narrow strip on the left; touch-action none, or the phone scrolls the page instead of dragging. */

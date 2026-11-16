@@ -39,7 +39,7 @@ test('testRepeatFormOpensWithTheCurrentRule', async () => {
   const s = await open('backup', 'Controllo backup');
   userClick('Modifica Ripeti');
   expect((screen.getByLabelText('Ogni') as HTMLInputElement).value).toBe('1');
-  expect((screen.getByLabelText('Unità di ripetizione') as HTMLSelectElement).value).toBe('week');
+  expect(screen.getByRole('button', { name: 'Unità di ripetizione' }).textContent).toBe('settimana ▾');
   const pressed = () => screen.getAllByRole('button', { pressed: true }).map(b => b.textContent);
   expect(pressed()).toEqual(['mar', 'gio']);
   userClick('gio');

@@ -26,7 +26,11 @@ export type Repeat =
   | { mode: 'calendar'; rrule: string; times?: Partial<Record<Weekday, DayTime>> }
   | { mode: 'fromCompletion'; every: { unit: Unit; count: number } };
 
-export type Assignment = { state: 'proposed' | 'accepted'; assignee: AccountId; assignedBy: AccountId };
+/**
+ * `external`: the assignee is a name typed for someone outside the group (user's choice, 2026-11-16), not an account;
+ * nobody can answer for them, so it is taken at once.
+ */
+export type Assignment = { state: 'proposed' | 'accepted'; assignee: AccountId; assignedBy: AccountId; external?: true };
 
 /** `activityId`: the activity waited for; `condition` is then its title, and it comes true when that one is done. */
 export type WaitingFor = { condition: string; activityId?: ActivityId; metAt?: Instant; metBy?: AccountId };

@@ -4,7 +4,7 @@ import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { describeRepeat, nextHour } from '../src/activity/timing.js';
 import { AgendaView } from '../src/agenda/AgendaView.js';
 import { localNow, today } from '../src/dates.js';
-import { memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { memorySession, renderWithSession, userClick, userType, chooseIn } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 
@@ -149,7 +149,7 @@ test('testAMonthlySeriesKeepsItsDate', async () => {
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Analisi costi' });
   userClick(/^\+ Ripeti/);
-  userType(screen.getByLabelText('Unità di ripetizione'), 'month');
+  chooseIn('Unità di ripetizione', 'month');
   userClick('Salva');
   await screen.findByText(/^ogni mese/);
   expect(screen.getByText('Scadenza')).toBeTruthy();

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { archive, decompose } from '@attivita/core';
+import { archive, decompose, groupTypeOf, roleIn } from '@attivita/core';
 import type { Activity, Props } from '@attivita/core';
 import { instantNow, newId, today } from '../dates.js';
 import { errorText } from '../labels.js';
@@ -21,7 +21,9 @@ function propsFor(r: Row): Props {
 export function DecomposeForm({ parent, onDone }: { parent: Activity; onDone(): void }) {
   const { account, personalGroupId } = useSession();
   const ws = useWs();
-  const [groupId, setGroupId] = useState(ws.groups.find(g => g.kind === 'domain')?.id ?? personalGroupId);
+  // The groups that take activities, as in the move menu: not archived, not where the person is a guest, not lists.
+  const targets = ws.groups.filter(g => !g.archived && roleIn(g, account) !== 'guest' && groupTypeOf(g) !== 'list');
+  const [groupId, setGroupId] = useState(targets.find(g => g.kind === 'domain')?.id ?? personalGroupId);
   const [rows, setRows] = useState<Row[]>([{ title: '', kind: 'event', when: `${today()}T10:00` }]);
   const [problem, setProblem] = useState<string | null>(null);
   const update = (i: number, patch: Partial<Row>) => setRows(rs => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -42,7 +44,7 @@ export function DecomposeForm({ parent, onDone }: { parent: Activity; onDone(): 
   return (
     <form className="stack decompose" onSubmit={submit}>
       <label>Gruppo <select value={groupId} onChange={e => setGroupId(e.target.value)}>
-        {ws.groups.map(g => <option key={g.id} value={g.id}>{g.kind === 'personal' ? 'Idee personali' : g.name}</option>)}
+        {targets.map(g => <option key={g.id} value={g.id}>{g.kind === 'personal' ? 'Idee personali' : g.name}</option>)}
       </select></label>
       {rows.map((r, i) => (
         <fieldset key={i} className="form">

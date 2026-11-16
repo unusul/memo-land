@@ -3,7 +3,7 @@ import { beforeEach, expect, test } from 'vitest';
 import { newActivity } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { Shell } from '../src/shell/Shell.js';
-import { PIPPO, benchBackend, memorySession, renderWithSession, userClick, userType } from './memory-session.js';
+import { PIPPO, benchBackend, memorySession, renderWithSession, userClick, userType, chooseIn } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 
@@ -19,7 +19,7 @@ const stored = async (s: ReturnType<typeof memorySession>, id = 'costi') => (awa
 /** «In attesa di» an activity chosen among the open ones: the condition becomes its title. */
 test('testWaitingForAChosenActivity', async () => {
   const s = await waitingForm();
-  fireEvent.change(screen.getByLabelText("Scegli un'attività"), { target: { value: 'sal' } });
+  chooseIn("Scegli un'attività", 'sal');
   expect((screen.getByLabelText('Condizione') as HTMLInputElement).value).toBe('Stato avanzamento');
   userClick('Salva');
   await waitFor(async () => expect((await stored(s)).props.waitingFor).toEqual({ condition: 'Stato avanzamento', activityId: 'sal' }));
@@ -39,7 +39,7 @@ test('testWaitingForANewActivity', async () => {
 /** Typing over the title lets the activity go: the sentence is one's own again. */
 test('testTypingLetsTheActivityGo', async () => {
   const s = await waitingForm();
-  fireEvent.change(screen.getByLabelText("Scegli un'attività"), { target: { value: 'sal' } });
+  chooseIn("Scegli un'attività", 'sal');
   userType(screen.getByLabelText('Condizione'), 'altro');
   userClick('Salva');
   await waitFor(async () => expect((await stored(s)).props.waitingFor).toEqual({ condition: 'altro' }));

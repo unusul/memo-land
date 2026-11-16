@@ -76,6 +76,21 @@ export function panelFit(anchor: Element): { left: number; width: number } {
 }
 
 /** One choice of a PopMenu: highlighted when it is the value set now. */
-export function MenuChoice({ label, checked = false, onChoose }: { label: string; checked?: boolean; onChoose(): void }) {
-  return <button type="button" role="menuitemradio" aria-checked={checked} onClick={onChoose}>{label}</button>;
+export function MenuChoice({ label, checked = false, value, onChoose }: { label: string; checked?: boolean; value?: string; onChoose(): void }) {
+  return <button type="button" role="menuitemradio" aria-checked={checked} data-value={value} onClick={onChoose}>{label}</button>;
+}
+
+/**
+ * The app's own drop-down, in place of the browser's (user's choice, 2026-11-16: the browser's does not follow the
+ * app's look): the value chosen and a ▾, opening its choices under it.
+ */
+export function MenuSelect<V extends string>({ label, value, options, onChange }: {
+  label: string; value: V; options: readonly (readonly [V, string])[]; onChange(value: V): void;
+}) {
+  const text = options.find(([v]) => v === value)?.[1] ?? '';
+  return (
+    <PopMenu className="btn select" buttonLabel={label} label={`${text} ▾`} menuLabel={label} roomBelow={24 + 44 * options.length}>
+      {close => options.map(([v, t]) => <MenuChoice key={v} label={t} value={v} checked={v === value} onChoose={() => { close(); onChange(v); }} />)}
+    </PopMenu>
+  );
 }

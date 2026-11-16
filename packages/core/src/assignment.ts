@@ -17,6 +17,18 @@ export function assign(a: Activity, assignee: AccountId, by: AccountId, byRole: 
   return touch(withAssignment(a, { state, assignee, assignedBy: by }), { kind: 'assigned', detail: { assignee, state } }, by, now);
 }
 
+/**
+ * Gives the activity to someone outside the group, by a name: accepted at once, since nobody can accept or refuse for
+ * them. Who edits the group changes or removes it as any other assignment.
+ */
+export function assignToName(a: Activity, name: string, by: AccountId, byRole: Role, now: Instant): Activity {
+  requireNotGuest(byRole, 'assign');
+  const assignee = name.trim();
+  if (assignee === '') fail('INVALID_INPUT', 'a name is required');
+  return touch(withAssignment(a, { state: 'accepted', assignee, assignedBy: by, external: true }),
+    { kind: 'assigned', detail: { assignee, state: 'accepted', external: true } }, by, now);
+}
+
 export function accept(a: Activity, by: AccountId, now: Instant): Activity {
   const current = a.props.assignment;
   if (!current || current.assignee !== by) fail('FORBIDDEN', 'only the proposed assignee can accept');

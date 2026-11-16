@@ -98,3 +98,10 @@ export async function manage(name: string): Promise<HTMLElement> {
   fireEvent.click(await screen.findByRole('button', { name: `Gestisci ${name}` }));
   return screen.findByRole('article', { name });
 }
+
+/** Chooses `value` in the app's drop-down named `label` (MenuSelect): opens it and taps that choice. */
+export function chooseIn(label: string, value: string): void {
+  fireEvent.click(screen.getByRole('button', { name: label }));
+  const menu = screen.getByRole('menu', { name: label });
+  fireEvent.click(within(menu).getAllByRole('menuitemradio').find(b => b.dataset.value === value)!);
+}

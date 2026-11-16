@@ -6,7 +6,7 @@ import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, archive, assign, backToDraft, can, claim, complete, groupTypeOf, moveBetweenGroups, moveToGroup, setProp, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, archive, assign, assignToName, backToDraft, can, claim, complete, groupTypeOf, moveBetweenGroups, moveToGroup, setProp, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
@@ -257,11 +257,12 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   // A function, not a component: a component declared here would be a new one at each render, and lose its open menu.
   /**
    * Where it can go, as a menu: from the «+ Gruppo» chip of a draft, the Dove row and «Sposta in un gruppo» (2026-11-16).
-   * Not where it is, not where the person is a guest, not into a list group (it would not be seen there).
+   * Not where it is, not where the person is a guest, not into a list group (it would not be seen there), not into an
+   * archived group (read only until its owner reopens it).
    */
   function groupChoices(close: () => void) {
     const it = a!;
-    const targets = ws.groups.filter(g => g.id !== it.groupId && roleIn(g, me) !== 'guest' && groupTypeOf(g) !== 'list');
+    const targets = ws.groups.filter(g => g.id !== it.groupId && !g.archived && roleIn(g, me) !== 'guest' && groupTypeOf(g) !== 'list');
     if (targets.length === 0) return <span className="menu-note">Nessun altro gruppo.</span>;
     return targets.map(g => (
       <MenuChoice key={g.id} label={g.kind === 'personal' ? 'Idee personali' : g.name} onChoose={() => {
@@ -289,12 +290,11 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
           <MenuChoice label="Bassa" checked={now === 'low'} onChoose={() => set(() => setProp(it, 'priority', 'low', me, instantNow()))} />
         </>;
       }
-      if (k === 'assignment') return group ? <>
-        {[me, ...Object.keys(group.members).filter(m => m !== me)].map(m => (
-          <MenuChoice key={m} label={m === me ? 'a me' : shortName(m)} checked={it.props.assignment?.assignee === m}
-            onChoose={() => set(() => assign(it, m, me, role, instantNow()))} />
-        ))}
-      </> : <span className="menu-note">Prima mettila in un gruppo.</span>;
+      if (k === 'assignment') return group ? (
+        <AssignChoices current={it.props.assignment?.assignee} me={me} members={[me, ...Object.keys(group.members).filter(m => m !== me)]}
+          outside={namesOutside(ws.activities, group.id)}
+          onMember={m => set(() => assign(it, m, me, role, instantNow()))} onName={n => set(() => assignToName(it, n, me, role, instantNow()))} />
+      ) : <span className="menu-note">Prima mettila in un gruppo.</span>;
       return <DatePicker label="Scadenza" value={it.props.due?.slice(0, 10) ?? ''} onChange={day => set(() => setProp(it, 'due', day, me, instantNow()))} />;
     };
   }
@@ -375,25 +375,29 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
               <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Rimanda" panel>
                 {close => <SnoozeForm me={me} onSnooze={until => { close(); void run(() => snooze(a, until, me, instantNow()), () => onClose()); }} />}
               </PopMenu>
+            ) : k === 'reject' || k === 'release' ? (
+              // The reason in a panel under the button (2026-11-16); a press outside keeps what was typed, nothing is sent.
+              <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel={k === 'reject' ? 'Rifiuta' : 'Lascia'} panel>
+                {close => (
+                  <form className="form" onSubmit={e => {
+                    e.preventDefault();
+                    if (k === 'reject' && reason.trim() === '') return;
+                    close();
+                    void run(() => (k === 'reject' ? reject(a, me, reason, instantNow()) : release(a, me, instantNow(), reason)), () => setReason(''));
+                  }}>
+                    <input aria-label="Motivo" autoFocus placeholder={k === 'reject' ? 'Perché la rifiuti?' : 'Perché la lasci? (facoltativo)'} value={reason} onChange={e => setReason(e.target.value)} />
+                    <button className="btn primary" type="submit" disabled={k === 'reject' && reason.trim() === ''}>{k === 'reject' ? 'Rifiuta' : 'Lascia'}</button>
+                  </form>
+                )}
+              </PopMenu>
+            ) : k === 'moveOccurrence' && occ ? (
+              <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Sposta questa volta" panel>
+                {close => <MoveOccurrenceForm from={occ.start} onMove={to => { close(); void run(() => moveOccurrence(a, occ.key, to, me, role, instantNow())); }} />}
+              </PopMenu>
             ) : <button key={k} className={`btn${PRIMARY.has(k) ? ' primary' : ''}`} onClick={() => act(k)}>{labelOf(k)}</button>))}
         </div>
       )}
-      {form === 'reject' && (
-        <form className="form" onSubmit={e => { e.preventDefault(); void run(() => reject(a, me, reason, instantNow()), () => { setForm(null); setReason(''); }); }}>
-          <input aria-label="Motivo" placeholder="Perché la rifiuti?" value={reason} onChange={e => setReason(e.target.value)} />
-          <button className="btn primary" type="submit" disabled={reason.trim() === ''}>Rifiuta</button>
-        </form>
-      )}
-      {form === 'release' && (
-        <form className="form" onSubmit={e => { e.preventDefault(); void run(() => release(a, me, instantNow(), reason), () => { setForm(null); setReason(''); }); }}>
-          <input aria-label="Motivo" placeholder="Perché la lasci? (facoltativo)" value={reason} onChange={e => setReason(e.target.value)} />
-          <button className="btn primary" type="submit">Lascia</button>
-        </form>
-      )}
       {form === 'decompose' && <DecomposeForm parent={a} onDone={() => onClose()} />}
-      {form === 'moveOccurrence' && occ && (
-        <MoveOccurrenceForm from={occ.start} onMove={to => run(() => moveOccurrence(a, occ.key, to, me, role, instantNow()), () => setForm(null))} />
-      )}
       {problem && <p className="error" role="alert">{problem}</p>}
 
       {canEdit && (
@@ -472,9 +476,51 @@ function describe(a: Activity, k: PropKey): string {
     case 'due': return p.due ?? '';
     case 'schedule': return p.schedule ? p.schedule.start.replace('T', ' ') + (p.schedule.end ? `–${p.schedule.end.slice(11)}` : '') : '';
     case 'repeat': return p.repeat ? describeRepeat(p.repeat, scheduleTime(p)) + (p.repeat.mode === 'fromCompletion' ? ` · prossima ${nextDue(a)}` : '') : '';
-    case 'assignment': return p.assignment ? `${shortName(p.assignment.assignee)} · ${p.assignment.state === 'proposed' ? `proposta da ${shortName(p.assignment.assignedBy)}` : 'accettata'}` : '';
+    case 'assignment': return !p.assignment ? '' : p.assignment.external ? p.assignment.assignee
+      : `${shortName(p.assignment.assignee)} · ${p.assignment.state === 'proposed' ? `proposta da ${shortName(p.assignment.assignedBy)}` : 'accettata'}`;
     case 'waitingFor': return p.waitingFor ? p.waitingFor.condition + (p.waitingFor.metAt ? ` · avverata da ${shortName(p.waitingFor.metBy ?? '')}` : '') : '';
     case 'priority': return p.priority ? PRIORITY_LABEL[p.priority] : '';
     default: return '';
   }
+}
+
+/** The names outside the group its activities were given to, most used first: they come back as choices. */
+function namesOutside(activities: readonly Activity[], groupId: string): string[] {
+  const used = new Map<string, number>();
+  for (const x of activities) {
+    const asg = x.props.assignment;
+    if (x.groupId === groupId && asg?.external) used.set(asg.assignee, (used.get(asg.assignee) ?? 0) + 1);
+  }
+  return [...used.entries()].sort((x, y) => y[1] - x[1]).map(([n]) => n);
+}
+
+/**
+ * Assegna's menu: «a me», the members, the names outside used before in the group, and «Altro nome…», a field for
+ * someone outside (user's choice, 2026-11-16). A typed name that is already a choice («me», «a me», a member's short
+ * name, a name used before) is that choice, in any case.
+ */
+function AssignChoices({ current, me, members, outside, onMember, onName }: {
+  current: string | undefined; me: string; members: readonly string[]; outside: readonly string[];
+  onMember(account: string): void; onName(name: string): void;
+}) {
+  const [typing, setTyping] = useState(false);
+  const [name, setName] = useState('');
+  const label = (m: string) => (m === me ? 'a me' : shortName(m));
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const t = name.trim().toLocaleLowerCase('it');
+    if (!t) return;
+    const member = members.find(m => label(m).toLocaleLowerCase('it') === t || shortName(m).toLocaleLowerCase('it') === t || (t === 'me' && m === me));
+    if (member) return onMember(member);
+    onName(outside.find(n => n.toLocaleLowerCase('it') === t) ?? name.trim());
+  }
+  return <>
+    {members.map(m => <MenuChoice key={m} label={label(m)} checked={current === m} onChoose={() => onMember(m)} />)}
+    {outside.map(n => <MenuChoice key={`name:${n}`} label={n} checked={current === n} onChoose={() => onName(n)} />)}
+    {typing ? (
+      <form onSubmit={submit}>
+        <input aria-label="Altro nome" placeholder="Nome…" autoFocus value={name} onChange={e => setName(e.target.value)} />
+      </form>
+    ) : <button type="button" className="who-other" onClick={() => setTyping(true)}>Altro nome…</button>}
+  </>;
 }

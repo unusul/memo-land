@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { accept, assign, claim, reject, release } from '../src/index.js';
+import { accept, assign, assignToName, claim, reject, release } from '../src/index.js';
 import { t1, t2, task } from './fixtures.js';
 
 test('testRejectReturnsActivityToGroupWithReason', () => {
@@ -54,4 +54,16 @@ test('testReleaseOnlyByTheAssigneeOfAnAcceptedAssignment', () => {
   expect(() => release(claim(task, 'u2', 'member', t1), 'u3', t2)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
   expect(() => release(assign(task, 'u2', 'u1', 'owner', t1), 'u2', t2)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
   expect(() => release(task, 'u1', t2)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
+});
+
+/** A name outside the group is taken at once (user's choice, 2026-11-16): nobody to accept, refuse or let it go. */
+test('testAssignToANameOutsideIsTakenAtOnce', () => {
+  const a = assignToName(task, ' idraulico ', 'u1', 'member', t1);
+  expect(a.props.assignment).toEqual({ state: 'accepted', assignee: 'idraulico', assignedBy: 'u1', external: true });
+  expect(a.history.at(-1)).toMatchObject({ kind: 'assigned', detail: { assignee: 'idraulico', state: 'accepted', external: true } });
+  expect(() => accept(a, 'idraulico', t2)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
+  // A member assigned afterwards gets a proposal again, without the mark.
+  expect(assign(a, 'u3', 'u1', 'member', t2).props.assignment).toEqual({ state: 'proposed', assignee: 'u3', assignedBy: 'u1' });
+  expect(() => assignToName(task, '  ', 'u1', 'member', t1)).toThrow(expect.objectContaining({ code: 'INVALID_INPUT' }));
+  expect(() => assignToName(task, 'idraulico', 'g1', 'guest', t1)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
 });

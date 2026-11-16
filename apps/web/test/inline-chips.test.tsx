@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, test } from 'vitest';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
-import { PLUTO, memorySession, pickDate, pickDateTime, renderWithSession, userClick } from './memory-session.js';
+import { AgendaView } from '../src/agenda/AgendaView.js';
+import { PIPPO, PLUTO, benchBackend, memorySession, pickDate, pickDateTime, renderWithSession, userClick } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 
@@ -80,4 +81,86 @@ test('testAPanelSavesOnAPressOutsideAndEscDropsIt', async () => {
   fireEvent.keyDown(screen.getByRole('dialog', { name: 'Data e ora' }), { key: 'Escape' });
   expect(screen.queryByRole('dialog', { name: 'Data e ora' })).toBeNull();
   expect((await s.primary.getActivity('doc')).activity.props.schedule?.start).toBe('2026-12-04T18:10');
+});
+
+/** Rifiuta… asks the reason in a panel under it; a press outside closes it keeping what was typed, refusing nothing. */
+test('testRejectReasonInAPanelKeptOnAPressOutside', async () => {
+  const s = memorySession(PLUTO);
+  renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
+  fireEvent.click(await screen.findByRole('button', { name: 'Rifiuta…' }));
+  fireEvent.change(within(menu('Rifiuta')).getByLabelText('Motivo'), { target: { value: 'non ho tempo' } });
+  fireEvent.pointerDown(document.body);
+  expect(screen.queryByRole('menu', { name: 'Rifiuta' })).toBeNull();
+  expect((await s.primary.getActivity('costi')).activity.props.assignment?.state).toBe('proposed');
+  userClick('Rifiuta…');
+  expect((within(menu('Rifiuta')).getByLabelText('Motivo') as HTMLInputElement).value).toBe('non ho tempo');
+  userClick('Rifiuta');
+  await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.assignment).toBeUndefined());
+});
+
+/**
+ * An archived group is read only, out of the bar and the agenda: no activity can be moved into it. The menu of the
+ * groups listed it until 2026-11-16, from a draft's «+ Gruppo» and from the Dove row alike.
+ */
+test('testAnArchivedGroupIsNoPlaceToMoveTo', async () => {
+  const backend = benchBackend();
+  backend.groups.set('inv:developers', { ...backend.groups.get('inv:developers')!, archived: true });
+  const view = renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
+  await screen.findByRole('heading', { name: 'app gestione core' });
+  userClick('+ Gruppo');
+  expect(within(menu('Gruppo')).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Idee personali', 'altereos.com']);
+  view.unmount();
+  renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
+  fireEvent.click(await screen.findByRole('button', { name: 'Modifica Dove' }));
+  expect(within(menu('Dove')).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Idee personali']);
+});
+
+/**
+ * Scomponi… offers the same groups as the move menu: before 2026-11-16 it listed every group, archived ones, list
+ * groups and groups where the person is a guest included, where the new activities would be refused or unseen.
+ */
+test('testDecomposeOffersOnlyGroupsThatTakeActivities', async () => {
+  const backend = benchBackend();
+  backend.groups.set('inv:developers', { ...backend.groups.get('inv:developers')!, archived: true });
+  renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
+  await screen.findByRole('heading', { name: 'app gestione core' });
+  userClick('Scomponi…');
+  const select = screen.getByLabelText('Gruppo') as HTMLSelectElement;
+  expect([...select.options].map(o => o.textContent)).toEqual(['Idee personali', 'altereos.com']);
+  expect(select.value).toBe('domain:altereos.com');
+});
+
+/**
+ * Assegna also takes a name outside the group, typed in «Altro nome…»: assigned at once, with no proposal (user's
+ * choice, 2026-11-16). The row says the name; the name comes back as a choice; a member's name typed is that member.
+ */
+test('testAssignToANameOutsideTheGroup', async () => {
+  const s = await openDoc();
+  userClick('+ Assegna');
+  userClick('Altro nome…');
+  fireEvent.change(screen.getByLabelText('Altro nome'), { target: { value: 'idraulico' } });
+  fireEvent.submit(screen.getByLabelText('Altro nome').closest('form')!);
+  await waitFor(async () => expect((await s.primary.getActivity('doc')).activity.props.assignment)
+    .toEqual({ state: 'accepted', assignee: 'idraulico', assignedBy: 'pippo@altereos.com', external: true }));
+  expect((await screen.findByRole('button', { name: 'Modifica Assegna' })).textContent).toBe('idraulico');
+  expect(screen.queryByRole('button', { name: 'Accetta' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Modifica Assegna' }));
+  expect(within(menu('Assegna')).getAllByRole('menuitemradio').map(b => [b.textContent, b.getAttribute('aria-checked')]))
+    .toEqual([['a me', 'false'], ['pluto', 'false'], ['idraulico', 'true']]);
+  userClick('Altro nome…');
+  fireEvent.change(screen.getByLabelText('Altro nome'), { target: { value: 'Pluto' } });
+  fireEvent.submit(screen.getByLabelText('Altro nome').closest('form')!);
+  await waitFor(async () => expect((await s.primary.getActivity('doc')).activity.props.assignment)
+    .toEqual({ state: 'proposed', assignee: PLUTO, assignedBy: 'pippo@altereos.com' }));
+});
+
+/** In the agenda a name outside the group shows as who has it, and the bar's bottom says taken by someone else. */
+test('testAgendaShowsTheNameOutside', async () => {
+  const s = memorySession();
+  const { activity } = await s.primary.getActivity('backup');
+  await s.primary.saveActivity({ ...activity, props: { ...activity.props, assignment: { state: 'accepted', assignee: 'idraulico', assignedBy: PIPPO, external: true } } }, activity.version);
+  renderWithSession(<AgendaView from="2026-11-02" days={3} onOpen={() => undefined} />, s);
+  const row = (await screen.findAllByText('Controllo backup'))[0]!.closest('.item') as HTMLElement;
+  expect(within(row).getByText('altereos.com · idraulico')).toBeTruthy();
+  expect(row.dataset.take).toBe('other');
 });

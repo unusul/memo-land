@@ -5,6 +5,7 @@ import { instantNow, newId } from '../dates.js';
 import { errorText } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
+import { MenuSelect } from '../shell/PopMenu.js';
 
 /**
  * «In attesa di» an activity instead of a sentence: one of the open activities the person sees, or a new one made from
@@ -37,10 +38,8 @@ export function WaitedActivity({ self, linked, text, onLink }: {
 
   return (
     <span className="waited">
-      <select aria-label="Scegli un'attività" value={linked} onChange={e => onLink(e.target.value, seen.get(e.target.value)?.title ?? '')}>
-        <option value="">Scegli un'attività…</option>
-        {choices.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-      </select>
+      <MenuSelect label="Scegli un'attività" value={linked} options={[['', "Scegli un'attività…"] as const, ...choices.map(c => [c.id, c.title] as const)]}
+        onChange={id => onLink(id, seen.get(id)?.title ?? '')} />
       <button type="button" className="btn" disabled={busy || !text.trim() || linked !== ''} onClick={() => void create()}>Creane una nuova</button>
       {problem && <span className="error" role="alert">{problem}</span>}
     </span>

@@ -3,6 +3,7 @@ import type { AccountId, LocalDateTime } from '@attivita/core';
 import { localNow } from '../dates.js';
 import { noteChoice, topChoices } from '../usage/choicesStore.js';
 import { DateTimePicker } from './DatePicker.js';
+import { MenuSelect } from '../shell/PopMenu.js';
 import { UNIT_NAMES, describeSnooze, snoozeUntil } from './timing.js';
 import type { SnoozeUnit } from './timing.js';
 
@@ -32,9 +33,7 @@ export function SnoozeForm({ me, onSnooze }: { me: AccountId; onSnooze(until: Lo
       <form className="form" onSubmit={e => { e.preventDefault(); if (valid) relative(n, unit); }}>
         <span>tra</span>
         <input aria-label="Quanti" type="number" min="1" step="1" className="num" value={count} onChange={e => setCount(e.target.value)} />
-        <select aria-label="Unità" value={unit} onChange={e => setUnit(e.target.value as SnoozeUnit)}>
-          {UNITS.map(u => <option key={u} value={u}>{UNIT_NAMES[u][n === 1 ? 0 : 1]}</option>)}
-        </select>
+        <MenuSelect<SnoozeUnit> label="Unità" value={unit} options={UNITS.map(u => [u, UNIT_NAMES[u][n === 1 ? 0 : 1]] as const)} onChange={setUnit} />
         <button className="btn primary" type="submit" disabled={!valid}>Rimanda</button>
       </form>
       <form className="form" onSubmit={e => { e.preventDefault(); if (at) onSnooze(at); }}>

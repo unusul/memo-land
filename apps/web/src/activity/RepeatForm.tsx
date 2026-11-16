@@ -4,6 +4,7 @@ import type { AccountId, Activity, Instant, LocalDate, LocalDateTime, Unit } fro
 import { localNow, today } from '../dates.js';
 import { noteChoice, topChoices } from '../usage/choicesStore.js';
 import { DatePicker } from './DatePicker.js';
+import { MenuSelect } from '../shell/PopMenu.js';
 import { UNIT_NAMES, WEEKDAYS, describeRepeat, nextHour, specOf, toRepeat, weekdayOf } from './timing.js';
 import type { DayTimes, RepeatSpec, Weekday } from './timing.js';
 
@@ -72,21 +73,16 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
       <form className="form" onSubmit={e => { e.preventDefault(); if (valid) apply({ ...spec, every: n }); }}>
         <span>ogni</span>
         <input aria-label="Ogni" type="number" min="1" step="1" className="num" value={count} onChange={e => setCount(e.target.value)} />
-        <select aria-label="Unità di ripetizione" value={spec.unit} onChange={e => set({ unit: e.target.value as Unit })}>
-          {UNITS.map(u => <option key={u} value={u}>{UNIT_NAMES[u][n === 1 ? 0 : 1]}</option>)}
-        </select>
-        <select aria-label="Modo" value={spec.mode} onChange={e => set({ mode: e.target.value as RepeatSpec['mode'] })}>
-          <option value="calendar">a calendario</option>
-          <option value="fromCompletion">da quando la completi</option>
-        </select>
+        <MenuSelect label="Unità di ripetizione" value={spec.unit} options={UNITS.map(u => [u, UNIT_NAMES[u][n === 1 ? 0 : 1]] as const)} onChange={unit => set({ unit })} />
+        <MenuSelect label="Modo" value={spec.mode} options={[['calendar', 'a calendario'], ['fromCompletion', 'da quando la completi']] as const}
+          onChange={mode => set({ mode })} />
         {spec.mode === 'calendar' && spec.unit === 'week' && <WeekdayToggles value={spec.weekdays} onChange={weekdays => set({ weekdays })} />}
         {weekly(spec) && start && <DayTimeRows days={daysOf(spec)} times={spec.times ?? {}} base={base} onChange={times => set({ times })}
           onEmpty={scheduled ? undefined : () => setSuggested(null)} />}
         {spec.mode === 'calendar' && spec.unit === 'month' && start && (
-          <select aria-label="Giorno del mese" value={spec.monthly} onChange={e => set({ monthly: e.target.value as RepeatSpec['monthly'] })}>
-            <option value="day">{describeRepeat(toRepeat({ ...spec, monthly: 'day' }, start)).split(', ')[1]}</option>
-            <option value="nth">{describeRepeat(toRepeat({ ...spec, monthly: 'nth' }, start)).split(', ')[1]}</option>
-          </select>
+          <MenuSelect label="Giorno del mese" value={spec.monthly}
+            options={(['day', 'nth'] as const).map(m => [m, describeRepeat(toRepeat({ ...spec, monthly: m }, start)).split(', ')[1] ?? m] as const)}
+            onChange={monthly => set({ monthly })} />
         )}
         {anchor
           ? <span className="muted">parte dalla {a.props.schedule ? 'data' : 'scadenza'}, {anchor.replace('T', ' ')}</span>

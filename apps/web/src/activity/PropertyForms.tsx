@@ -24,8 +24,9 @@ export interface PropertyFormProps {
 
 /** One small form per property; each turns the input into a core operation. */
 export function PropertyForm({ chip, activity: a, group, groups, me, personalGroupId, now, onApply, onPending }: PropertyFormProps) {
-  // Where it can go: not where it is, not where the person is a guest, not into a list group (it would not be seen).
-  const targets = groups.filter(g => g.id !== a.groupId && roleIn(g, me) !== 'guest' && groupTypeOf(g) !== 'list');
+  // Where it can go: not where it is, not where the person is a guest, not into a list group (it would not be seen), not
+  // into an archived group (read only).
+  const targets = groups.filter(g => g.id !== a.groupId && !g.archived && roleIn(g, me) !== 'guest' && groupTypeOf(g) !== 'list');
   const [value, setValue] = useState(() => current(chip, a) ?? (chip === 'groupId' && a.groupId !== null ? targets[0]?.id ?? '' : initial(chip, personalGroupId, group)));
   const editing = current(chip, a) !== undefined;
   const role = group ? roleIn(group, me) ?? 'guest' : 'owner';
