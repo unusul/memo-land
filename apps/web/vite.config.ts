@@ -1,3 +1,6 @@
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -6,10 +9,22 @@ import { defineConfig } from 'vitest/config';
 const proxyTarget = loadEnv('development', __dirname, '')['SUPABASE_PROXY_TARGET'];
 /** Where the app is served: `/` locally, `/memo-land/` on GitHub Pages (set by the publishing workflow). */
 const base = process.env['BASE_PATH'] ?? '/';
+/** Shown at the bottom of Impostazioni: the version is raised by hand in package.json, the date is the last commit's. */
+const appVersion = (JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string }).version;
+const appDate = lastCommitDate();
+
+function lastCommitDate(): string {
+  try {
+    return execSync('git log -1 --format=%cI', { cwd: __dirname, encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
 
 export default defineConfig({
   root: __dirname,
   base,
+  define: { __APP_VERSION__: JSON.stringify(appVersion), __APP_DATE__: JSON.stringify(appDate) },
   // Local development: the browser talks to /sb on localhost, forwarded to Supabase in the VM.
   server: proxyTarget ? { proxy: { '/sb': { target: proxyTarget, changeOrigin: true, rewrite: p => p.replace(/^\/sb/, '') } } } : {},
   plugins: [

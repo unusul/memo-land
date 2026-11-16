@@ -5,6 +5,7 @@ import { useSession } from '../session/SessionContext.js';
 import { Icon } from '../shell/icons.js';
 import { loadTheme, saveTheme } from './theme.js';
 import type { Theme } from './theme.js';
+import { APP_DATE, APP_VERSION, versionLine } from './version.js';
 
 const THEMES: Array<[Theme, string, 'auto' | 'sun' | 'moon']> = [['auto', 'Automatico', 'auto'], ['light', 'Chiaro', 'sun'], ['dark', 'Scuro', 'moon']];
 
@@ -39,6 +40,7 @@ export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
         </div>
       ) : <button className="btn" onClick={() => setLeaving(true)}>Esci dall'account</button>}
       </>}
+      <p className="muted small">{versionLine(APP_VERSION, APP_DATE)}</p>
     </section>
   );
 }
