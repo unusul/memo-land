@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { buildAgenda, needsAttention } from '@attivita/core';
 import { highlightsOf, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
 import type { Activity, AgendaItem, GroupKind, LocalDate } from '@attivita/core';
@@ -20,12 +20,17 @@ export interface OpenTarget {
   form?: 'due' | 'schedule';
 }
 
+/** What «Mostra altre due settimane» adds at each tap (user's choice, 2026-11-16). */
+const MORE_DAYS = 14;
+
 export function AgendaView({ from = today(), days = 14, onOpen }: { from?: LocalDate; days?: number; onOpen(t: OpenTarget): void }) {
   const { account } = useSession();
+  // Two weeks at the start, kept short; the button at the bottom of the days shows two more each time.
+  const [shown, setShown] = useState(days);
   const ws = useWs();
   const sources = useAgendaSources();
   const attention = needsAttention(sources, account, today());
-  const agenda = buildAgenda(sources, `${from}T00:00`, `${addDays(from, days - 1)}T23:59`);
+  const agenda = buildAgenda(sources, `${from}T00:00`, `${addDays(from, shown - 1)}T23:59`);
   const groupOf = (id: string | null) => (id === null ? undefined : ws.groups.find(g => g.id === id));
   const quick = useQuickActions(onOpen);
   const highlighted = useHighlighted(account);
@@ -48,7 +53,7 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
         <AttentionList label="Proposte a te" rows={attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}` }))}
           kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} quick={quick} />
       )}
-      {Object.keys(agenda.days).length === 0 && <p className="muted">Niente in agenda nelle prossime due settimane. Premi + per catturare un'idea.</p>}
+      {Object.keys(agenda.days).length === 0 && <p className="muted">Niente in agenda {shown === MORE_DAYS ? 'nelle prossime due settimane' : `fino ${untilDay(addDays(from, shown - 1))}`}. Premi + per catturare un'idea.</p>}
       {Object.entries(agenda.days).map(([day, items]) => {
         const p = dayParts(day);
         return (
@@ -61,6 +66,7 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
           </div>
         );
       })}
+      <button type="button" className="btn more-days" onClick={() => setShown(n => n + MORE_DAYS)}>Mostra altre due settimane</button>
       <h2 id="waiting-h">In attesa</h2>
       {agenda.waiting.length === 0 ? <p className="muted">Nessun memo in attesa.</p> : (
         <ul className="items" aria-labelledby="waiting-h">
@@ -117,6 +123,8 @@ function Item({ it, kind, group, me, high, onOpen }: { it: AgendaItem; kind: Gro
 }
 
 /** "il 6 nov", but "l'8 nov" and "l'11 nov": the article follows the sound of the number. */
+/** «al 13 dic», «all'8 dic». */
+const untilDay = (day: LocalDate) => { const p = dayParts(day); return `${p.day === 8 || p.day === 11 ? "all'" : 'al '}${p.day} ${p.month}`; };
 const onDay = (day: LocalDate) => { const p = dayParts(day); return `${p.day === 8 || p.day === 11 ? "l'" : 'il '}${p.day} ${p.month}`; };
 
 /**
