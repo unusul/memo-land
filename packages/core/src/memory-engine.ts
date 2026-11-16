@@ -12,6 +12,7 @@ export class InMemoryBackend {
   readonly activities = new Map<ActivityId, Activity>();
   readonly blobs = new Map<string, { activityId: ActivityId; bytes: Uint8Array }>();
   readonly log: Change[] = [];
+  readonly watchers = new Set<() => void>();
 
   constructor(limits: Partial<EngineLimits> = {}) {
     this.limits = resolveLimits('memory', limits);
@@ -23,6 +24,7 @@ export class InMemoryBackend {
 
   record(type: Change['type'], id: string): void {
     this.log.push({ cursor: String(this.log.length + 1), type, id });
+    for (const w of this.watchers) w();
   }
 }
 
@@ -105,6 +107,13 @@ export class InMemoryEngine implements Engine {
     if (!Number.isInteger(from) || from < 0) fail('INVALID_INPUT', `invalid cursor "${cursor}"`);
     const changes = this.store.log.slice(from).filter(c => this.canSee(c)).map(c => ({ ...c }));
     return { changes, cursor: String(this.store.log.length) };
+  }
+
+  /** Every change nudges every watcher, as the central engine's nudge, which may come for changes not visible. */
+  watchChanges(onChange: () => void): () => void {
+    const w = () => onChange();
+    this.store.watchers.add(w);
+    return () => { this.store.watchers.delete(w); };
   }
 
   private canSee(c: Change): boolean {

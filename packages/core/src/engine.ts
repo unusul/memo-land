@@ -39,4 +39,10 @@ export interface Engine {
   putAttachment(activityId: ActivityId, file: AttachmentUpload): Promise<AttachmentRef>;
   getAttachment(ref: AttachmentRef): Promise<Uint8Array>;
   changesSince(cursor: string | null): Promise<{ changes: Change[]; cursor: string }>;
+  /**
+   * Optional: calls `onChange` soon after something changes, so the app asks changesSince at once instead of at the
+   * next interval; returns the function that stops it. A nudge says only "look", never what changed, and may come for a
+   * change the session cannot see. Engines without it (Google) are only polled.
+   */
+  watchChanges?(onChange: () => void): () => void;
 }

@@ -110,11 +110,21 @@ export function useWorkspace(engineList: Engine[]): Workspace {
 
   useEffect(() => {
     void reload();
-    const timers = engines.map(e => setInterval(() => {
+    const check = (e: Engine) => {
       e.changesSince(cursors.current.get(e) ?? null).then(r => { if (r.changes.length) return loadEngine(e); })
         .catch(() => undefined);
-    }, e.limits.refreshIntervalSeconds * 1000));
-    return () => timers.forEach(clearInterval);
+    };
+    // The interval stays for engines without nudges (Google) and as a safety net when a nudge is lost.
+    const timers = engines.map(e => setInterval(() => check(e), e.limits.refreshIntervalSeconds * 1000));
+    const stops = engines.map(e => e.watchChanges?.(() => check(e)));
+    // Back in the foreground the phone may have slowed the interval for minutes: check at once.
+    const onVisible = () => { if (document.visibilityState === 'visible') engines.forEach(check); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      timers.forEach(clearInterval);
+      stops.forEach(stop => stop?.());
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [engines, reload, loadEngine]);
 
   const view = useMemo(() => {

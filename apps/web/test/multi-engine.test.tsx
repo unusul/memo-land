@@ -24,7 +24,7 @@ function googleLike(): InMemoryBackend {
 function unreachable(account = PIPPO): Engine {
   const down = async () => { throw new EngineUnavailableError('Failed to fetch'); };
   return new Proxy({ account, kind: 'google' } as Engine, {
-    get: (t, p) => (p === 'account' || p === 'kind' ? t[p as 'account'] : p === 'limits' ? { refreshIntervalSeconds: 60 } : p === 'then' ? undefined : down),
+    get: (t, p) => (p === 'account' || p === 'kind' ? t[p as 'account'] : p === 'limits' ? { refreshIntervalSeconds: 60 } : p === 'then' || p === 'watchChanges' ? undefined : down),
   });
 }
 

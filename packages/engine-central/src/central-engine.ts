@@ -97,6 +97,17 @@ export class CentralEngine implements Engine {
     return { changes: fresh, cursor: String(top) };
   }
 
+  /**
+   * Supabase Realtime on the change register (migration 0008 publishes it): each row the session may read, as RLS
+   * says, nudges the app. Without Realtime on the server nothing arrives and the app keeps polling.
+   */
+  watchChanges(onChange: () => void): () => void {
+    const channel = this.db.channel(`changes:${this.account}:${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'changes' }, () => onChange())
+      .subscribe();
+    return () => { void this.db.removeChannel(channel); };
+  }
+
   private remember(c: string): void {
     this.delivered.add(c);
     if (this.delivered.size > DELIVERED_MAX) this.delivered.delete(this.delivered.values().next().value!);
