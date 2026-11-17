@@ -89,6 +89,12 @@ export const expandedOf = (account: AccountId): ActivityId[] => read<ActivityId[
 export const setExpanded = (account: AccountId, ids: ActivityId[]): void => write(expandedKey(account), ids);
 export const isExpanded = (account: AccountId, id: ActivityId): boolean => expandedOf(account).includes(id);
 
+const agendaViewKey = (account: AccountId) => `attivita:agenda-view:${account}`;
+/** The Agenda as a list of days or as a month (user's choice, 2026-11-17): the last one chosen, the person's own. */
+export type AgendaMode = 'list' | 'month';
+export const agendaViewOf = (account: AccountId): AgendaMode => (read<AgendaMode>(agendaViewKey(account), 'list') === 'month' ? 'month' : 'list');
+export const setAgendaView = (account: AccountId, mode: AgendaMode): void => write(agendaViewKey(account), mode);
+
 export function toggleExpanded(account: AccountId, id: ActivityId): void {
   const ids = expandedOf(account);
   setExpanded(account, ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);

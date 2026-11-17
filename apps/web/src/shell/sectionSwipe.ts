@@ -4,8 +4,8 @@ import { useRef } from 'react';
 const MIN_PX = 80;
 /** Android's back gesture starts at the screen's edges: a swipe from there is left to the system. */
 const EDGE_PX = 24;
-/** A swipe on any of these is theirs (a row's swipe, a field, a button), not the page's. */
-const NOT_THE_PAGE = 'button, a, input, textarea, select, label, summary, .swipe, [role="radiogroup"]';
+/** A swipe on any of these is theirs (a row's swipe, a field, a button, the month's grid), not the page's. */
+const NOT_THE_PAGE = 'button, a, input, textarea, select, label, summary, .swipe, .month-grid, [role="radiogroup"]';
 
 /**
  * Swiping the page moves between the sections in the bar's order: towards the left the next one, towards the right the

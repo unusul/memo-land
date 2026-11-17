@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { groupTypeOf, newActivity } from '@attivita/core';
 import { waitingIn } from '../groups/listGroup.js';
-import type { Activity } from '@attivita/core';
+import type { Activity, LocalDate } from '@attivita/core';
 import { instantNow, newId } from '../dates.js';
 import { ActivityDetail } from '../activity/ActivityDetail.js';
 import { AgendaView, KIND_COLOR } from '../agenda/AgendaView.js';
 import type { OpenTarget } from '../agenda/AgendaView.js';
 import { CaptureSheet } from '../capture/CaptureSheet.js';
+import { activityOnDay } from '../agenda/MonthView.js';
 import { GroupPage } from '../groups/GroupPage.js';
 import { MAX_PINS, MENU_GROUPS, orderSharedGroups, useBarPrefs } from '../groups/barPrefs.js';
 import { GroupIcon } from '../groups/GroupIcon.js';
@@ -31,7 +32,7 @@ import { useClosesItself } from '../workspace/closesItself.js';
 export type Tab = 'agenda' | 'groups' | 'me' | 'settings' | 'help';
 
 export function Shell() {
-  const { primary: engine, outbox, account, demo, signOut, prefs } = useSession();
+  const { primary: engine, outbox, account, demo, signOut, prefs, personalGroupId } = useSession();
   // The bar, the groups' icons and the theme follow the account across devices.
   useEffect(() => (prefs ? startPrefsSync(account, prefs) : undefined), [prefs, account]);
   const ws = useWs();
@@ -88,6 +89,8 @@ export function Shell() {
   const onList = here !== undefined && (groupTypeOf(here) === 'list' || here.archived === true);
   const newIn = (id: string) => setCreating(newActivity({ id: newId(), accountId: ws.engineOf(id)?.account ?? account, title: '', groupId: id }, instantNow()));
   const plus = () => (here ? newIn(here.id) : setCapturing(true));
+  // From a day of the month (user's choice, 2026-11-17): in Personale, which Dove changes, that day at 9:00.
+  const newOn = (day: LocalDate) => setCreating(activityOnDay(day, personalGroupId, ws.engineOf(personalGroupId)?.account ?? account, instantNow()));
   // Swiping the page goes through the sections in the bar's order, the agenda first (from its header).
   const sections: Array<() => void> = [() => go('agenda'), () => go('groups'), ...menuGroups.map(g => () => openGroup(g.id)), () => go('me')];
   const at = open || creating ? -1
@@ -124,7 +127,7 @@ export function Shell() {
           <ActivityDetail key={`${open.activityId}|${open.occurrenceKey ?? ''}`} activityId={open.activityId} occurrenceKey={open.occurrenceKey} initialForm={open.form} onClose={message => { setOpen(null); if (message) setFlash(message); }} />
         ) : (
           <>
-            {tab === 'agenda' && <AgendaView onOpen={setOpen} />}
+            {tab === 'agenda' && <AgendaView onOpen={setOpen} onAddOn={newOn} />}
             {tab === 'groups' && (groupId ? <GroupPage groupId={groupId} onOpen={setOpen} /> : <GroupsView onOpenGroup={openGroup} />)}
             {tab === 'me' && <MeView onOpen={setOpen} />}
             {tab === 'settings' && <SettingsView onHelp={() => go('help')} />}

@@ -402,3 +402,27 @@ textarea { width: 100%; resize: vertical }
 .group-name { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
 .group-name input { min-height: 40px; font: inherit; font-weight: 700 }
 .icon-choice:disabled { opacity: .35; cursor: default; background: var(--surface); color: var(--fg) }
+
+/* «Elenco · Mese» on top of the Agenda (user's choice, 2026-11-17). */
+.view-switch { display: flex; justify-self: end; width: max-content; border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
+.view-switch button { min-height: 32px; padding: 0 12px; border: 0; background: none; color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer }
+.view-switch button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
+/* The month as a phone's calendar: a tall grid, the titles cut in strips of the group's colour. */
+.month-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; margin-bottom: 6px }
+.month-head .prev svg { transform: rotate(180deg) }
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); touch-action: pan-y }
+.month-grid .wd { padding: 4px 0; font-size: .75rem; color: var(--muted); text-align: center; border-bottom: 1px solid var(--line) }
+.month-grid .cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 96px; padding: 2px 1px; border: 0; border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line); background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; overflow: hidden }
+.month-grid .cell:nth-child(7n) { border-right: 0 }
+.month-grid .cell .n { align-self: center; min-width: 20px; font-size: .75rem; line-height: 20px; text-align: center; color: var(--muted) }
+.month-grid .cell[aria-current="date"] .n { border-radius: 999px; background: var(--accent); color: var(--surface); font-weight: 700 }
+.month-grid .cell.other .n { opacity: .45 }
+.month-grid .strip { display: block; padding: 0 3px; border-radius: 3px; background: var(--grp); color: var(--surface); font-size: .68rem; line-height: 15px;
+  white-space: nowrap; overflow: hidden; text-overflow: clip }
+.month-grid .strip.done { opacity: .45; text-decoration: line-through }
+.month-grid .more { padding-left: 3px; font-size: .68rem; color: var(--muted) }
+/* A day of the month over the page: its rows as in the list. */
+.day-sheet { max-height: 70vh; overflow-y: auto; padding: 24px 16px 16px; z-index: 30 }
+.day-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px }
+.day-sheet-head h3 { margin: 0 }

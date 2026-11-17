@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { buildAgenda, needsAttention } from '@attivita/core';
-import { highlightsOf, isExpanded, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
+import { agendaViewOf, highlightsOf, isExpanded, setAgendaView, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
 import type { Activity, AgendaItem, GroupKind, LocalDate } from '@attivita/core';
 import { addDays, dayParts, today } from '../dates.js';
 import { shortName } from '../labels.js';
@@ -11,6 +12,8 @@ import { useQuickActions } from './quickActions.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
 import { movedNote } from '../activity/occurrence.js';
 import { Icon } from '../shell/icons.js';
+import { useBackLayer } from '../shell/back.js';
+import { MonthView, dayLabel, monthDays, onDayLabel } from './MonthView.js';
 
 export const KIND_COLOR: Record<GroupKind, string> = { domain: 'var(--acc-dom)', invite: 'var(--acc-inv)', personal: 'var(--acc-per)' };
 
@@ -24,7 +27,11 @@ export interface OpenTarget {
 /** What «Mostra altre due settimane» adds at each tap (user's choice, 2026-11-16). */
 const MORE_DAYS = 14;
 
-export function AgendaView({ from = today(), days = 14, onOpen }: { from?: LocalDate; days?: number; onOpen(t: OpenTarget): void }) {
+export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
+  from?: LocalDate; days?: number; onOpen(t: OpenTarget): void;
+  /** «+ Aggiungi il …» on a day of the month: a new activity that day. */
+  onAddOn?(day: LocalDate): void;
+}) {
   const { account } = useSession();
   // Two weeks at the start, kept short; the button at the bottom of the days shows two more each time.
   const [shown, setShown] = useState(days);
@@ -37,11 +44,26 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
   const highlighted = useHighlighted(account);
   const kindOf = (id: string | null) => groupOf(id)?.kind;
   const nameOf = (id: string | null) => (id === null ? 'bozza' : groupOf(id)?.name);
+  // «Elenco · Mese» (user's choice, 2026-11-17): the person's own, remembered; the month opens on the one of `from`.
+  const mode = agendaViewOf(account);
+  const [month, setMonth] = useState(from.slice(0, 7));
+  const [openDay, setOpenDay] = useState<LocalDate | null>(null);
+  const grid = monthDays(month);
+  const monthAgenda = mode === 'month' ? buildAgenda(sources, `${grid[0]!}T00:00`, `${grid.at(-1)!}T23:59`) : null;
+  const rows = (day: LocalDate, items: AgendaItem[]) => items.map(it => (
+    <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} today={day === today()} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
+      high={ws.activities.find(a => a.id === it.activityId)?.props.priority === 'high'} /></SwipeRow></li>
+  ));
 
   if (!ws.loaded) return <p className="muted">Carico l'agenda…</p>;
   return (
     <section aria-labelledby="agenda-h" className="stack">
       <h2 id="agenda-h" className="sr-only">Agenda</h2>
+      <div role="radiogroup" aria-label="Vista dell'agenda" className="view-switch">
+        {(['list', 'month'] as const).map(m => (
+          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setAgendaView(account, m)}>{m === 'list' ? 'Elenco' : 'Mese'}</button>
+        ))}
+      </div>
       {highlighted.length > 0 && (
         <AttentionList label="In evidenza" rows={highlighted.map(a => ({ activity: a, groupId: a.groupId }))}
           kindOf={kindOf} nameOf={nameOf} onOpen={onOpen} quick={quick} />
@@ -54,6 +76,18 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
         <AttentionList label="Proposte a te" rows={attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}` }))}
           kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} quick={quick} />
       )}
+      {monthAgenda && (
+        <MonthView month={month} setMonth={setMonth} days={monthAgenda.days} onDay={setOpenDay} struck={struck}
+          kindOf={it => KIND_COLOR[groupOf(it.groupId)?.kind ?? 'personal']} />
+      )}
+      {monthAgenda && openDay && (
+        <DaySheet day={openDay} onClose={() => setOpenDay(null)}>
+          {(monthAgenda.days[openDay] ?? []).length === 0 ? <p className="muted">Niente in questo giorno.</p>
+            : <ul className="items">{rows(openDay, monthAgenda.days[openDay]!)}</ul>}
+          {onAddOn && <button type="button" className="btn" onClick={() => onAddOn(openDay)}><Icon name="plus" size={18} /> Aggiungi {onDayLabel(openDay)}</button>}
+        </DaySheet>
+      )}
+      {!monthAgenda && <>
       {Object.keys(agenda.days).length === 0 && <p className="muted">Niente in agenda {shown === MORE_DAYS ? 'nelle prossime due settimane' : `fino ${untilDay(addDays(from, shown - 1))}`}. Premi + per catturare un'idea.</p>}
       {Object.entries(agenda.days).map(([day, items]) => {
         const p = dayParts(day);
@@ -61,13 +95,13 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
           <div key={day} className={`day${day === today() ? ' today' : ''}`}>
             <div className="d">{p.weekday}<b>{p.day}</b>{p.month}</div>
             <ul className="items">
-              {items.map(it => <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} today={day === today()} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
-                high={ws.activities.find(a => a.id === it.activityId)?.props.priority === 'high'} /></SwipeRow></li>)}
+              {rows(day, items)}
             </ul>
           </div>
         );
       })}
       <button type="button" className="btn more-days" onClick={() => setShown(n => n + MORE_DAYS)}>Mostra altre due settimane</button>
+      </>}
       <h2 id="waiting-h">In attesa</h2>
       {agenda.waiting.length === 0 ? <p className="muted">Nessun memo in attesa.</p> : (
         <ul className="items" aria-labelledby="waiting-h">
@@ -162,6 +196,31 @@ function useHighlighted(account: string): Activity[] {
     if (closed) setHighlights(account, highlightsOf(account).filter(id => !closed.split('|').includes(id)));
   }, [account, closed]);
   return kept.filter(a => a.status === 'open');
+}
+
+/**
+ * A day of the month, opened by a tap on it (user's choice, 2026-11-17): its rows as in the list, over the page. Chiudi,
+ * a tap outside, Esc or the phone's back button close it. On the page's body, not in the Agenda: the page's entrance
+ * animation moves it, and a fixed sheet inside it would follow the page instead of the screen.
+ */
+function DaySheet({ day, onClose, children }: { day: LocalDate; onClose(): void; children: React.ReactNode }) {
+  useBackLayer(true, onClose);
+  const box = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) close.current(); };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, []);
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={dayLabel(day)} className="sheet day-sheet" ref={box}
+      onKeyDown={e => { if (e.key === 'Escape') onClose(); }}>
+      <div className="day-sheet-head"><h3>{dayLabel(day)}</h3><button type="button" className="link" onClick={onClose}>Chiudi</button></div>
+      {children}
+    </div>,
+    document.body,
+  );
 }
 
 interface AttentionRow { activity: Activity; groupId: string | null; note?: string }
