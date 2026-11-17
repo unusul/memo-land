@@ -8,8 +8,10 @@ import { AgendaView, KIND_COLOR } from '../agenda/AgendaView.js';
 import type { OpenTarget } from '../agenda/AgendaView.js';
 import { CaptureSheet } from '../capture/CaptureSheet.js';
 import { activityOnDay } from '../agenda/MonthView.js';
-import { UpdateBand, UpdatedNote } from './appUpdate.js';
+import { UpdateBand, UpdatedBand } from './appUpdate.js';
 import { setAgendaMode, useAgendaMode } from '../agenda/agendaMode.js';
+import { ViewStrip } from '../agenda/ViewStrip.js';
+import { useWideScreen } from './wideScreen.js';
 import { GroupPage } from '../groups/GroupPage.js';
 import { MAX_PINS, MENU_GROUPS, orderSharedGroups, useBarPrefs } from '../groups/barPrefs.js';
 import { GroupIcon } from '../groups/GroupIcon.js';
@@ -76,6 +78,9 @@ export function Shell() {
   // Io holds the drafts to sort and the captures the server refused.
   const forMe = waitingDrafts + refused;
   const mode = useAgendaMode();
+  // «Agenda | Calendario»: at the bottom under the thumb on a phone, under the header on a wide screen (user's choice, 2026-11-17).
+  const wide = useWideScreen();
+  const viewSwitch = tab === 'agenda' && !open && !creating;
   const go = (id: Tab) => { setTab(id); setGroupId(null); setOpen(null); setCreating(null); };
   // The phone's back: the open activity closes itself (ActivityDetail); then a group's page, then a section, then the app.
   // Back into the Agenda, as a swipe into it, shows the list: the Calendar is a step inside it (user's choice, 2026-11-17).
@@ -118,8 +123,9 @@ export function Shell() {
           <button className="gear" aria-label="Impostazioni" aria-current={current('settings')} onClick={() => go('settings')}><Icon name="settings" /></button>
         </div>
       </header>
+      {viewSwitch && wide && <ViewStrip />}
       <main className="content" {...swipe}>
-        <UpdatedNote />
+        <UpdatedBand />
         <UpdateBand />
         {demo && (
           <section className="demo-band" aria-label="Modalità demo">
@@ -146,6 +152,7 @@ export function Shell() {
       </main>
       {capturing && <CaptureSheet onSaved={() => { setCapturing(false); go('me'); refreshQueue(); }} onClose={() => setCapturing(false)} />}
       {!capturing && !creating && !onList && <button className="fab" aria-label={here ? `Nuova attività in ${here.name}` : 'Nuova bozza'} onClick={plus}>+</button>}
+      {viewSwitch && !wide && <ViewStrip />}
       <nav className="tabs" aria-label="Sezioni">
         {entry('groups', 'Noi', 0)}
         {/* Pinned groups first, then the most opened: three on phones, five on wide screens. */}

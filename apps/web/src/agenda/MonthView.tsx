@@ -64,13 +64,6 @@ export function MonthView({ month, setMonth, days, kindOf, struck, onDay }: {
   const label = monthLabel(month);
   return (
     <section className="month" aria-label="Mese">
-      <div className="month-head">
-        <span className="month-name">{label}</span>
-        <span className="month-arrows">
-          <button type="button" className="icon-choice small prev" aria-label="Mese prima" onClick={() => setMonth(shiftMonth(month, -1))}><Icon name="chevron" size={18} /></button>
-          <button type="button" className="icon-choice small" aria-label="Mese dopo" onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={18} /></button>
-        </span>
-      </div>
       <div role="grid" aria-label={label} className="month-grid"
         onPointerDown={e => { start.current = { x: e.clientX, y: e.clientY }; swiped.current = false; }}
         onPointerUp={e => {
@@ -102,5 +95,21 @@ export function MonthView({ month, setMonth, days, kindOf, struck, onDay }: {
         })}
       </div>
     </section>
+  );
+}
+
+/**
+ * The month's name and its arrows, in the header while the Calendar is open (user's choice, 2026-11-17): first they sat
+ * over the grid, under an empty header.
+ */
+export function MonthTitle({ month, setMonth }: { month: string; setMonth(month: string): void }) {
+  return (
+    <div className="month-title">
+      <b className="month-name">{monthLabel(month)}</b>
+      <span className="month-arrows">
+        <button type="button" className="icon-choice small prev" aria-label="Mese prima" onClick={() => setMonth(shiftMonth(month, -1))}><Icon name="chevron" size={18} /></button>
+        <button type="button" className="icon-choice small" aria-label="Mese dopo" onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={18} /></button>
+      </span>
+    </div>
   );
 }

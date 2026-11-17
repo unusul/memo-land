@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { buildAgenda, needsAttention } from '@attivita/core';
 import { highlightsOf, isExpanded, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
-import { setAgendaMode, useAgendaMode } from './agendaMode.js';
+import { setAgendaMode, setShownMonth, useAgendaMode, useShownMonth } from './agendaMode.js';
 import type { Activity, AgendaItem, GroupKind, LocalDate } from '@attivita/core';
 import { addDays, dayParts, today } from '../dates.js';
 import { shortName } from '../labels.js';
@@ -49,7 +49,7 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   // on the one of `from`. It is a step inside the Agenda: the phone's back goes from it to the list.
   const mode = useAgendaMode();
   useBackLayer(mode === 'month', () => setAgendaMode('list'));
-  const [month, setMonth] = useState(from.slice(0, 7));
+  const month = useShownMonth() || from.slice(0, 7);
   const [openDay, setOpenDay] = useState<LocalDate | null>(null);
   const grid = monthDays(month);
   const monthAgenda = mode === 'month' ? buildAgenda(sources, `${grid[0]!}T00:00`, `${grid.at(-1)!}T23:59`) : null;
@@ -62,21 +62,22 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   return (
     <section aria-labelledby="agenda-h" className="stack">
       <h2 id="agenda-h" className="sr-only">Agenda</h2>
-      {/* In evidenza belongs to the list, not to the month (user's choice, 2026-11-17). */}
+      {/* In evidenza, Scadute and Proposte a te belong to the list: the Calendar shows only the month (user's choices,
+          2026-11-17). */}
       {highlighted.length > 0 && mode === 'list' && (
         <AttentionList label="In evidenza" rows={highlighted.map(a => ({ activity: a, groupId: a.groupId }))}
           kindOf={kindOf} nameOf={nameOf} onOpen={onOpen} quick={quick} />
       )}
-      {attention.overdue.length > 0 && (
+      {attention.overdue.length > 0 && mode === 'list' && (
         <AttentionList label="Scadute" rows={attention.overdue.map(o => ({ activity: o.activity, groupId: o.groupId, note: `scaduta ${onDay(o.since)}` }))}
           kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} quick={quick} />
       )}
-      {attention.proposed.length > 0 && (
+      {attention.proposed.length > 0 && mode === 'list' && (
         <AttentionList label="Proposte a te" rows={attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}` }))}
           kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} quick={quick} />
       )}
       {monthAgenda && (
-        <MonthView month={month} setMonth={setMonth} days={monthAgenda.days} onDay={setOpenDay} struck={struck}
+        <MonthView month={month} setMonth={setShownMonth} days={monthAgenda.days} onDay={setOpenDay} struck={struck}
           kindOf={it => KIND_COLOR[groupOf(it.groupId)?.kind ?? 'personal']} />
       )}
       {monthAgenda && openDay && (

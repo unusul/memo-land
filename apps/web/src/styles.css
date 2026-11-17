@@ -47,12 +47,9 @@ button { font: inherit; color: inherit }
 .app { display: grid; grid-template-rows: auto 1fr auto; height: 100% }
 .top { background: var(--surface); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top) }
 .top .wrap { display: flex; align-items: center; gap: 20px; min-height: 56px }
-.today-title { display: grid; gap: 1px; padding: 6px 0; margin: 2px 0 }
-/* «Agenda | Calendario» (user's choice, 2026-11-17): the view chosen lit and underlined, the other off. */
-.today-title .kicker { display: flex; align-items: center; gap: 8px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em }
-.today-title .kicker button { padding: 2px 0; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer }
-.today-title[data-current] .kicker button.chosen { color: var(--accent); border-bottom-color: var(--accent) }
-.today-title .kicker .sep { color: var(--line) }
+/* As tall in the Calendar, with the month on one line, as in the Agenda with the date and its count on two (user's
+   choice, 2026-11-17): the header does not jump when the view changes. */
+.today-title { display: grid; align-content: center; gap: 1px; padding: 6px 0; margin: 2px 0; min-height: 4.0625rem }
 .today-title .today-line { display: grid; gap: 1px; padding: 4px 10px; margin: 0 -10px; border: 0; border-radius: 12px; background: none; color: inherit; text-align: left; cursor: pointer }
 .today-title .today-line:hover { background: var(--surface-2) }
 .today-title .urgent { color: var(--marker); font-weight: 700 }
@@ -408,10 +405,9 @@ textarea { width: 100%; resize: vertical }
 .icon-choice:disabled { opacity: .35; cursor: default; background: var(--surface); color: var(--fg) }
 
 /* The month as Google's calendar (user's choice, 2026-11-17): rounded tiles apart, the titles cut in strips. */
-.month-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px }
 .month-name { font: 600 1.25rem/1.2 var(--display) }
 .month-arrows { display: flex; gap: 6px }
-.month-head .prev svg { transform: rotate(180deg) }
+.month-title .prev svg { transform: rotate(180deg) }
 .month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; touch-action: pan-y }
 .month-grid .wd { padding: 2px 0 4px; font-size: .78rem; color: var(--muted); text-align: center }
 .month-grid .wd.on { color: var(--accent); font-weight: 700 }
@@ -431,3 +427,26 @@ textarea { width: 100%; resize: vertical }
 
 /* A new version waiting for Aggiorna (user's choice, 2026-11-17), as the demo's band. */
 .update-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 14px; margin-bottom: 12px; border-radius: 12px; background: var(--accent-soft); color: var(--fg); font-size: .9rem }
+/* Once the new version is loaded (user's choice, 2026-11-17): green, where Aggiorna was, a line running down in six seconds. */
+.updated-band { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 12px; border-radius: 12px; overflow: hidden;
+  background: var(--ok-soft); color: var(--fg); font-size: .9rem }
+.updated-band .ok-icon { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 999px; background: var(--ok); color: var(--surface) }
+.updated-band .close { margin-left: auto; display: inline-grid; place-items: center; min-height: 28px; padding: 0 4px; color: var(--muted) }
+.updated-band .run { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--ok); opacity: .7; transform-origin: left; animation: run-down linear forwards }
+@keyframes run-down { to { transform: scaleX(0) } }
+/* «Agenda | Calendario» at the bottom, over the sections' bar (user's choice, 2026-11-17): a pill to tap or to swipe. */
+.app:has(> .view-strip) { grid-template-rows: auto 1fr auto auto }
+.view-strip { display: flex; justify-content: center; padding: 6px 16px; background: var(--surface); border-top: 1px solid var(--line); touch-action: pan-y }
+.view-strip .seg { display: flex; padding: 3px; border-radius: 999px; background: var(--bg) }
+.view-strip button { min-height: 32px; padding: 0 18px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 .72rem var(--body);
+  letter-spacing: .08em; text-transform: uppercase; cursor: pointer }
+.view-strip button[aria-current="page"] { background: var(--accent-soft); color: var(--accent) }
+.app:has(> .view-strip) .fab { bottom: calc(var(--nav-h) + 45px + 14px + env(safe-area-inset-bottom)) }
+/* On a wide screen the strip sits under the header, as it looks at the bottom of a phone (user's choice, 2026-11-17). */
+@media (min-width: 900px) {
+  .app:has(> .view-strip) { grid-template-rows: auto auto 1fr }
+  .view-strip { margin-left: 220px; border-top: 0; border-bottom: 1px solid var(--line) }
+  .app:has(> .view-strip) .fab { bottom: calc(24px + env(safe-area-inset-bottom)) }
+}
+/* The month's name and arrows in the header while the Calendar is open. */
+.month-title { display: flex; align-items: center; gap: 12px; min-height: 44px }

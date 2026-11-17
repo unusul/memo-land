@@ -1,6 +1,6 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { registerSW } from 'virtual:pwa-register';
-import { useToast } from './toast.js';
+import { Icon } from './icons.js';
 import { APP_DATE, APP_VERSION } from '../settings/version.js';
 
 /** The plugin's registration, as a parameter so that a test can give its own. */
@@ -43,23 +43,40 @@ export function UpdateBand() {
 
 const SEEN_KEY = 'attivita:seen-build';
 
+/** How long the green band stays (user's choice, 2026-11-17); the line at its bottom runs down in the same time. */
+const SHOWN_MS = 6000;
+
 /**
- * The line to say once a new build is open: the first opening of each build after another one. The build is the
- * version and its commit's date, so a build that kept the version number counts too; the line names the version.
+ * The version to announce once a new build is open: the first opening of each build after another one, null otherwise
+ * (and at the very first opening). The build is the version and its commit's date, so a build that kept the version
+ * number counts too.
  */
-export function newVersionNote(version = APP_VERSION, date = APP_DATE): string | null {
+export function newVersion(version = APP_VERSION, date = APP_DATE): string | null {
   const build = `${version}|${date}`;
   let seen: string | null = null;
   try { seen = localStorage.getItem(SEEN_KEY); localStorage.setItem(SEEN_KEY, build); } catch { return null; }
-  return seen !== null && seen !== build ? `memo-land aggiornata alla versione ${version}` : null;
+  return seen !== null && seen !== build ? version : null;
 }
 
-/** Says «memo-land aggiornata alla versione …» for a few seconds, once, after a new version is loaded. */
-export function UpdatedNote() {
-  const toast = useToast();
+/**
+ * «Aggiornata alla 0.6.0», once, after a new version is loaded (user's choice, 2026-11-17): a green band where the band of
+ * Aggiorna was, gone after six seconds, with a line running down and a × to close it at once. First it was the toast
+ * at the bottom, «molto brutto».
+ */
+export function UpdatedBand() {
+  const [version, setVersion] = useState<string | null>(() => newVersion());
   useEffect(() => {
-    const note = newVersionNote();
-    if (note) toast({ text: note });
-  }, [toast]);
-  return null;
+    if (!version) return;
+    const t = setTimeout(() => setVersion(null), SHOWN_MS);
+    return () => clearTimeout(t);
+  }, [version]);
+  if (!version) return null;
+  return (
+    <section className="updated-band" role="status" aria-label="Versione aggiornata">
+      <span className="ok-icon"><Icon name="check" size={14} /></span>
+      <span>Aggiornata alla <b>{version}</b></span>
+      <button type="button" className="link close" aria-label="Chiudi" onClick={() => setVersion(null)}><Icon name="close" size={16} /></button>
+      <span className="run" style={{ animationDuration: `${SHOWN_MS}ms` }} />
+    </section>
+  );
 }

@@ -56,3 +56,24 @@ test('testSwipingBackIntoTheAgendaShowsTheList', async () => {
   await waitFor(() => expect(view('Agenda')).toBe('page'));
   expect(screen.queryByRole('grid')).toBeNull();
 });
+
+/**
+ * On a wide screen the strip sits under the header, as it looks at the bottom of a phone (user's choice, 2026-11-17;
+ * for a moment the pill was inside the header, beside the date); on a phone it stays at the bottom, under the thumb.
+ */
+test('testTheStripIsUnderTheHeaderOnWideScreens', async () => {
+  const wide = (on: boolean) => vi.spyOn(window, 'matchMedia').mockImplementation(q => ({
+    matches: on && q.includes('min-width'), media: q, onchange: null, addEventListener: () => undefined, removeEventListener: () => undefined,
+    addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false,
+  }) as MediaQueryList);
+  wide(true);
+  renderWithSession(<Shell />, memorySession(PIPPO));
+  await screen.findAllByText('Controllo backup');
+  expect(screen.getByRole('group', { name: 'Vista' }).previousElementSibling?.tagName).toBe('HEADER');
+  cleanup();
+  wide(false);
+  renderWithSession(<Shell />, memorySession(PIPPO));
+  await screen.findAllByText('Controllo backup');
+  expect(screen.getByRole('group', { name: 'Vista' }).nextElementSibling?.tagName).toBe('NAV');
+  vi.restoreAllMocks();
+});

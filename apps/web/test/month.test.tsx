@@ -7,7 +7,8 @@ import { activityOnDay, cellStrips, monthDays } from '../src/agenda/MonthView.js
 import { setHighlights } from '../src/groups/barPrefs.js';
 import { agendaMode, setAgendaMode } from '../src/agenda/agendaMode.js';
 import { TodayTitle } from '../src/shell/TodayTitle.js';
-import { PIPPO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
+import { ViewStrip } from '../src/agenda/ViewStrip.js';
+import { PIPPO, PLUTO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
 
 /*
  * The Agenda as a month (user's choices, 2026-11-17): a second view beside the list, switched by «Agenda | Calendario»
@@ -54,15 +55,16 @@ test('testFourStripsAtMostElseThreeAndMore', () => {
   expect(cellStrips(items(6))).toEqual({ shown: items(3), more: 3 });
 });
 
-/** «Agenda | Calendario» in the header: the one chosen is lit and remembered; in the month the date line goes. */
-test('testHeaderSwitchesBetweenAgendaAndCalendar', async () => {
-  const went: string[] = [];
-  renderWithSession(<><TodayTitle current onClick={() => went.push('agenda')} /><AgendaView onOpen={() => undefined} /></>, bench());
+/**
+ * «Agenda | Calendario» in a strip at the bottom, under the thumb (user's choice, 2026-11-17; first on top of the
+ * header): the one chosen is lit; in the month the header's date line goes.
+ */
+test('testStripSwitchesBetweenAgendaAndCalendar', async () => {
+  renderWithSession(<><TodayTitle current onClick={() => undefined} /><AgendaView onOpen={() => undefined} /><ViewStrip /></>, bench());
   await screen.findByRole('button', { name: 'Mostra altre due settimane' });
   expect(screen.getByRole('button', { name: 'Agenda' }).getAttribute('aria-current')).toBe('page');
   fireEvent.click(screen.getByRole('button', { name: 'Calendario' }));
   expect(agendaMode()).toBe('month');
-  expect(went).toEqual(['agenda']);
   expect(screen.getByRole('button', { name: 'Calendario' }).getAttribute('aria-current')).toBe('page');
   expect(screen.getByRole('button', { name: 'Agenda' }).getAttribute('aria-current')).toBeNull();
   expect(screen.getByRole('grid', { name: 'Novembre 2026' })).toBeTruthy();
@@ -86,10 +88,17 @@ test('testCellsShowStripsAndToday', async () => {
   expect(cell(grid, '2026-10-27').classList.contains('other')).toBe(true);
 });
 
-/** The arrows, and a swipe on the grid, go to the month before or after. */
+/**
+ * The arrows, beside the month's name in the header (user's choice, 2026-11-17: first over the grid), and a swipe on
+ * the grid, go to the month before or after.
+ */
 test('testArrowsAndSwipeChangeMonth', async () => {
-  const grid = await openMonth();
+  setAgendaMode('month');
+  renderWithSession(<><TodayTitle current onClick={() => undefined} /><AgendaView onOpen={() => undefined} /></>, bench());
+  const grid = await screen.findByRole('grid', { name: 'Novembre 2026' });
+  expect(document.querySelector('.month-title')?.textContent).toBe('Novembre 2026');
   fireEvent.click(screen.getByRole('button', { name: 'Mese dopo' }));
+  expect(document.querySelector('.month-title')?.textContent).toBe('Dicembre 2026');
   expect(screen.getByRole('grid', { name: 'Dicembre 2026' })).toBeTruthy();
   const g = screen.getByRole('grid');
   fireEvent.pointerDown(g, { clientX: 300, clientY: 300, pointerId: 1, pointerType: 'touch' });
@@ -128,7 +137,8 @@ test('testAddOnADayOpensANewActivityThatDayAtNine', async () => {
   expect([a.groupId, a.props.schedule, a.title, shapeOf(a, 'personal:p')]).toEqual(['personal:p', { start: '2026-11-19T09:00' }, '', 'event']);
 });
 
-/** In evidenza and In attesa are the list's, not the month's (user's choices, 2026-11-17): before, both views had them. */
+/** The Calendar shows only the month (user's choices, 2026-11-17): In evidenza, Scadute, Proposte a te and In attesa
+ * are the list's. Before, both views had them. */
 test('testNoHighlightsInTheMonth', async () => {
   setHighlights(PIPPO, ['backup']);
   renderWithSession(<AgendaView onOpen={() => undefined} />, bench());
@@ -136,4 +146,29 @@ test('testNoHighlightsInTheMonth', async () => {
   act(() => setAgendaMode('month'));
   expect(screen.queryByRole('list', { name: 'In evidenza' })).toBeNull();
   expect(screen.queryByRole('heading', { name: 'In attesa' })).toBeNull();
+  expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
+});
+
+/** A swipe on the strip: to the left the Calendar, to the right the Agenda. */
+test('testSwipeOnTheStripSwitchesTheView', async () => {
+  renderWithSession(<><AgendaView onOpen={() => undefined} /><ViewStrip /></>, bench());
+  const strip = await screen.findByRole('group', { name: 'Vista' });
+  fireEvent.pointerDown(strip, { clientX: 300, clientY: 700, pointerId: 1, pointerType: 'touch' });
+  fireEvent.pointerUp(strip, { clientX: 200, clientY: 705, pointerId: 1, pointerType: 'touch' });
+  expect(agendaMode()).toBe('month');
+  expect(await screen.findByRole('grid')).toBeTruthy();
+  fireEvent.pointerDown(strip, { clientX: 200, clientY: 700, pointerId: 1, pointerType: 'touch' });
+  fireEvent.pointerUp(strip, { clientX: 300, clientY: 700, pointerId: 1, pointerType: 'touch' });
+  expect(agendaMode()).toBe('list');
+});
+
+/** On 11 November Pluto has one overdue and one proposal: on top of the list, not in the Calendar. */
+test('testNoOverdueNorProposalsInTheMonth', async () => {
+  vi.setSystemTime(new Date('2026-11-11T09:00'));
+  renderWithSession(<AgendaView onOpen={() => undefined} />, memorySession(PLUTO));
+  expect(await screen.findByRole('list', { name: 'Scadute' })).toBeTruthy();
+  expect(screen.getByRole('list', { name: 'Proposte a te' })).toBeTruthy();
+  act(() => setAgendaMode('month'));
+  expect(screen.queryByRole('list', { name: 'Scadute' })).toBeNull();
+  expect(screen.queryByRole('list', { name: 'Proposte a te' })).toBeNull();
 });

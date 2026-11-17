@@ -24,12 +24,9 @@ test('testMenuIsNoiThenSharedGroupsThenIo', async () => {
 /** The agenda left the menu: the date header is now its entry, and it says what waits for the person. */
 test('testHeaderIsTheAgendaAndSaysWhatWaits', async () => {
   renderWithSession(<Shell />, memorySession(PLUTO));
-  const header = await screen.findByRole('button', { name: 'Agenda' });
-  // The capital initial comes from CSS (::first-letter). Since 2026-11-17 the header is «Agenda | Calendario» and the
-  // date line under it.
-  const line = document.querySelector('.today-line')!;
-  expect(line.textContent).toMatch(/mercoledì 11 novembre/);
-  expect(line.textContent).toMatch(/1 scaduta · 1 proposta/);
+  // The capital initial comes from CSS (::first-letter).
+  const header = await screen.findByRole('button', { name: /mercoledì 11 novembre/ });
+  expect(header.textContent).toMatch(/1 scaduta · 1 proposta/);
   expect(header.getAttribute('aria-current')).toBe('page');
   fireEvent.click(within(await nav()).getByRole('button', { name: /^Io/ }));
   expect(header.getAttribute('aria-current')).toBeNull();
