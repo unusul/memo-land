@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { buildAgenda, needsAttention, outOfCalendar } from '@attivita/core';
-import { highlightsOf, isExpanded, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
+import { nextTime, shortDay } from './when.js';
+import { highlightsOf, rowSizeOf, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
 import { setAgendaMode, setShownMonth, useAgendaMode, useShownMonth } from './agendaMode.js';
 import type { Activity, AgendaItem, Group, GroupKind, LocalDate } from '@attivita/core';
 import { addDays, dayParts, today } from '../dates.js';
@@ -68,16 +69,16 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
       {/* In evidenza, Scadute and Proposte a te belong to the list: the Calendar shows only the month (user's choices,
           2026-11-17). */}
       {highlighted.length > 0 && mode === 'list' && (
-        <AttentionList label="In evidenza" rows={highlighted.map(a => ({ activity: a, groupId: a.groupId }))}
-          kindOf={kindOf} nameOf={nameOf} onOpen={onOpen} quick={quick} />
+        <AttentionList label="In evidenza" rows={highlighted.map(a => ({ activity: a, groupId: a.groupId, when: nextTime(a) }))}
+          kindOf={kindOf} nameOf={nameOf} me={account} onOpen={onOpen} quick={quick} />
       )}
       {attention.overdue.length > 0 && mode === 'list' && (
-        <AttentionList label="Scadute" rows={attention.overdue.map(o => ({ activity: o.activity, groupId: o.groupId, note: `scaduta ${onDay(o.since)}` }))}
-          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} quick={quick} />
+        <AttentionList label="Scadute" rows={attention.overdue.map(o => ({ activity: o.activity, groupId: o.groupId, note: `scaduta ${onDay(o.since)}`, when: shortDay(o.since) }))}
+          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} me={account} onOpen={onOpen} quick={quick} />
       )}
       {attention.proposed.length > 0 && mode === 'list' && (
-        <AttentionList label="Proposte a te" rows={attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}` }))}
-          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} onOpen={onOpen} quick={quick} />
+        <AttentionList label="Proposte a te" rows={attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}`, when: nextTime(p.activity) }))}
+          kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} me={account} onOpen={onOpen} quick={quick} />
       )}
       {monthAgenda && (
         <MonthView month={month} setMonth={setShownMonth} days={monthAgenda.days} onDay={setOpenDay} struck={struck}
@@ -162,8 +163,9 @@ function Item({ it, shared, info, kind, group, me, high, onOpen }: { it: AgendaI
   // Reduced: one lower line, the title on the left and the time on the right. In a group of two or more a row still to
   // do starts in full, so whether it is free or whose it is shows at once, on every day; in Personale, once done, and
   // for an information it starts reduced (user's choices, 2026-11-17; before: every row reduced, then today's in full).
-  // «Sempre espansa» and the arrow open any row.
-  const small = folds.get(foldKey(it)) ?? !(isExpanded(me, it.activityId) || (shared && !struck(it) && !info));
+  // «Sempre espansa» and «Sempre ridotta» set how it starts; the arrow switches any row.
+  const size = rowSizeOf(me, it.activityId);
+  const small = folds.get(foldKey(it)) ?? (size === 'auto' ? !(shared && !struck(it) && !info) : size === 'reduced');
   const toggle = () => { folds.set(foldKey(it), !small); redraw(n => n + 1); };
   return (
     <div className="item-row">
@@ -236,12 +238,12 @@ function DaySheet({ day, onClose, children }: { day: LocalDate; onClose(): void;
   );
 }
 
-interface AttentionRow { activity: Activity; groupId: string | null; note?: string }
+interface AttentionRow { activity: Activity; groupId: string | null; note?: string; when?: string | undefined }
 
 /** A titled card of rows for what waits for the account (in view, overdue, proposals), above the days. */
-function AttentionList({ label, rows, kindOf, nameOf, onOpen, quick }: {
-  label: string; rows: AttentionRow[]; kindOf(id: string | null): GroupKind | undefined; nameOf(id: string | null): string | undefined; onOpen(t: OpenTarget): void;
-  quick: ReturnType<typeof useQuickActions>;
+function AttentionList({ label, rows, kindOf, nameOf, me, onOpen, quick }: {
+  label: string; rows: AttentionRow[]; kindOf(id: string | null): GroupKind | undefined; nameOf(id: string | null): string | undefined; me: string;
+  onOpen(t: OpenTarget): void; quick: ReturnType<typeof useQuickActions>;
 }) {
   return (
     <div className="attention">
@@ -250,14 +252,38 @@ function AttentionList({ label, rows, kindOf, nameOf, onOpen, quick }: {
         {rows.map(r => (
           <li key={r.activity.id}>
             <SwipeRow {...quick(r.activity.id)}>
-              <button className="item" style={{ '--grp': KIND_COLOR[kindOf(r.groupId) ?? 'personal'] } as React.CSSProperties} onClick={() => onOpen({ activityId: r.activity.id })}>
-                <span className="bar" /><span><span className="t">{r.activity.title}</span>{r.activity.props.priority === 'high' && <High />}<br /><span className="meta">{[r.note, nameOf(r.groupId)].filter(Boolean).join(' · ')}</span></span>
-                <span className="time" />
-              </button>
+              <AttentionItem row={r} section={label} kind={kindOf(r.groupId) ?? 'personal'} group={nameOf(r.groupId)} me={me} onOpen={onOpen} />
             </SwipeRow>
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * A row above the days, with the days' arrow (user's choice, 2026-11-17): in full at first, as before, since the line
+ * under the title says why it is there; on one line when the person keeps the activity «Sempre ridotta». The arrow
+ * switches it for as long as the app stays open. Before, these rows had no arrow and were always in full.
+ */
+function AttentionItem({ row, section, kind, group, me, onOpen }: { row: AttentionRow; section: string; kind: GroupKind; group: string | undefined; me: string; onOpen(t: OpenTarget): void }) {
+  useBarPrefs();
+  const [, redraw] = useState(0);
+  const a = row.activity;
+  const key = `${section}|${a.id}`;
+  const small = folds.get(key) ?? rowSizeOf(me, a.id) === 'reduced';
+  const toggle = () => { folds.set(key, !small); redraw(n => n + 1); };
+  return (
+    <div className="item-row">
+      <button className={`item${small ? ' reduced' : ''}`} style={{ '--grp': KIND_COLOR[kind] } as React.CSSProperties} onClick={() => onOpen({ activityId: a.id })}>
+        <span className="bar" />
+        {small ? <span className="t">{a.title}</span>
+          : <span><span className="t">{a.title}</span>{a.props.priority === 'high' && <High />}<br /><span className="meta">{[row.note, group].filter(Boolean).join(' · ')}</span></span>}
+      </button>
+      <button type="button" className="fold" aria-label={`${small ? 'Espandi' : 'Riduci'} ${a.title}`} aria-expanded={!small} onClick={toggle}>
+        {row.when && <span className="time">{row.when}</span>}
+        <Icon name="chevron" size={16} />
+      </button>
     </div>
   );
 }

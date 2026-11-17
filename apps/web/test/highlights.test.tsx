@@ -18,7 +18,7 @@ test('testHighlightedActivitiesComeFirstInTheAgenda', async () => {
   setHighlights(PIPPO, ['costi', 'idea']);
   renderWithSession(<AgendaView onOpen={() => undefined} />, memorySession());
   const list = await screen.findByRole('list', { name: 'In evidenza' });
-  expect(within(list).getAllByRole('button').map(b => b.querySelector('.t')?.textContent)).toEqual(['Analisi costi', 'app gestione core']);
+  expect([...list.querySelectorAll('.item .t')].map(t => t.textContent)).toEqual(['Analisi costi', 'app gestione core']);
   const headings = screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent);
   expect(headings[0]).toBe('In evidenza');
 });

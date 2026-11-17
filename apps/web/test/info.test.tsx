@@ -23,14 +23,14 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-/** The two switches between Sempre espansa and In evidenza, which stays the last; both saved on the activity. */
+/** The two switches between Riga nell'Agenda and In evidenza, which stays the last; both saved on the activity. */
 test('testTheTwoSwitchesOfTheDetail', async () => {
   const s = memorySession();
   renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Controllo backup' });
   const row = screen.getByRole('button', { name: 'In evidenza' }).parentElement!;
   const names = [...row.querySelectorAll('button')].map(b => b.getAttribute('aria-label'));
-  expect(names.slice(0, 5)).toEqual(['Si chiude da sola', 'Sempre espansa', 'Informazione utile', 'Non mostrare in calendario', 'In evidenza']);
+  expect(names.slice(0, 5)).toEqual(['Si chiude da sola', "Riga nell'Agenda", 'Informazione utile', 'Non mostrare in calendario', 'In evidenza']);
   fireEvent.click(screen.getByRole('button', { name: 'Informazione utile' }));
   await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.info).toBe(true));
   fireEvent.click(await screen.findByRole('button', { name: 'Non mostrare in calendario', pressed: false }));

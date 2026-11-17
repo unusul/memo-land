@@ -3,7 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { complete } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { AgendaView, clearFolds } from '../src/agenda/AgendaView.js';
-import { isExpanded, toggleExpanded } from '../src/groups/barPrefs.js';
+import { reducedOf, rowSizeOf, setHighlights, setRowSize } from '../src/groups/barPrefs.js';
 import { PIPPO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
 
 /*
@@ -78,24 +78,81 @@ test('testATapOnTheTimeExpands', async () => {
   expect(opened).toEqual([]);
 });
 
-/** «Sempre espansa» in the detail, beside «Si chiude da sola»: the person's own, kept in their prefs. */
-test('testAlwaysExpandedFromTheDetail', async () => {
+/**
+ * How the rows start, from the detail beside «Si chiude da sola»: a small menu of three, Automatica, Sempre espansa,
+ * Sempre ridotta (user's choice, 2026-11-17; before, a switch for «Sempre espansa» alone). The person's own, in their
+ * prefs; the button is lit when it is not Automatica.
+ */
+test('testRowSizeMenuFromTheDetail', async () => {
   renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, bench());
   await screen.findByRole('heading', { name: 'Controllo backup' });
-  const sw = screen.getByRole('button', { name: 'Sempre espansa' });
-  expect(sw.previousElementSibling?.getAttribute('aria-label')).toBe('Si chiude da sola');
-  fireEvent.click(sw);
-  expect(isExpanded(PIPPO, 'backup')).toBe(true);
-  expect(screen.getByRole('button', { name: 'Sempre espansa' }).getAttribute('aria-pressed')).toBe('true');
+  const button = screen.getByRole('button', { name: "Riga nell'Agenda" });
+  expect(button.classList.contains('on')).toBe(false);
+  fireEvent.click(button);
+  const menu = screen.getByRole('menu', { name: "Riga nell'Agenda" });
+  expect(within(menu).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Automatica', 'Sempre espansa', 'Sempre ridotta']);
+  expect(within(menu).getAllByRole('menuitemradio').every(b => b.querySelector('svg') !== null)).toBe(true);
+  expect(within(menu).getByRole('menuitemradio', { name: 'Automatica' }).getAttribute('aria-checked')).toBe('true');
+  fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'Sempre ridotta' }));
+  expect(rowSizeOf(PIPPO, 'backup')).toBe('reduced');
+  expect(screen.getByRole('button', { name: "Riga nell'Agenda" }).classList.contains('on')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: "Riga nell'Agenda" }));
+  fireEvent.click(screen.getByRole('menuitemradio', { name: 'Sempre espansa' }));
+  expect(rowSizeOf(PIPPO, 'backup')).toBe('expanded');
+  expect(reducedOf(PIPPO)).toEqual([]);
+  fireEvent.click(screen.getByRole('button', { name: "Riga nell'Agenda" }));
+  fireEvent.click(screen.getByRole('menuitemradio', { name: 'Automatica' }));
+  expect(rowSizeOf(PIPPO, 'backup')).toBe('auto');
 });
 
 /** Always expanded, its rows start in full, in Personale and once done too; the arrow still reduces them. */
 test('testAlwaysExpandedRowsStartInFull', async () => {
-  toggleExpanded(PIPPO, 'backup');
+  setRowSize(PIPPO, 'backup', 'expanded');
   renderWithSession(<AgendaView from="2026-11-03" days={3} onOpen={() => undefined} />, bench(`personal:${PIPPO}`));
   const [done, open] = await rows();
   expect(reduced(done!)).toBe(false);
   expect(reduced(open!)).toBe(false);
   fireEvent.click(within(open!).getByRole('button', { name: 'Riduci Controllo backup' }));
   await waitFor(() => expect(reduced(open!)).toBe(true));
+});
+
+/** Always reduced, an open row of a shared group starts on one line too; the arrow still expands it. */
+test('testAlwaysReducedRowsStartReduced', async () => {
+  setRowSize(PIPPO, 'backup', 'reduced');
+  renderWithSession(<AgendaView from="2026-11-03" days={3} onOpen={() => undefined} />, bench());
+  const [, open] = await rows();
+  expect(reduced(open!)).toBe(true);
+  fireEvent.click(within(open!).getByRole('button', { name: 'Espandi Controllo backup' }));
+  await waitFor(() => expect(reduced(open!)).toBe(false));
+});
+
+/**
+ * The rows above the days take the days' arrow (user's choice, 2026-11-17; before, always in full and no arrow): in
+ * full at first, with the next time beside the arrow, «5 nov 09:00»; on one line when kept «Sempre ridotta».
+ */
+test('testRowsAboveTheDaysFold', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  try {
+    vi.setSystemTime(new Date('2026-11-05T08:00'));
+    setHighlights(PIPPO, ['backup']);
+    renderWithSession(<AgendaView from="2026-11-05" days={1} onOpen={() => undefined} />, bench());
+    const list = await screen.findByRole('list', { name: 'In evidenza' });
+    const row = list.querySelector('.item-row') as HTMLElement;
+    expect(reduced(row)).toBe(false);
+    expect(row.querySelector('.time')?.textContent).toBe('5 nov 09:00');
+    fireEvent.click(within(row).getByRole('button', { name: 'Riduci Controllo backup' }));
+    await waitFor(() => expect(reduced(row)).toBe(true));
+    expect(row.querySelector('.meta')).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+/** Kept «Sempre ridotta», a row above the days starts on one line; «Sempre espansa» changes nothing there. */
+test('testRowsAboveTheDaysFollowAlwaysReduced', async () => {
+  setHighlights(PIPPO, ['backup']);
+  setRowSize(PIPPO, 'backup', 'reduced');
+  renderWithSession(<AgendaView from="2026-11-03" days={1} onOpen={() => undefined} />, bench());
+  const list = await screen.findByRole('list', { name: 'In evidenza' });
+  expect(reduced(list.querySelector('.item-row') as HTMLElement)).toBe(true);
 });

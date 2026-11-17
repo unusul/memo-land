@@ -5,6 +5,8 @@ import type { Activity, Group, GroupType, Role, Shape } from '@attivita/core';
 import { waitingIn } from './listGroup.js';
 import { KIND_COLOR } from '../agenda/AgendaView.js';
 import type { OpenTarget } from '../agenda/AgendaView.js';
+import { whenOf } from '../agenda/when.js';
+import { describeRepeat } from '../activity/timing.js';
 import { MAX_PINS, movePin, orderSharedGroups, pin, pinsOf, setIcon, unpin, useBarPrefs } from './barPrefs.js';
 import { GroupIcon } from './GroupIcon.js';
 import { GroupName } from './GroupName.js';
@@ -304,8 +306,30 @@ const LIST_SECTIONS: Array<[Shape, string]> = [
   ['task', 'Cose da fare'], ['recurring', 'Ricorrenti'], ['event', 'Eventi'], ['idea', 'Idee'], ['waiting', 'In attesa'], ['snoozed', 'Rimandate'],
 ];
 
+/**
+ * Whose it is, under the title in a group's list, as the Agenda says it: «libera», «tu», a name, a proposal. Nothing in
+ * Personale, for an information, or for an idea nobody has: there it would say nothing.
+ */
+function whoseText(a: Activity, shape: Shape, g: Group, me: string): string | undefined {
+  const asg = a.props.assignment;
+  if (g.kind === 'personal' || a.info || (shape === 'idea' && !asg)) return undefined;
+  if (!asg) return 'libera';
+  if (asg.state === 'proposed') return asg.assignee === me ? `proposta a te da ${shortName(asg.assignedBy)}` : `proposta a ${shortName(asg.assignee)}`;
+  return asg.assignee === me ? 'tu' : shortName(asg.assignee);
+}
+
+/**
+ * The line under the title (user's choices, 2026-11-17): whose it is, the rhythm of a series, a list's progress; left
+ * out when it has nothing to say. Before, only a list's progress, and the date as the engine keeps it.
+ */
+function listMeta(a: Activity, shape: Shape, g: Group, me: string): string {
+  const list = a.checklist && a.checklist.items.length > 0 ? `lista ${a.checklist.items.filter(i => i.done).length}/${a.checklist.items.length}` : undefined;
+  return [whoseText(a, shape, g, me), a.props.repeat && describeRepeat(a.props.repeat), list].filter(Boolean).join(' · ');
+}
+
 /** Every open activity of the group, dated or not, by form: the way to reach ideas and tasks with no date. */
 export function GroupList({ label, group: g, activities, onOpen }: { label: string; group: Group; activities: Activity[]; onOpen(t: OpenTarget): void }) {
+  const { account } = useSession();
   const byShape = new Map<Shape, Activity[]>();
   for (const a of activities) {
     const shape = shapeOf(a, g.id);
@@ -318,14 +342,19 @@ export function GroupList({ label, group: g, activities, onOpen }: { label: stri
         <div key={shape} className="attention">
           <h4>{title}</h4>
           <ul className="items">
-            {byShape.get(shape)!.map(a => (
-              <li key={a.id}>
-                <button className="item" style={{ '--grp': KIND_COLOR[g.kind] } as React.CSSProperties} onClick={() => onOpen({ activityId: a.id })}>
-                  <span className="bar" /><span><span className="t">{a.title}</span>{a.checklist && a.checklist.items.length > 0 && <><br /><span className="meta">lista {a.checklist.items.filter(i => i.done).length}/{a.checklist.items.length}</span></>}</span>
-                  <span className="time">{a.props.due ?? a.props.schedule?.start.replace('T', ' ') ?? ''}</span>
-                </button>
-              </li>
-            ))}
+            {byShape.get(shape)!.map(a => {
+              const meta = listMeta(a, shape, g, account);
+              // An information as in the Agenda: grey, with its label, not whose it is.
+              return (
+                <li key={a.id}>
+                  <button className={`item${a.info ? ' info' : ''}`} style={{ '--grp': a.info ? 'var(--muted)' : KIND_COLOR[g.kind] } as React.CSSProperties} onClick={() => onOpen({ activityId: a.id })}>
+                    <span className="bar" /><span><span className="t">{a.title}</span>{a.info && <span className="pill info">info</span>}{a.props.priority === 'high' && <span className="pill high">alta</span>}
+                      {meta && <><br /><span className="meta">{meta}</span></>}</span>
+                    <span className="time">{whenOf(a) ?? ''}</span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}

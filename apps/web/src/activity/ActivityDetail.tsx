@@ -19,7 +19,8 @@ import { availableActions } from './actions.js';
 import { movedNote, occurrenceAt } from './occurrence.js';
 import { MoveOccurrenceForm } from './MoveOccurrenceForm.js';
 import { shortDay } from './DatePicker.js';
-import { isExpanded, isHighlighted, toggleExpanded, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
+import { isHighlighted, rowSizeOf, setRowSize, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
+import type { RowSize } from '../groups/barPrefs.js';
 import { Attachments } from './Attachments.js';
 import { Links } from './Links.js';
 import { ChecklistView } from './ChecklistView.js';
@@ -355,7 +356,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
-        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<ExpandedButton id={a.id} me={me} />{a.groupId !== null && canEdit && <>
+        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<RowSizeButton id={a.id} me={me} />{a.groupId !== null && canEdit && <>
           <FlagButton on={a.info === true} label="Informazione utile" icon="info" title="Informazione utile: da sapere, non da fare; ridotta nell'Agenda, fuori dal Calendario" onToggle={on => void run(() => setInfo(a, on, instantNow()))} />
           <FlagButton on={a.offCalendar === true} label="Non mostrare in calendario" icon="calendarOff" title="Non mostrare in calendario: resta nell'Agenda" onToggle={on => void run(() => setOffCalendar(a, on, instantNow()))} />
         </>}<HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
@@ -485,15 +486,24 @@ function FlagButton({ on, label, icon, title, onToggle }: { on: boolean; label: 
   );
 }
 
-/** «Sempre espansa» (2026-11-16): the activity in full in the person's Agenda, where rows start reduced; theirs only. */
-function ExpandedButton({ id, me }: { id: string; me: string }) {
+const ROW_SIZES: readonly (readonly [RowSize, string, IconName])[] = [
+  ['auto', 'Automatica', 'rowAuto'], ['expanded', 'Sempre espansa', 'rowExpanded'], ['reduced', 'Sempre ridotta', 'rowReduced'],
+];
+
+/**
+ * How the activity's rows start in the person's Agenda, theirs only: a small menu of three (user's choice, 2026-11-17;
+ * before, «Sempre espansa» on or off). Lit when it is not «Automatica», with the arrows open or closed.
+ */
+function RowSizeButton({ id, me }: { id: string; me: string }) {
   useBarPrefs();
-  const on = isExpanded(me, id);
+  const size = rowSizeOf(me, id);
+  const [, text, icon] = ROW_SIZES.find(([s]) => s === size)!;
   return (
-    <button type="button" className="icon-choice small" aria-label="Sempre espansa" aria-pressed={on}
-      title="Sempre espansa: nell'Agenda la vedi per intero" onClick={() => toggleExpanded(me, id)}>
-      <Icon name="unfold" size={18} />
-    </button>
+    <PopMenu className={`icon-choice small${size === 'auto' ? '' : ' on'}`} buttonLabel="Riga nell'Agenda" title={`Riga nell'Agenda: ${text}`}
+      label={<Icon name={icon} size={18} />} menuLabel="Riga nell'Agenda" roomBelow={24 + 44 * ROW_SIZES.length}>
+      {close => ROW_SIZES.map(([s, t, i]) => <MenuChoice key={s} label={t} value={s} icon={<Icon name={i} size={18} />} checked={s === size}
+        onChoose={() => { close(); setRowSize(me, id, s); }} />)}
+    </PopMenu>
   );
 }
 

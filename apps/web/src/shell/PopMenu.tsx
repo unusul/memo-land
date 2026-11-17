@@ -12,8 +12,10 @@ const PANEL_HEIGHT = 420;
  * once (user's choice, 2026-11-16, «la gestione in linea»). Near the screen's edges it opens leftwards or upwards. A
  * press outside or Esc closes it; `children` gets `close` for the choices that end it.
  */
-export function PopMenu({ label, menuLabel, buttonLabel, className = 'chip', panel = false, roomBelow = ROOM_BELOW, children }: {
+export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chip', panel = false, roomBelow = ROOM_BELOW, children }: {
   label: ReactNode; menuLabel: string; className?: string; children(close: () => void): ReactNode;
+  /** The hint shown on hover, for a button with only an icon. */
+  title?: string;
   /** The button's name when its text alone does not say what it does (a value shown in a row). */
   buttonLabel?: string;
   /** Fields instead of a list of choices: the wider look of the property panels. */
@@ -51,7 +53,7 @@ export function PopMenu({ label, menuLabel, buttonLabel, className = 'chip', pan
 
   return (
     <span className="attach" ref={box}>
-      <button type="button" className={className} aria-label={buttonLabel} aria-haspopup="menu" aria-expanded={open} onClick={toggle}>{label}</button>
+      <button type="button" className={className} aria-label={buttonLabel} title={title} aria-haspopup="menu" aria-expanded={open} onClick={toggle}>{label}</button>
       {open && (
         <span role="menu" aria-label={menuLabel} className={['menu', panel && 'panel', place.end && 'end', place.up && 'up'].filter(Boolean).join(' ')}
           style={fit ?? undefined} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }}>
@@ -81,8 +83,8 @@ export function panelFit(anchor: Element, max = 360): { left: number; width: num
 }
 
 /** One choice of a PopMenu: highlighted when it is the value set now. */
-export function MenuChoice({ label, checked = false, value, onChoose }: { label: string; checked?: boolean; value?: string; onChoose(): void }) {
-  return <button type="button" role="menuitemradio" aria-checked={checked} data-value={value} onClick={onChoose}>{label}</button>;
+export function MenuChoice({ label, checked = false, value, icon, onChoose }: { label: string; checked?: boolean; value?: string; icon?: ReactNode; onChoose(): void }) {
+  return <button type="button" role="menuitemradio" aria-checked={checked} data-value={value} className={icon ? 'with-icon' : undefined} onClick={onChoose}>{icon}{label}</button>;
 }
 
 /**

@@ -32,6 +32,10 @@ const SHELL_PATHS = {
   copy: <><rect x="8.5" y="8.5" width="12" height="12" rx="2" /><path d="M15.5 8.5V5A1.5 1.5 0 0 0 14 3.5H5A1.5 1.5 0 0 0 3.5 5v9A1.5 1.5 0 0 0 5 15.5h3.5" /></>,
   sort: <path d="M8 19.5v-15M4 8.5l4-4 4 4M16 4.5v15M12 15.5l4 4 4-4" />,
   unfold: <path d="M4 5h16M4 19h16M8 13.5l4-3 4 3" />,
+  /* How a row starts in the Agenda (2026-11-17): by the Agenda's rules, always in full, always on one line. */
+  rowAuto: <path d="M12 4v16M8.5 7.5 12 4l3.5 3.5M8.5 16.5 12 20l3.5-3.5" />,
+  rowExpanded: <path d="M14.5 4H20v5.5M20 4l-6 6M9.5 20H4v-5.5M4 20l6-6" />,
+  rowReduced: <path d="M14 4.5V10h5.5M14 10l6-6M10 19.5V14H4.5M10 14l-6 6" />,
   autoDone: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l2.5 1.5" /><path d="m14.5 18 2 2 4-4.5" /></>,
   info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></>,
   calendarOff: <><path d="M8 3v3M16 3v3M4.5 9.5h15" /><path d="M6.5 5h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" /><path d="M3 3l18 18" /></>,

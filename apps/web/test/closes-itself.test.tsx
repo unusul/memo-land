@@ -22,7 +22,7 @@ test('testSwitchOnAnActivityWithATime', async () => {
   await screen.findByRole('heading', { name: 'Controllo backup' });
   const sw = screen.getByRole('button', { name: 'Si chiude da sola' });
   expect(sw.getAttribute('aria-pressed')).toBe('false');
-  expect(sw.nextElementSibling?.getAttribute('aria-label')).toBe('Sempre espansa');
+  expect(sw.nextElementSibling?.querySelector('button')?.getAttribute('aria-label')).toBe("Riga nell'Agenda");
   fireEvent.click(sw);
   await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.closesItself?.since).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Si chiude da sola' }).getAttribute('aria-pressed')).toBe('true'));

@@ -87,11 +87,23 @@ const expandedKey = (account: AccountId) => `attivita:expanded:${account}`;
  */
 export const expandedOf = (account: AccountId): ActivityId[] => read<ActivityId[]>(expandedKey(account), []);
 export const setExpanded = (account: AccountId, ids: ActivityId[]): void => write(expandedKey(account), ids);
-export const isExpanded = (account: AccountId, id: ActivityId): boolean => expandedOf(account).includes(id);
+const reducedKey = (account: AccountId) => `attivita:reduced:${account}`;
+/** «Sempre ridotta» (2026-11-17): the activities the person keeps on one line, in the days and in the sections above. */
+export const reducedOf = (account: AccountId): ActivityId[] => read<ActivityId[]>(reducedKey(account), []);
+export const setReduced = (account: AccountId, ids: ActivityId[]): void => write(reducedKey(account), ids);
 
-export function toggleExpanded(account: AccountId, id: ActivityId): void {
-  const ids = expandedOf(account);
-  setExpanded(account, ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+/**
+ * How a row of the activity starts in the person's Agenda (user's choice, 2026-11-17): by the Agenda's own rules
+ * («Automatica»), always in full, or always on one line. Before, a switch had only «Sempre espansa» on or off.
+ */
+export type RowSize = 'auto' | 'expanded' | 'reduced';
+export const rowSizeOf = (account: AccountId, id: ActivityId): RowSize =>
+  expandedOf(account).includes(id) ? 'expanded' : reducedOf(account).includes(id) ? 'reduced' : 'auto';
+
+export function setRowSize(account: AccountId, id: ActivityId, size: RowSize): void {
+  const others = (ids: ActivityId[]) => ids.filter(x => x !== id);
+  setExpanded(account, size === 'expanded' ? [...others(expandedOf(account)), id] : others(expandedOf(account)));
+  setReduced(account, size === 'reduced' ? [...others(reducedOf(account)), id] : others(reducedOf(account)));
 }
 
 /** Calls `listener` when pins, icons or highlights change, in this tab; returns the way to stop. */
