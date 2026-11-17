@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { agendaViewOf, iconOf, pinsOf, setIcon, setPins } from '../src/groups/barPrefs.js';
+import { iconOf, pinsOf, setIcon, setPins } from '../src/groups/barPrefs.js';
 import { supabasePrefs } from '../src/session/central.js';
 import { retryPrefsSync, startPrefsSync, syncStatus } from '../src/settings/prefsSync.js';
 import type { PrefsStore, SyncedPrefs } from '../src/settings/prefsSync.js';
@@ -24,14 +24,13 @@ beforeEach(() => {
  */
 test('testTheAccountsPrefsWinWhenTheAppOpens', async () => {
   setPins(ME, ['domain:altereos.com']);
-  const s = store({ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'dark', agendaView: 'month' });
+  const s = store({ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'dark' });
   const stop = startPrefsSync(ME, s, 10);
   await settle();
   expect(pinsOf(ME)).toEqual(['inv:developers']);
   expect(iconOf(ME, 'inv:developers')).toBe('music');
   expect(loadTheme()).toBe('dark');
   expect(document.documentElement.dataset.theme).toBe('dark');
-  expect(agendaViewOf(ME)).toBe('month');
   expect(s.saved).toEqual([]);
   stop();
 });
@@ -43,7 +42,7 @@ test('testAnEmptyAccountGetsThisBrowsersPrefs', async () => {
   const s = store(null);
   const stop = startPrefsSync(ME, s, 10);
   await settle();
-  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'auto', highlights: [], expanded: [], agendaView: 'list' }]);
+  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'auto', highlights: [], expanded: [] }]);
   stop();
 });
 
@@ -56,7 +55,7 @@ test('testChangesAreSentAMomentLater', async () => {
   setIcon(ME, 'inv:developers', 'music');
   saveTheme('light');
   await settle();
-  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'light', highlights: [], expanded: [], agendaView: 'list' }]);
+  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'light', highlights: [], expanded: [] }]);
   stop();
   setPins(ME, []);
   await settle();

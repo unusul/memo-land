@@ -41,14 +41,18 @@ test('testAClosedActivityLeavesTheHighlights', async () => {
   await waitFor(() => expect(highlightsOf(PIPPO)).toEqual(['costi']));
 });
 
-/** One button in the detail puts it in view and takes it away. */
+/**
+ * One button in the detail puts it in view and takes it away. The button lights a moment after the tap: shown by a
+ * load outside the test's act, it may start listening for changes only after the tap (CI and the full suite under load,
+ * 2026-11-17), so the test waits for it instead of reading it at once.
+ */
 test('testDetailButtonTogglesTheHighlight', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
   const button = await screen.findByRole('button', { name: 'In evidenza' });
   expect(button.getAttribute('aria-pressed')).toBe('false');
   fireEvent.click(button);
   expect(highlightsOf(PIPPO)).toEqual(['idea']);
-  expect(screen.getByRole('button', { name: 'In evidenza' }).getAttribute('aria-pressed')).toBe('true');
+  await waitFor(() => expect(screen.getByRole('button', { name: 'In evidenza' }).getAttribute('aria-pressed')).toBe('true'));
   fireEvent.click(screen.getByRole('button', { name: 'In evidenza' }));
   expect(highlightsOf(PIPPO)).toEqual([]);
 });

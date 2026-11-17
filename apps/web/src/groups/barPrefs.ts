@@ -89,12 +89,6 @@ export const expandedOf = (account: AccountId): ActivityId[] => read<ActivityId[
 export const setExpanded = (account: AccountId, ids: ActivityId[]): void => write(expandedKey(account), ids);
 export const isExpanded = (account: AccountId, id: ActivityId): boolean => expandedOf(account).includes(id);
 
-const agendaViewKey = (account: AccountId) => `attivita:agenda-view:${account}`;
-/** The Agenda as a list of days or as a month (user's choice, 2026-11-17): the last one chosen, the person's own. */
-export type AgendaMode = 'list' | 'month';
-export const agendaViewOf = (account: AccountId): AgendaMode => (read<AgendaMode>(agendaViewKey(account), 'list') === 'month' ? 'month' : 'list');
-export const setAgendaView = (account: AccountId, mode: AgendaMode): void => write(agendaViewKey(account), mode);
-
 export function toggleExpanded(account: AccountId, id: ActivityId): void {
   const ids = expandedOf(account);
   setExpanded(account, ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
@@ -106,11 +100,7 @@ export function onBarPrefsChange(listener: () => void): () => void {
   return () => { listeners.delete(listener); };
 }
 
-/**
- * One subscription for every render. Made anew at each render, React let go of the listener and took the new one only
- * after painting: a change in between (a tap right after a redraw) reached nobody until later, and CI's
- * testDetailButtonTogglesTheHighlight saw the star still off (2026-11-17).
- */
+/** One subscription for every render: made anew at each render, React let go of the listener and took it again. */
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
 const snapshot = () => version;
 

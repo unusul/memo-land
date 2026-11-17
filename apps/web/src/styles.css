@@ -47,10 +47,14 @@ button { font: inherit; color: inherit }
 .app { display: grid; grid-template-rows: auto 1fr auto; height: 100% }
 .top { background: var(--surface); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top) }
 .top .wrap { display: flex; align-items: center; gap: 20px; min-height: 56px }
-.today-title { display: grid; gap: 1px; padding: 8px 10px; margin: 2px -10px; border: 0; border-radius: 12px; background: none; text-align: left; cursor: pointer }
-.today-title:hover { background: var(--surface-2) }
-.today-title .kicker { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted) }
-.today-title[aria-current="page"] .kicker { color: var(--accent) }
+.today-title { display: grid; gap: 1px; padding: 6px 0; margin: 2px 0 }
+/* «Agenda | Calendario» (user's choice, 2026-11-17): the view chosen lit and underlined, the other off. */
+.today-title .kicker { display: flex; align-items: center; gap: 8px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em }
+.today-title .kicker button { padding: 2px 0; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer }
+.today-title[data-current] .kicker button.chosen { color: var(--accent); border-bottom-color: var(--accent) }
+.today-title .kicker .sep { color: var(--line) }
+.today-title .today-line { display: grid; gap: 1px; padding: 4px 10px; margin: 0 -10px; border: 0; border-radius: 12px; background: none; color: inherit; text-align: left; cursor: pointer }
+.today-title .today-line:hover { background: var(--surface-2) }
 .today-title .urgent { color: var(--marker); font-weight: 700 }
 .today-title b { font: 700 1.25rem/1.2 var(--display); letter-spacing: -.01em }
 .today-title b::first-letter { text-transform: uppercase }
@@ -403,25 +407,23 @@ textarea { width: 100%; resize: vertical }
 .group-name input { min-height: 40px; font: inherit; font-weight: 700 }
 .icon-choice:disabled { opacity: .35; cursor: default; background: var(--surface); color: var(--fg) }
 
-/* «Elenco · Mese» on top of the Agenda (user's choice, 2026-11-17). */
-.view-switch { display: flex; justify-self: end; width: max-content; border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
-.view-switch button { min-height: 32px; padding: 0 12px; border: 0; background: none; color: var(--muted); font: inherit; font-size: .85rem; cursor: pointer }
-.view-switch button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
-/* The month as a phone's calendar: a tall grid, the titles cut in strips of the group's colour. */
-.month-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; margin-bottom: 6px }
+/* The month as Google's calendar (user's choice, 2026-11-17): rounded tiles apart, the titles cut in strips. */
+.month-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px }
+.month-name { font: 600 1.25rem/1.2 var(--display) }
+.month-arrows { display: flex; gap: 6px }
 .month-head .prev svg { transform: rotate(180deg) }
-.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); touch-action: pan-y }
-.month-grid .wd { padding: 4px 0; font-size: .75rem; color: var(--muted); text-align: center; border-bottom: 1px solid var(--line) }
-.month-grid .cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 96px; padding: 2px 1px; border: 0; border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line); background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; overflow: hidden }
-.month-grid .cell:nth-child(7n) { border-right: 0 }
-.month-grid .cell .n { align-self: center; min-width: 20px; font-size: .75rem; line-height: 20px; text-align: center; color: var(--muted) }
-.month-grid .cell[aria-current="date"] .n { border-radius: 999px; background: var(--accent); color: var(--surface); font-weight: 700 }
-.month-grid .cell.other .n { opacity: .45 }
-.month-grid .strip { display: block; padding: 0 3px; border-radius: 3px; background: var(--grp); color: var(--surface); font-size: .68rem; line-height: 15px;
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; touch-action: pan-y }
+.month-grid .wd { padding: 2px 0 4px; font-size: .78rem; color: var(--muted); text-align: center }
+.month-grid .wd.on { color: var(--accent); font-weight: 700 }
+.month-grid .cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 84px; padding: 5px 2px; border: 0; border-radius: 8px;
+  background: var(--surface); color: var(--fg); font: inherit; text-align: left; cursor: pointer; overflow: hidden }
+.month-grid .cell .n { align-self: center; min-width: 30px; margin-bottom: 3px; border-radius: 999px; font-size: .9rem; font-weight: 600; line-height: 20px; text-align: center }
+.month-grid .cell[aria-current="date"] .n { background: var(--accent); color: var(--surface); font-weight: 700 }
+.month-grid .cell.other .n { color: var(--muted); opacity: .6 }
+.month-grid .strip { display: block; padding: 0 3px; border-radius: 4px; background: var(--grp); color: var(--surface); font-size: .66rem; font-weight: 600; line-height: 15px;
   white-space: nowrap; overflow: hidden; text-overflow: clip }
 .month-grid .strip.done { opacity: .45; text-decoration: line-through }
-.month-grid .more { padding-left: 3px; font-size: .68rem; color: var(--muted) }
+.month-grid .more { padding-left: 3px; font-size: .66rem; color: var(--muted) }
 /* A day of the month over the page: its rows as in the list. */
 .day-sheet { max-height: 70vh; overflow-y: auto; padding: 24px 16px 16px; z-index: 30 }
 .day-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px }

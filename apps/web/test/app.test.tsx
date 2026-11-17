@@ -14,6 +14,7 @@ test('testShowsAgendaWithSession', async () => {
   render(<App open={async () => memorySession()} login={noLogin} />);
   const nav = await screen.findByRole('navigation', { name: 'Sezioni' });
   expect(nav.textContent).toMatch(/^Noi.*Io/);
-  expect(screen.getByRole('button', { name: /^Agenda/ })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Agenda' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Calendario' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Nuova bozza' })).toBeTruthy();
 });

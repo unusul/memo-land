@@ -1,21 +1,24 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { complete, shapeOf } from '@attivita/core';
 import type { AgendaItem } from '@attivita/core';
 import { AgendaView, clearFolds } from '../src/agenda/AgendaView.js';
 import { activityOnDay, cellStrips, monthDays } from '../src/agenda/MonthView.js';
-import { agendaViewOf, setHighlights } from '../src/groups/barPrefs.js';
+import { setHighlights } from '../src/groups/barPrefs.js';
+import { agendaMode, setAgendaMode } from '../src/agenda/agendaMode.js';
+import { TodayTitle } from '../src/shell/TodayTitle.js';
 import { PIPPO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
 
 /*
- * The Agenda as a month (user's choices, 2026-11-17): a second view beside the list, switched by «Elenco · Mese» and
- * remembered for the person; a tall grid with the titles cut in strips of the group's colour, up to four, else three
+ * The Agenda as a month (user's choices, 2026-11-17): a second view beside the list, switched by «Agenda | Calendario»
+ * in the header (first «Elenco · Mese» inside the page) and remembered for the person; a tall grid with the titles cut in strips of the group's colour, up to four, else three
  * and «+N»; arrows and a swipe on the grid change the month; a tap on a day opens that day's rows. Before, the Agenda
  * was only the list of days.
  */
 
 beforeEach(() => {
   localStorage.clear();
+  setAgendaMode('list');
   clearFolds();
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-11-05T08:00'));
@@ -31,9 +34,9 @@ function bench() {
 }
 
 const openMonth = async () => {
+  setAgendaMode('month');
   renderWithSession(<AgendaView onOpen={() => undefined} />, bench());
-  fireEvent.click(await screen.findByRole('radio', { name: 'Mese' }));
-  return screen.getByRole('grid', { name: 'Novembre 2026' });
+  return screen.findByRole('grid', { name: 'Novembre 2026' });
 };
 const cell = (grid: HTMLElement, day: string) => grid.querySelector(`[data-day="${day}"]`) as HTMLElement;
 
@@ -51,13 +54,24 @@ test('testFourStripsAtMostElseThreeAndMore', () => {
   expect(cellStrips(items(6))).toEqual({ shown: items(3), more: 3 });
 });
 
-test('testSwitchShowsTheMonthAndIsRemembered', async () => {
-  const grid = await openMonth();
-  expect(agendaViewOf(PIPPO)).toBe('month');
+/** «Agenda | Calendario» in the header: the one chosen is lit and remembered; in the month the date line goes. */
+test('testHeaderSwitchesBetweenAgendaAndCalendar', async () => {
+  const went: string[] = [];
+  renderWithSession(<><TodayTitle current onClick={() => went.push('agenda')} /><AgendaView onOpen={() => undefined} /></>, bench());
+  await screen.findByRole('button', { name: 'Mostra altre due settimane' });
+  expect(screen.getByRole('button', { name: 'Agenda' }).getAttribute('aria-current')).toBe('page');
+  fireEvent.click(screen.getByRole('button', { name: 'Calendario' }));
+  expect(agendaMode()).toBe('month');
+  expect(went).toEqual(['agenda']);
+  expect(screen.getByRole('button', { name: 'Calendario' }).getAttribute('aria-current')).toBe('page');
+  expect(screen.getByRole('button', { name: 'Agenda' }).getAttribute('aria-current')).toBeNull();
+  expect(screen.getByRole('grid', { name: 'Novembre 2026' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Mostra altre due settimane' })).toBeNull();
-  fireEvent.click(screen.getByRole('radio', { name: 'Elenco' }));
-  expect(agendaViewOf(PIPPO)).toBe('list');
-  expect(grid.isConnected).toBe(false);
+  expect(document.querySelector('.today-line')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Agenda' }));
+  expect(agendaMode()).toBe('list');
+  expect(screen.queryByRole('grid')).toBeNull();
+  expect(document.querySelector('.today-line')).not.toBeNull();
 });
 
 /** The title in a strip of its group's colour; a done time struck through; today marked. */
@@ -105,20 +119,21 @@ test('testTapOnADayOpensItsRows', async () => {
  */
 test('testAddOnADayOpensANewActivityThatDayAtNine', async () => {
   const added: string[] = [];
+  setAgendaMode('month');
   renderWithSession(<AgendaView onOpen={() => undefined} onAddOn={day => added.push(day)} />, bench());
-  fireEvent.click(await screen.findByRole('radio', { name: 'Mese' }));
-  fireEvent.click(cell(screen.getByRole('grid'), '2026-11-05'));
+  fireEvent.click(cell(await screen.findByRole('grid'), '2026-11-05'));
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Aggiungi il 5 novembre' }));
   expect(added).toEqual(['2026-11-05']);
   const a = activityOnDay('2026-11-19', 'personal:p', 'p', '2026-11-05T08:00:00Z');
   expect([a.groupId, a.props.schedule, a.title, shapeOf(a, 'personal:p')]).toEqual(['personal:p', { start: '2026-11-19T09:00' }, '', 'event']);
 });
 
-/** In evidenza is the list's, not the month's (user's choice, 2026-11-17): before, it stayed on top in both views. */
+/** In evidenza and In attesa are the list's, not the month's (user's choices, 2026-11-17): before, both views had them. */
 test('testNoHighlightsInTheMonth', async () => {
   setHighlights(PIPPO, ['backup']);
   renderWithSession(<AgendaView onOpen={() => undefined} />, bench());
   expect(await screen.findByRole('list', { name: 'In evidenza' })).toBeTruthy();
-  fireEvent.click(screen.getByRole('radio', { name: 'Mese' }));
+  act(() => setAgendaMode('month'));
   expect(screen.queryByRole('list', { name: 'In evidenza' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'In attesa' })).toBeNull();
 });

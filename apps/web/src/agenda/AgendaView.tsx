@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { buildAgenda, needsAttention } from '@attivita/core';
-import { agendaViewOf, highlightsOf, isExpanded, setAgendaView, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
+import { highlightsOf, isExpanded, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
+import { setAgendaMode, useAgendaMode } from './agendaMode.js';
 import type { Activity, AgendaItem, GroupKind, LocalDate } from '@attivita/core';
 import { addDays, dayParts, today } from '../dates.js';
 import { shortName } from '../labels.js';
@@ -44,8 +45,10 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   const highlighted = useHighlighted(account);
   const kindOf = (id: string | null) => groupOf(id)?.kind;
   const nameOf = (id: string | null) => (id === null ? 'bozza' : groupOf(id)?.name);
-  // «Elenco · Mese» (user's choice, 2026-11-17): the person's own, remembered; the month opens on the one of `from`.
-  const mode = agendaViewOf(account);
+  // The list or the month, chosen with «Agenda | Calendario» in the header (user's choice, 2026-11-17); the month opens
+  // on the one of `from`. It is a step inside the Agenda: the phone's back goes from it to the list.
+  const mode = useAgendaMode();
+  useBackLayer(mode === 'month', () => setAgendaMode('list'));
   const [month, setMonth] = useState(from.slice(0, 7));
   const [openDay, setOpenDay] = useState<LocalDate | null>(null);
   const grid = monthDays(month);
@@ -59,11 +62,6 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   return (
     <section aria-labelledby="agenda-h" className="stack">
       <h2 id="agenda-h" className="sr-only">Agenda</h2>
-      <div role="radiogroup" aria-label="Vista dell'agenda" className="view-switch">
-        {(['list', 'month'] as const).map(m => (
-          <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setAgendaView(account, m)}>{m === 'list' ? 'Elenco' : 'Mese'}</button>
-        ))}
-      </div>
       {/* In evidenza belongs to the list, not to the month (user's choice, 2026-11-17). */}
       {highlighted.length > 0 && mode === 'list' && (
         <AttentionList label="In evidenza" rows={highlighted.map(a => ({ activity: a, groupId: a.groupId }))}
@@ -103,6 +101,8 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
       })}
       <button type="button" className="btn more-days" onClick={() => setShown(n => n + MORE_DAYS)}>Mostra altre due settimane</button>
       </>}
+      {/* In attesa belongs to the list, not to the month (user's choice, 2026-11-17), as In evidenza. */}
+      {!monthAgenda && <>
       <h2 id="waiting-h">In attesa</h2>
       {agenda.waiting.length === 0 ? <p className="muted">Nessun memo in attesa.</p> : (
         <ul className="items" aria-labelledby="waiting-h">
@@ -118,6 +118,7 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
           ))}
         </ul>
       )}
+      </>}
     </section>
   );
 }

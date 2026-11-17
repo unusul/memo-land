@@ -46,11 +46,12 @@ export function cellStrips<T>(items: readonly T[]): { shown: T[]; more: number }
   return { shown: items.slice(0, MAX_STRIPS - 1), more: items.length - (MAX_STRIPS - 1) };
 }
 
-const WEEKDAYS = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
+const WEEKDAYS = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'];
 
 /**
- * The Agenda as a month (user's choices, 2026-11-17): a tall grid as a phone's calendar, each day with the titles cut in
- * strips of their group's colour, done ones struck through, today marked. The arrows or a swipe on the grid turn the
+ * The Agenda as a month (user's choices, 2026-11-17): as a phone's calendar, each day a rounded tile apart from the
+ * others with the titles cut in strips of their group's colour, done ones struck through; today's number in a pill and
+ * its weekday lit. A first grid with thin lines was dropped by the user: «orribile». The arrows or a swipe on the grid turn the
  * month; a tap on a day hands it to `onDay`, which shows its rows.
  */
 export function MonthView({ month, setMonth, days, kindOf, struck, onDay }: {
@@ -64,9 +65,11 @@ export function MonthView({ month, setMonth, days, kindOf, struck, onDay }: {
   return (
     <section className="month" aria-label="Mese">
       <div className="month-head">
-        <button type="button" className="icon-choice small prev" aria-label="Mese prima" onClick={() => setMonth(shiftMonth(month, -1))}><Icon name="chevron" size={18} /></button>
-        <span>{label}</span>
-        <button type="button" className="icon-choice small" aria-label="Mese dopo" onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={18} /></button>
+        <span className="month-name">{label}</span>
+        <span className="month-arrows">
+          <button type="button" className="icon-choice small prev" aria-label="Mese prima" onClick={() => setMonth(shiftMonth(month, -1))}><Icon name="chevron" size={18} /></button>
+          <button type="button" className="icon-choice small" aria-label="Mese dopo" onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={18} /></button>
+        </span>
       </div>
       <div role="grid" aria-label={label} className="month-grid"
         onPointerDown={e => { start.current = { x: e.clientX, y: e.clientY }; swiped.current = false; }}
@@ -82,7 +85,7 @@ export function MonthView({ month, setMonth, days, kindOf, struck, onDay }: {
           setMonth(shiftMonth(month, dx < 0 ? 1 : -1));
         }}
         onPointerCancel={() => { start.current = null; }}>
-        {WEEKDAYS.map((d, i) => <span key={i} role="columnheader" className="wd">{d}</span>)}
+        {WEEKDAYS.map((d, i) => <span key={i} role="columnheader" className={i === (asDate(now).getDay() + 6) % 7 ? 'wd on' : 'wd'}>{d}</span>)}
         {monthDays(month).map(day => {
           const { shown, more } = cellStrips(days[day] ?? []);
           return (

@@ -9,6 +9,7 @@ import type { OpenTarget } from '../agenda/AgendaView.js';
 import { CaptureSheet } from '../capture/CaptureSheet.js';
 import { activityOnDay } from '../agenda/MonthView.js';
 import { UpdateBand, UpdatedNote } from './appUpdate.js';
+import { setAgendaMode, useAgendaMode } from '../agenda/agendaMode.js';
 import { GroupPage } from '../groups/GroupPage.js';
 import { MAX_PINS, MENU_GROUPS, orderSharedGroups, useBarPrefs } from '../groups/barPrefs.js';
 import { GroupIcon } from '../groups/GroupIcon.js';
@@ -74,9 +75,12 @@ export function Shell() {
   const refused = queue.filter(e => e.error).length;
   // Io holds the drafts to sort and the captures the server refused.
   const forMe = waitingDrafts + refused;
+  const mode = useAgendaMode();
   const go = (id: Tab) => { setTab(id); setGroupId(null); setOpen(null); setCreating(null); };
   // The phone's back: the open activity closes itself (ActivityDetail); then a group's page, then a section, then the app.
-  useBackLayer(tab !== 'agenda', () => go('agenda'));
+  // Back into the Agenda, as a swipe into it, shows the list: the Calendar is a step inside it (user's choice, 2026-11-17).
+  const toAgenda = () => { setAgendaMode('list'); go('agenda'); };
+  useBackLayer(tab !== 'agenda', toAgenda);
   useBackLayer(groupId !== null, () => setGroupId(null));
   // The help is opened from the settings: back goes there first.
   useBackLayer(tab === 'help', () => go('settings'));
@@ -93,11 +97,13 @@ export function Shell() {
   // From a day of the month (user's choice, 2026-11-17): in Personale, which Dove changes, that day at 9:00.
   const newOn = (day: LocalDate) => setCreating(activityOnDay(day, personalGroupId, ws.engineOf(personalGroupId)?.account ?? account, instantNow()));
   // Swiping the page goes through the sections in the bar's order, the agenda first (from its header).
-  const sections: Array<() => void> = [() => go('agenda'), () => go('groups'), ...menuGroups.map(g => () => openGroup(g.id)), () => go('me')];
+  const sections: Array<() => void> = [toAgenda, () => go('groups'), ...menuGroups.map(g => () => openGroup(g.id)), () => go('me')];
   const at = open || creating ? -1
     : tab === 'agenda' ? 0 : tab === 'groups' && !groupId ? 1 : tab === 'me' ? sections.length - 1
     : groupId ? (i => (i < 0 ? -1 : i + 2))(menuGroups.findIndex(g => g.id === groupId)) : -1;
-  const swipe = useSectionSwipe(at >= 0, at > 0 ? sections[at - 1]! : null, at >= 0 && at < sections.length - 1 ? sections[at + 1]! : null);
+  // From the Calendar a swipe to the right goes to the list first.
+  const previous = at === 0 && mode === 'month' ? () => setAgendaMode('list') : at > 0 ? sections[at - 1]! : null;
+  const swipe = useSectionSwipe(at >= 0, previous, at >= 0 && at < sections.length - 1 ? sections[at + 1]! : null);
   const entry = (id: 'groups' | 'me', label: string, count: number) => (
     <button key={id} aria-current={current(id)} aria-label={count ? `${label}, ${count} da vedere` : label} onClick={() => go(id)}>
       <span className="tab-icon"><Icon name={id} />{count > 0 && <span className="badge">{count}</span>}</span>{label}

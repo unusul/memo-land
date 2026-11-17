@@ -23,7 +23,7 @@ test('testBadgesShowOnlyWhatNeedsYou', async () => {
   // the header says it, in coral; the menu has no number.
   renderWithSession(<Shell />, memorySession(PLUTO));
   await screen.findAllByText('Analisi costi');
-  expect(screen.getByRole('button', { name: /^Agenda/ }).querySelector('.urgent')?.textContent).toBe('1 scaduta · 1 proposta');
+  expect(document.querySelector('.today-line .urgent')?.textContent).toBe('1 scaduta · 1 proposta');
   expect(await badge('Noi')).toBeNull();
   expect(await badge('Io')).toBeNull();
 });
@@ -33,7 +33,7 @@ test('testDraftsBadgeAndNoZeroCount', async () => {
   renderWithSession(<Shell />, memorySession(PIPPO));
   await screen.findByRole('heading', { name: 'Agenda' });
   expect(await badge('Io')).toBe('1');
-  expect(screen.getByRole('button', { name: /^Agenda/ }).querySelector('.urgent')).toBeNull();
+  expect(document.querySelector('.today-line .urgent')).toBeNull();
   expect(screen.queryByText(/\(0\)/)).toBeNull();
 });
 
