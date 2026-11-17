@@ -71,7 +71,8 @@ function atDayTime(start: LocalDateTime | LocalDate, times: DayTimes): LocalDate
 export function takeOccurrence(a: Activity, key: OccurrenceKey, by: AccountId, byRole: Role, now: Instant): Activity {
   if (byRole === 'guest') fail('FORBIDDEN', 'guests cannot take occurrences');
   if (!isOccurrence(a, key)) fail('INVALID_INPUT', `"${key}" is not an occurrence of this activity`);
-  const overrides = { ...a.overrides, [key]: { assignee: by, takenBy: by } };
+  // Added to what the time already holds, a move or a skip (2026-11-17): before, it was written anew and a move was lost.
+  const overrides = { ...a.overrides, [key]: { ...a.overrides[key], assignee: by, takenBy: by } };
   return touch({ ...a, overrides }, { kind: 'occurrenceTaken', detail: { key } }, by, now);
 }
 

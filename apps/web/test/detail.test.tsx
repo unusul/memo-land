@@ -109,3 +109,33 @@ test('testHistoryClosedUntilOpened', async () => {
   expect(row.getAttribute('aria-expanded')).toBe('true');
   expect(screen.getByText(/l'ha creata/)).toBeTruthy();
 });
+
+/**
+ * The text saved on leaving the field and a button tapped at once (user's bug, 2026-11-17): before, the second save
+ * left from the same version, was refused as «Qualcun altro l'ha appena modificata» and the archive was lost. Now the
+ * detail saves one after the other and puts the second change on the version it has just saved.
+ */
+test('testTextThenArchiveAtOnceKeepsBoth', async () => {
+  const s = memorySession(PIPPO);
+  renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
+  await screen.findByRole('heading', { name: 'Analisi costi' });
+  const body = screen.getByLabelText('Testo');
+  fireEvent.change(body, { target: { value: 'una nota nuova' } });
+  fireEvent.blur(body);
+  fireEvent.click(screen.getByRole('button', { name: 'Archivia' }));
+  await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.status).toBe('archived'));
+  expect((await s.primary.getActivity('costi')).activity.body).toBe('una nota nuova');
+  expect(screen.queryByText(/Qualcun altro/)).toBeNull();
+});
+
+/** A change by someone else meanwhile stays a conflict: the message, and nothing of theirs overwritten. */
+test('testSomeoneElsesChangeStaysAConflict', async () => {
+  const s = memorySession(PIPPO);
+  renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
+  await screen.findByRole('heading', { name: 'Analisi costi' });
+  const { activity } = await s.primary.getActivity('costi');
+  await s.primary.saveActivity({ ...activity, title: 'Analisi costi 2027' }, activity.version);
+  fireEvent.click(screen.getByRole('button', { name: 'Archivia' }));
+  expect(await screen.findByText(/Qualcun altro/)).toBeTruthy();
+  expect((await s.primary.getActivity('costi')).activity.status).toBe('open');
+});

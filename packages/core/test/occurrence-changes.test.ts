@@ -152,3 +152,14 @@ test('testOnlyWhoCoveredLeaves', () => {
   expect(() => leaveOccurrence(s, '2026-10-27T09:00', 'pippo', t2)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
   expect(() => leaveOccurrence(series, '2026-10-29T09:00', 'pluto', t2)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
 });
+
+/**
+ * Covering a time already moved keeps the move (seen in the code, 2026-11-17): before, the cover wrote the time again
+ * with only who covered it, and the meeting moved to Thursday went back to Tuesday.
+ */
+test('testCoverKeepsAMoveMadeBefore', () => {
+  let s = moveOccurrence(series, '2026-10-27T09:00', '2026-10-30T20:00', 'pippo', 'member', t1);
+  s = takeOccurrence(s, '2026-10-27T09:00', 'pluto', 'member', t2);
+  expect(week(s).at(-1)).toMatchObject({ start: '2026-10-30T20:00', assignee: 'pluto', coveredFor: 'pippo' });
+  expect(s.overrides['2026-10-27T09:00']).toEqual({ moved: '2026-10-30T20:00', assignee: 'pluto', takenBy: 'pluto' });
+});

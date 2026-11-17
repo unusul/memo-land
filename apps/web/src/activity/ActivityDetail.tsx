@@ -7,7 +7,7 @@ import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
   accept, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
-  moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, setClosesItself, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
+  moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, rebase, setClosesItself, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
 import { instantNow, localNow } from '../dates.js';
@@ -95,6 +95,9 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   // saving what was changed, as the phone's back does (user's choice, 2026-11-16). Esc closes it without saving.
   const panelBox = useRef<HTMLSpanElement | null>(null);
   const savePanel = useRef<() => void>(() => undefined);
+  // The detail's saves, one after the other, and the last one it made itself (see run).
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const ownSave = useRef<Activity | null>(null);
   const [panelPlace, setPanelPlace] = useState({ left: 0, width: 360 });
   useEffect(() => {
     if (!form || !PANEL.has(form as Chip)) return;
@@ -126,12 +129,29 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
     return ACTION_LABEL[k];
   };
 
+  /**
+   * One save after the other, and a change computed on the version this page showed put again on the one it has just
+   * saved itself (user's bug, 2026-11-17): the text saved on leaving the field and Archivia tapped at once left from the
+   * same version; the second was refused as «Qualcun altro l'ha appena modificata» and lost. A change made by someone
+   * else meanwhile is still a conflict: only this page's own last save is a base to rebase on.
+   */
   async function run(change: () => Activity, after?: () => void): Promise<boolean> {
     try {
       setProblem(null);
+      const base = a!;
       const next = change();
       if (isNew) setLocal(next);
-      else if (next !== a) await ws.save(next);
+      else if (next !== base) {
+        const job = saveQueue.current.then(async () => {
+          const last = ownSave.current;
+          // Only a change computed on an older version than the one just saved, and on the version this page showed
+          // (Annulla, for one, computes on the newest already: put again on it, it was undone).
+          const fresh = last && last.id === base.id && last.groupId === base.groupId && next.version === base.version && last.version > next.version;
+          ownSave.current = await ws.save(fresh ? rebase(base, next, last) : next);
+        });
+        saveQueue.current = job.catch(() => undefined);
+        await job;
+      }
       after?.();
       return true;
     } catch (e) {
