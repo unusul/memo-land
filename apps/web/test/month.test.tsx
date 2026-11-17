@@ -4,7 +4,7 @@ import { complete, shapeOf } from '@attivita/core';
 import type { AgendaItem } from '@attivita/core';
 import { AgendaView, clearFolds } from '../src/agenda/AgendaView.js';
 import { activityOnDay, cellStrips, monthDays } from '../src/agenda/MonthView.js';
-import { agendaViewOf } from '../src/groups/barPrefs.js';
+import { agendaViewOf, setHighlights } from '../src/groups/barPrefs.js';
 import { PIPPO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
 
 /*
@@ -112,4 +112,13 @@ test('testAddOnADayOpensANewActivityThatDayAtNine', async () => {
   expect(added).toEqual(['2026-11-05']);
   const a = activityOnDay('2026-11-19', 'personal:p', 'p', '2026-11-05T08:00:00Z');
   expect([a.groupId, a.props.schedule, a.title, shapeOf(a, 'personal:p')]).toEqual(['personal:p', { start: '2026-11-19T09:00' }, '', 'event']);
+});
+
+/** In evidenza is the list's, not the month's (user's choice, 2026-11-17): before, it stayed on top in both views. */
+test('testNoHighlightsInTheMonth', async () => {
+  setHighlights(PIPPO, ['backup']);
+  renderWithSession(<AgendaView onOpen={() => undefined} />, bench());
+  expect(await screen.findByRole('list', { name: 'In evidenza' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('radio', { name: 'Mese' }));
+  expect(screen.queryByRole('list', { name: 'In evidenza' })).toBeNull();
 });

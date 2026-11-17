@@ -64,7 +64,8 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
           <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setAgendaView(account, m)}>{m === 'list' ? 'Elenco' : 'Mese'}</button>
         ))}
       </div>
-      {highlighted.length > 0 && (
+      {/* In evidenza belongs to the list, not to the month (user's choice, 2026-11-17). */}
+      {highlighted.length > 0 && mode === 'list' && (
         <AttentionList label="In evidenza" rows={highlighted.map(a => ({ activity: a, groupId: a.groupId }))}
           kindOf={kindOf} nameOf={nameOf} onOpen={onOpen} quick={quick} />
       )}
