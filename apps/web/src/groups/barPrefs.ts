@@ -106,9 +106,17 @@ export function onBarPrefsChange(listener: () => void): () => void {
   return () => { listeners.delete(listener); };
 }
 
+/**
+ * One subscription for every render. Made anew at each render, React let go of the listener and took the new one only
+ * after painting: a change in between (a tap right after a redraw) reached nobody until later, and CI's
+ * testDetailButtonTogglesTheHighlight saw the star still off (2026-11-17).
+ */
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+const snapshot = () => version;
+
 /** Re-renders the caller when pins or icons change, in this tab. */
 export function useBarPrefs(): number {
-  return useSyncExternalStore(l => { listeners.add(l); return () => listeners.delete(l); }, () => version);
+  return useSyncExternalStore(subscribe, snapshot);
 }
 
 /** The shared groups (the personal one lives in Io): pinned in the person's order, then the most opened, then by name. */

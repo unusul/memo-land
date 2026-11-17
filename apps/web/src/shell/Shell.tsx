@@ -8,6 +8,7 @@ import { AgendaView, KIND_COLOR } from '../agenda/AgendaView.js';
 import type { OpenTarget } from '../agenda/AgendaView.js';
 import { CaptureSheet } from '../capture/CaptureSheet.js';
 import { activityOnDay } from '../agenda/MonthView.js';
+import { UpdateBand, UpdatedNote } from './appUpdate.js';
 import { GroupPage } from '../groups/GroupPage.js';
 import { MAX_PINS, MENU_GROUPS, orderSharedGroups, useBarPrefs } from '../groups/barPrefs.js';
 import { GroupIcon } from '../groups/GroupIcon.js';
@@ -112,6 +113,8 @@ export function Shell() {
         </div>
       </header>
       <main className="content" {...swipe}>
+        <UpdatedNote />
+        <UpdateBand />
         {demo && (
           <section className="demo-band" aria-label="Modalità demo">
             <span>Modalità demo: niente viene salvato</span>

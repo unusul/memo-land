@@ -27,8 +27,10 @@ const setStatus = (next: SyncStatus) => { status = next; watchers.forEach(w => w
 export const syncStatus = (): SyncStatus => status;
 /** Sends the prefs again now, after a failure. */
 export const retryPrefsSync = (): void => retry?.();
+/** One subscription for every render, as useBarPrefs: a new one at each render missed the changes in between. */
+const watch = (w: () => void) => { watchers.add(w); return () => { watchers.delete(w); }; };
 /** Re-renders the caller when the sync status changes. */
-export const useSyncStatus = (): SyncStatus => useSyncExternalStore(w => { watchers.add(w); return () => watchers.delete(w); }, () => status);
+export const useSyncStatus = (): SyncStatus => useSyncExternalStore(watch, () => status);
 
 const collect = (account: AccountId): SyncedPrefs => ({ pins: pinsOf(account), icons: iconsOf(account), theme: loadTheme(), highlights: highlightsOf(account), expanded: expandedOf(account), agendaView: agendaViewOf(account) });
 const hhmm = (d = new Date()) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;

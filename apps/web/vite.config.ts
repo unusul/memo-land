@@ -30,7 +30,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // A new version waits for Aggiorna in the app's band (user's choice, 2026-11-17): reloading by itself could lose
+      // what is being written. Registered by the app (shell/appUpdate.tsx), not by an injected script.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'memo-land',
