@@ -18,6 +18,8 @@ export interface RepeatSpec {
   times?: DayTimes;
   /** The series' last day; absent, it goes on for ever (2026-11-16). */
   until?: LocalDate;
+  /** «A date scelte» (2026-11-17): the days chosen besides the start's own. */
+  dates?: LocalDate[];
 }
 
 export type DayTimes = Partial<Record<Weekday, DayTime>>;
@@ -47,6 +49,7 @@ export function snoozeUntil(from: LocalDateTime, count: number, unit: SnoozeUnit
 export const describeSnooze = (count: number, unit: SnoozeUnit) => `tra ${count} ${plural(count, unit)}`;
 
 export function toRepeat(spec: RepeatSpec, start: LocalDate | LocalDateTime): Repeat {
+  if (spec.mode === 'dates') return { mode: 'dates', dates: chosenDays(spec.dates ?? [], start) };
   const end = spec.until ? { until: spec.until } : {};
   if (spec.mode === 'fromCompletion') return { mode: 'fromCompletion', every: { unit: spec.unit, count: spec.every }, ...end };
   const parts = [`FREQ=${FREQ[spec.unit]}`, ...(spec.every > 1 ? [`INTERVAL=${spec.every}`] : [])];
@@ -58,11 +61,16 @@ export function toRepeat(spec: RepeatSpec, start: LocalDate | LocalDateTime): Re
   return { mode: 'calendar', rrule: parts.join(';'), ...(Object.keys(times).length ? { times } : {}), ...end };
 }
 
+/** The days chosen in order, once each, without the start's own day: that one is the date or the schedule. */
+export const chosenDays = (dates: LocalDate[], start: LocalDate | LocalDateTime): LocalDate[] =>
+  [...new Set(dates)].filter(d => d !== start.slice(0, 10)).sort();
+
 /** The weekday of a date or date-time, as RRULE writes it. */
 export const weekdayOf = (start: LocalDate | LocalDateTime) => WEEKDAY_OF_DATE[toFloating(start).getUTCDay()]!;
 
 /** The form values for a stored rule, so it can be edited; null for a rule the form cannot express. */
 export function specOf(r: Repeat): RepeatSpec | null {
+  if (r.mode === 'dates') return { mode: 'dates', every: 1, unit: 'week', weekdays: [], monthly: 'day', dates: r.dates };
   const end = r.until ? { until: r.until } : {};
   if (r.mode === 'fromCompletion') return { mode: r.mode, every: r.every.count, unit: r.every.unit, weekdays: [], monthly: 'day', ...end };
   const rule = parseRule(r.rrule);
@@ -93,8 +101,15 @@ export const isWeekly = (r: Repeat | undefined): boolean => r?.mode === 'calenda
  * Italian text for the rules this app writes; anything else falls back to the raw rule. With the schedule's time
  * (`base`) a weekly series says the time of every day, once at the end when they all share it.
  */
-export function describeRepeat(r: Repeat, base?: DayTime): string {
+export function describeRepeat(r: Repeat, base?: DayTime, start?: LocalDate | LocalDateTime): string {
+  if (r.mode === 'dates') return describeDates(r.dates, start);
   return r.until ? `${describeRule(r, base)}, fino ${untilDay(r.until)}` : describeRule(r, base);
+}
+
+/** «date selezionate: 20 nov, 4 dic» (user's choice, 2026-11-17, with «seleziona date» in the menu), the start's day first among them when it is known. */
+function describeDates(dates: LocalDate[], start?: LocalDate | LocalDateTime): string {
+  const days = [...new Set([...(start ? [start.slice(0, 10)] : []), ...dates])].sort();
+  return `date selezionate: ${days.map(d => { const p = dayParts(d); return `${p.day} ${p.month}`; }).join(', ')}`;
 }
 
 /** «al 14 dic», «all'8 gen». */
@@ -103,7 +118,7 @@ function untilDay(day: LocalDate): string {
   return `${p.day === 8 || p.day === 11 ? "all'" : 'al '}${p.day} ${p.month}`;
 }
 
-function describeRule(r: Repeat, base?: DayTime): string {
+function describeRule(r: Exclude<Repeat, { mode: 'dates' }>, base?: DayTime): string {
   if (r.mode === 'fromCompletion') return `${every(r.every.count, r.every.unit)} da quando la completi`;
   const rule = parseRule(r.rrule);
   const unit = UNIT_OF_FREQ[rule['FREQ'] ?? ''];

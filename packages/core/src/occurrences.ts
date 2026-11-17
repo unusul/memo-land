@@ -56,8 +56,19 @@ function everyStartOf(a: Activity, anchor: LocalDate | LocalDateTime, from: Loca
     return days.map(s => atDayTime(s, repeat.times!));
   }
   if (repeat?.mode === 'fromCompletion') return [nextDue(a) ?? anchor];
+  if (repeat?.mode === 'dates') return chosenStarts(anchor, repeat.dates);
   return [anchor];
 }
+
+/** The anchor and each chosen day at the anchor's time, in order, a day given twice once. */
+export function chosenStarts(anchor: LocalDate | LocalDateTime, dates: LocalDate[]): Array<LocalDate | LocalDateTime> {
+  const time = isDateOnly(anchor) ? '' : anchor.slice(10);
+  const days = [...new Set([anchor.slice(0, 10), ...dates])].sort();
+  return days.map(d => (d === anchor.slice(0, 10) ? anchor : `${d}${time}`));
+}
+
+/** A series whose times can be changed one by one: by a rule on the calendar, or on days chosen (2026-11-17). */
+export const hasOccurrences = (a: Activity): boolean => a.props.repeat?.mode === 'calendar' || a.props.repeat?.mode === 'dates';
 
 const WEEKDAY_OF_DATE: Weekday[] = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 const weekdayOf = (start: LocalDate | LocalDateTime): Weekday => WEEKDAY_OF_DATE[toFloating(start).getUTCDay()]!;
@@ -112,7 +123,7 @@ function changeOccurrence(
   change: (o: OccurrenceOverride) => OccurrenceOverride, entry: { kind: HistoryKind; detail: Record<string, unknown> },
 ): Activity {
   if (byRole === 'guest') fail('FORBIDDEN', 'guests cannot change occurrences');
-  if (a.props.repeat?.mode !== 'calendar') fail('INVALID_STATE', 'only a calendar series has occurrences to change');
+  if (!hasOccurrences(a)) fail('INVALID_STATE', 'only a calendar series has occurrences to change');
   if (!isOccurrence(a, key)) fail('INVALID_INPUT', `"${key}" is not an occurrence of this activity`);
   const { [key]: current, ...others } = a.overrides;
   const next = change(current ?? {});

@@ -98,6 +98,7 @@ test('testRepeatFormShowsTheStartAndWritesTheRule', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick(/^\+ Ripeti/);
+  chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
   expect(screen.queryByRole('group', { name: 'Parte dal' })).toBeNull();
   expect(screen.getByText(/parte da oggi/)).toBeTruthy();
   userType(screen.getByLabelText('Ogni'), '2');
@@ -106,7 +107,7 @@ test('testRepeatFormShowsTheStartAndWritesTheRule', async () => {
   userClick('ven');
   // The days come with a time already written; emptied, the series is of whole days and starts from a due date.
   userType(screen.getByLabelText('Inizio lun'), '');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props).toMatchObject({
     due: '2026-11-04', repeat: { mode: 'calendar', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,FR' },
   }));
@@ -122,10 +123,11 @@ test('testTheStartIsAskedOnlyFromCambia', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick(/^\+ Ripeti/);
+  chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
   userClick('Cambia la partenza');
   expect(pickedDate('Parte dal')).toBe('2026-11-04');
   pickDate('Parte dal', '2026-11-09');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props).toMatchObject({
     schedule: { start: '2026-11-09T23:00', end: '2026-11-09T23:59' }, repeat: { mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=MO' },
   }));
@@ -136,11 +138,12 @@ test('testRepeatOnDatedActivityStartsFromItsDate', async () => {
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Analisi costi' });
   userClick(/^\+ Ripeti/);
+  chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
   expect(screen.queryByLabelText('Parte dal')).toBeNull();
   expect(screen.getByText(/parte dalla scadenza, 2026-11-06/)).toBeTruthy();
   chooseIn('Unità di ripetizione', 'month');
   chooseIn('Modo', 'fromCompletion');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.repeat)
     .toEqual({ mode: 'fromCompletion', every: { unit: 'month', count: 1 } }));
 });
@@ -154,8 +157,9 @@ test('testRepeatSaysWhatItsModesMean', async () => {
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, memorySession(PIPPO));
   await screen.findByRole('heading', { name: 'Analisi costi' });
   userClick(/^\+ Ripeti/);
+  chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
   fireEvent.click(screen.getByRole('button', { name: 'Modo' }));
-  expect(within(screen.getByRole('menu', { name: 'Modo' })).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['a date fisse', 'da quando la completi']);
+  expect(within(screen.getByRole('menu', { name: 'Modo' })).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['seleziona date', 'a date fisse', 'da quando la completi']);
   fireEvent.click(screen.getByRole('button', { name: 'Modo' }));
   expect(document.querySelector('.repeat-example')?.textContent).toMatch(/riunione, .*, a date fisse: torna alle sue date anche se la volta prima non l'hai fatta/);
   fireEvent.change(screen.getByLabelText('Ogni'), { target: { value: '4' } });

@@ -25,10 +25,13 @@ export type DayTime = { start: TimeOfDay; end?: TimeOfDay };
  * `times`: a weekly series may give some of its days a time of their own; the others keep the schedule's. `until`: the
  * last day of the series (user's choice, 2026-11-16, a date only): no time after it, and the last time done closes the
  * activity. Absent, the series goes on for ever, as before.
+ * `dates` («a date scelte», user's choice, 2026-11-17): days chosen one by one besides the day of the date or schedule,
+ * each at its time, in place of a rule; the last one done closes the activity, so it needs no `until`.
  */
 export type Repeat =
   | { mode: 'calendar'; rrule: string; times?: Partial<Record<Weekday, DayTime>>; until?: LocalDate }
-  | { mode: 'fromCompletion'; every: { unit: Unit; count: number }; until?: LocalDate };
+  | { mode: 'fromCompletion'; every: { unit: Unit; count: number }; until?: LocalDate }
+  | { mode: 'dates'; dates: LocalDate[]; until?: undefined };
 
 /**
  * `external`: the assignee is a name typed for someone outside the group (user's choice, 2026-11-16), not an account;

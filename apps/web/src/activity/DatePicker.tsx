@@ -64,13 +64,26 @@ export function DatePicker({ label, value, onChange }: { label: string; value: L
         <button type="button" className="chip" aria-pressed={other} aria-expanded={open} title={other ? dayLabel(value) : undefined}
           onClick={() => setOpen(o => !o)}>{other ? shortDay(value, now) : 'Altra data…'}</button>
       </div>
-      {open && <MonthView shown={shown} setShown={setShown} value={value} now={now} choose={choose} />}
+      {open && <MonthView shown={shown} setShown={setShown} picked={d => d === value} now={now} choose={choose} />}
     </div>
   );
 }
 
-function MonthView({ shown, setShown, value, now, choose }: {
-  shown: Month; setShown(next: (m: Month) => Month): void; value: LocalDate | ''; now: LocalDate; choose(day: LocalDate): void;
+/**
+ * Several days on one month, «a date scelte» in Ripeti (user's choice, 2026-11-17): a tap lights a day, another puts it
+ * out; `fixed`, the day of the date or schedule, stays lit. Arrows for the month before and after.
+ */
+export function DaysPicker({ label, fixed, values, onToggle }: { label: string; fixed: LocalDate; values: LocalDate[]; onToggle(day: LocalDate): void }) {
+  const [shown, setShown] = useState<Month>(() => fixed.slice(0, 7));
+  return (
+    <div className="cal days" role="group" aria-label={label}>
+      <MonthView shown={shown} setShown={setShown} picked={d => d === fixed || values.includes(d)} now={today()} choose={d => { if (d !== fixed) onToggle(d); }} />
+    </div>
+  );
+}
+
+function MonthView({ shown, setShown, picked, now, choose }: {
+  shown: Month; setShown(next: (m: Month) => Month): void; picked(day: LocalDate): boolean; now: LocalDate; choose(day: LocalDate): void;
 }) {
   return (
     <>
@@ -82,7 +95,7 @@ function MonthView({ shown, setShown, value, now, choose }: {
       <div className="cal-grid">
         {HEADER.map(w => <span key={w} className="wd" aria-hidden="true">{w}</span>)}
         {monthGrid(shown).map((day, i) => day === null ? <span key={`blank-${i}`} /> : (
-          <button key={day} type="button" aria-label={dayLabel(day)} aria-pressed={day === value} aria-current={day === now ? 'date' : undefined}
+          <button key={day} type="button" aria-label={dayLabel(day)} aria-pressed={picked(day)} aria-current={day === now ? 'date' : undefined}
             onClick={() => choose(day)}>{Number(day.slice(8))}</button>
         ))}
       </div>

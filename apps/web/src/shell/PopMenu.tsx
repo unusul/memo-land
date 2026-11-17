@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useBackLayer } from './back.js';
+import { PanelBackdrop } from './PanelActions.js';
 
 /** Room a menu needs below its button before it opens upwards, and beside it before it opens leftwards. */
 const ROOM_BELOW = 320;
@@ -29,10 +31,14 @@ export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chi
   const [fit, setFit] = useState<{ left: number; width: number } | null>(null);
   const box = useRef<HTMLSpanElement>(null);
   const close = () => setOpen(false);
+  // The phone's back cancels an open panel, as its Annulla.
+  useBackLayer(open && panel, close);
   useEffect(() => {
     if (!open) return;
     // All of it in sight: a menu opened low on the page would end under the bottom bar.
     box.current?.querySelector('.menu')?.scrollIntoView?.({ block: 'nearest' });
+    // A panel closes with its own Annulla or Applica: a press outside does nothing there (user's choice, 2026-11-17).
+    if (panel) return;
     const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
     document.addEventListener('pointerdown', away);
     return () => document.removeEventListener('pointerdown', away);
@@ -54,6 +60,7 @@ export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chi
   return (
     <span className="attach" ref={box}>
       <button type="button" className={className} aria-label={buttonLabel} title={title} aria-haspopup="menu" aria-expanded={open} onClick={toggle}>{label}</button>
+      {open && panel && <PanelBackdrop />}
       {open && (
         <span role="menu" aria-label={menuLabel} className={['menu', panel && 'panel', place.end && 'end', place.up && 'up'].filter(Boolean).join(' ')}
           style={fit ?? undefined} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }}>

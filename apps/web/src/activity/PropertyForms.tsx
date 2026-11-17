@@ -8,6 +8,7 @@ import { moveTargets } from '../groups/moveTargets.js';
 import { DatePicker, DateTimePicker, DurationRow, minutesBetween, plusMinutes } from './DatePicker.js';
 import { RepeatForm } from './RepeatForm.js';
 import { WaitedActivity } from './WaitedActivity.js';
+import { PanelActions } from '../shell/PanelActions.js';
 
 export type Chip = PropKey | 'groupId';
 
@@ -22,10 +23,12 @@ export interface PropertyFormProps {
   onApply(next: Activity): void;
   /** Told the change the form holds, or null when there is none to save: Chiudi saves it. */
   onPending?(build: (() => Activity) | null): void;
+  /** Given in a panel: Annulla and Applica as icons in place of Salva, Annulla closing it without saving. */
+  onCancel?: (() => void) | undefined;
 }
 
 /** One small form per property; each turns the input into a core operation. */
-export function PropertyForm({ chip, activity: a, group, groups, me, personalGroupId, now, onApply, onPending }: PropertyFormProps) {
+export function PropertyForm({ chip, activity: a, group, groups, me, personalGroupId, now, onApply, onPending, onCancel }: PropertyFormProps) {
   // Where it can go: not where it is, not where the person is a guest, not into a list group (it would not be seen), not
   // into an archived group (read only).
   const targets = moveTargets(groups, me, a.groupId);
@@ -48,7 +51,7 @@ export function PropertyForm({ chip, activity: a, group, groups, me, personalGro
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => () => onPending?.(null), []);
 
-  if (chip === 'repeat') return <RepeatForm activity={a} me={me} now={now} onApply={onApply} onPending={onPending} />;
+  if (chip === 'repeat') return <RepeatForm activity={a} me={me} now={now} onApply={onApply} onPending={onPending} onCancel={onCancel} />;
 
   function apply(e: React.FormEvent) {
     e.preventDefault();
@@ -84,7 +87,7 @@ export function PropertyForm({ chip, activity: a, group, groups, me, personalGro
         <input aria-label="Condizione" placeholder="es. chiusura della ops 412" required value={value} onChange={e => { setValue(e.target.value); setLinked(''); }} />
         <WaitedActivity self={a} linked={linked} text={value} onLink={(id, title) => { setLinked(id); if (id) setValue(title); }} />
       </>}
-      <button className="btn primary" type="submit" disabled={chip === 'assignment' && !group}>{chip === 'groupId' ? (a.groupId !== null ? 'Sposta' : editing ? 'Salva' : 'Aggiungi') : 'Salva'}</button>
+      {onCancel ? <PanelActions disabled={chip === 'assignment' && !group} onCancel={onCancel} /> : <button className="btn primary" type="submit" disabled={chip === 'assignment' && !group}>{chip === 'groupId' ? (a.groupId !== null ? 'Sposta' : editing ? 'Salva' : 'Aggiungi') : 'Salva'}</button>}
     </form>
   );
 }

@@ -1,4 +1,4 @@
-import { can, shapeOf } from '@attivita/core';
+import { can, hasOccurrences, shapeOf } from '@attivita/core';
 import type { AccountId, Activity, Group, Occurrence } from '@attivita/core';
 
 export type ActionKind =
@@ -18,8 +18,8 @@ export function availableActions(a: Activity, occ: Occurrence | null, group: Gro
   if (asg?.state === 'accepted' && asg.assignee === me && can(group, me, 'respondToOwnAssignment')) out.push('release');
   // In the personal group everything is already the account's own.
   if (!asg && group.kind !== 'personal' && can(group, me, 'claim')) out.push('claim');
-  // One occurrence of a calendar series: the only kind that is skipped, moved or done on its own.
-  const one = a.props.repeat?.mode === 'calendar' ? occ : null;
+  // One occurrence of a calendar series, or of days chosen: the only kinds that are skipped, moved or done on their own.
+  const one = hasOccurrences(a) ? occ : null;
   // A skipped occurrence, or the day a moved one left, is no occurrence to do: it can only be put back.
   const off = one !== null && (one.skipped === true || one.movedTo !== undefined);
   // Not in the personal group: every occurrence there is already the account's own.

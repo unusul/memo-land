@@ -6,7 +6,7 @@ import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, anchorOf, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, rebase, setClosesItself, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
@@ -27,6 +27,7 @@ import { ChecklistView } from './ChecklistView.js';
 import { CopyButton } from './CopyButton.js';
 import { Disclosure } from '../shell/Disclosure.js';
 import { useBackLayer } from '../shell/back.js';
+import { PanelActions, PanelBackdrop } from '../shell/PanelActions.js';
 import { Icon } from '../shell/icons.js';
 import type { IconName } from '../shell/icons.js';
 import { MenuChoice, PopMenu, panelFit } from '../shell/PopMenu.js';
@@ -92,8 +93,11 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   // The phone's back closes the activity as Chiudi does (a list group's page is the group's, not a layer of its own).
   const closeOnBack = useRef<() => void>(() => onClose());
   useBackLayer(!asGroupList, () => closeOnBack.current());
-  // A panel (Data e ora, Ripeti, In attesa di) opens over the page under what was tapped; a press outside it closes it
-  // saving what was changed, as the phone's back does (user's choice, 2026-11-16). Esc closes it without saving.
+  // An open panel is a layer of its own: the phone's back cancels it, as Annulla (user's choice, 2026-11-17).
+  useBackLayer(form !== null && PANEL.has(form as Chip), () => setForm(null));
+  // A panel (Data e ora, Ripeti, In attesa di) opens over the page under what was tapped, the page dimmed behind it; it
+  // closes with Applica or Annulla, Esc or the phone's back cancel it, a press outside does nothing (user's choices,
+  // 2026-11-17; before, a press outside saved and closed it).
   const panelBox = useRef<HTMLSpanElement | null>(null);
   const savePanel = useRef<() => void>(() => undefined);
   // The detail's saves, one after the other, and the last one it made itself (see run).
@@ -104,9 +108,6 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
     if (!form || !PANEL.has(form as Chip)) return;
     // All of it in sight: a panel opened low on the page would end under the bottom bar.
     panelBox.current?.querySelector('.panel')?.scrollIntoView?.({ block: 'nearest' });
-    const away = (e: PointerEvent) => { if (!panelBox.current?.contains(e.target as Node)) savePanel.current(); };
-    document.addEventListener('pointerdown', away);
-    return () => document.removeEventListener('pointerdown', away);
   }, [form]);
 
   const a = local ?? [...ws.activities, ...ws.drafts].find(x => x.id === activityId);
@@ -182,10 +183,11 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
     setPanelPlace(panelFit(anchor, k === 'repeat' ? REPEAT_PANEL_MAX : undefined));
     setForm(k);
   }
-  const panelOf = (k: Chip) => form === k && (
+  const panelOf = (k: Chip) => form === k && (<>
+    <PanelBackdrop />
     <div className="menu panel" role="dialog" aria-label={k === 'groupId' ? 'Gruppo' : PROP_LABEL[k]} style={{ left: panelPlace.left, width: panelPlace.width }}
       onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setForm(null); } }}>{propForm}</div>
-  );
+  </>);
 
   /** The activity first, then its files, then the activity again with them. Offline it becomes a draft, with its files. */
   async function create(it: Activity) {
@@ -343,7 +345,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const propForm = canEdit && form && form !== 'reject' && form !== 'release' && form !== 'decompose' && form !== 'snooze' && form !== 'moveOccurrence' && (
     <PropertyForm key={form} chip={form} activity={a} group={group} groups={ws.groups} me={me} personalGroupId={personalGroupId} now={instantNow()}
       onApply={next => run(() => next, () => { if (form !== 'groupId' && !editingSet) setUsage(noteUse(me, form)); setForm(null); })}
-      onPending={build => { pending.current = build; }} />
+      onPending={build => { pending.current = build; }} onCancel={PANEL.has(form as Chip) ? () => setForm(null) : undefined} />
   );
 
   return (
@@ -403,10 +405,10 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
           {actions.map(k => (k === 'moveToGroup' ? <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Gruppo">{groupChoices}</PopMenu>
             : k === 'snooze' ? (
               <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Rimanda" panel>
-                {close => <SnoozeForm me={me} onSnooze={until => { close(); void run(() => snooze(a, until, me, instantNow()), () => onClose()); }} />}
+                {close => <SnoozeForm me={me} onCancel={close} onSnooze={until => { close(); void run(() => snooze(a, until, me, instantNow()), () => onClose()); }} />}
               </PopMenu>
             ) : k === 'reject' || k === 'release' ? (
-              // The reason in a panel under the button (2026-11-16); a press outside keeps what was typed, nothing is sent.
+              // The reason in a panel under the button (2026-11-16); Annulla keeps what was typed, nothing is sent.
               <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel={k === 'reject' ? 'Rifiuta' : 'Lascia'} panel>
                 {close => (
                   <form className="form" onSubmit={e => {
@@ -416,13 +418,13 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
                     void run(() => (k === 'reject' ? reject(a, me, reason, instantNow()) : release(a, me, instantNow(), reason)), () => setReason(''));
                   }}>
                     <input aria-label="Motivo" autoFocus placeholder={k === 'reject' ? 'Perché la rifiuti?' : 'Perché la lasci? (facoltativo)'} value={reason} onChange={e => setReason(e.target.value)} />
-                    <button className="btn primary" type="submit" disabled={k === 'reject' && reason.trim() === ''}>{k === 'reject' ? 'Rifiuta' : 'Lascia'}</button>
+                    <PanelActions disabled={k === 'reject' && reason.trim() === ''} applyLabel={k === 'reject' ? 'Rifiuta' : 'Lascia'} onCancel={close} />
                   </form>
                 )}
               </PopMenu>
             ) : k === 'moveOccurrence' && occ ? (
               <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Sposta questa volta" panel>
-                {close => <MoveOccurrenceForm from={occ.start} onMove={to => { close(); void run(() => moveOccurrence(a, occ.key, to, me, role, instantNow())); }} />}
+                {close => <MoveOccurrenceForm from={occ.start} onCancel={close} onMove={to => { close(); void run(() => moveOccurrence(a, occ.key, to, me, role, instantNow())); }} />}
               </PopMenu>
             ) : <button key={k} className={`btn${PRIMARY.has(k) ? ' primary' : ''}`} onClick={() => act(k)}>{labelOf(k)}</button>))}
         </div>
@@ -551,7 +553,7 @@ function describe(a: Activity, k: PropKey): string {
   switch (k) {
     case 'due': return p.due ?? '';
     case 'schedule': return p.schedule ? p.schedule.start.replace('T', ' ') + (p.schedule.end ? `–${p.schedule.end.slice(11)}` : '') : '';
-    case 'repeat': return p.repeat ? describeRepeat(p.repeat, scheduleTime(p)) + (p.repeat.mode === 'fromCompletion' ? ` · prossima ${nextDue(a)}` : '') : '';
+    case 'repeat': return p.repeat ? describeRepeat(p.repeat, scheduleTime(p), anchorOf(a)) + (p.repeat.mode === 'fromCompletion' ? ` · prossima ${nextDue(a)}` : '') : '';
     case 'assignment': return !p.assignment ? '' : p.assignment.external ? p.assignment.assignee
       : `${shortName(p.assignment.assignee)} · ${p.assignment.state === 'proposed' ? `proposta da ${shortName(p.assignment.assignedBy)}` : 'accettata'}`;
     case 'waitingFor': return p.waitingFor ? p.waitingFor.condition + (p.waitingFor.metAt ? ` · avverata da ${shortName(p.waitingFor.metBy ?? '')}` : '') : '';

@@ -3,13 +3,15 @@ import { anchorOf, removeProp, setProp } from '@attivita/core';
 import type { AccountId, Activity, Instant, LocalDate, LocalDateTime, Unit } from '@attivita/core';
 import { localNow, today } from '../dates.js';
 import { noteChoice, topChoices } from '../usage/choicesStore.js';
-import { DatePicker } from './DatePicker.js';
+import { DatePicker, DaysPicker, shortDay } from './DatePicker.js';
 import { MenuSelect } from '../shell/PopMenu.js';
+import { PanelActions } from '../shell/PanelActions.js';
 import { UNIT_NAMES, WEEKDAYS, describeRepeat, nextHour, specOf, toRepeat, weekdayOf } from './timing.js';
 import type { DayTimes, RepeatSpec, Weekday } from './timing.js';
 
 const UNITS: Unit[] = ['day', 'week', 'month', 'year'];
-const DEFAULT: RepeatSpec = { mode: 'calendar', every: 1, unit: 'week', weekdays: [], monthly: 'day' };
+/** A new Ripeti opens on «seleziona date», the first of the modes (user's choice, 2026-11-17; before, «a date fisse»). */
+const DEFAULT: RepeatSpec = { mode: 'dates', every: 1, unit: 'week', weekdays: [], monthly: 'day' };
 
 const DAY_NAMES = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
 const everyText = (n: number, unit: Unit) => (n === 1 ? `ogni ${UNIT_NAMES[unit][0]}` : `ogni ${n} ${UNIT_NAMES[unit][1]}`);
@@ -30,8 +32,9 @@ function RepeatExample({ spec, n, start }: { spec: RepeatSpec; n: number; start:
 }
 
 /** "Ogni N unità", weekdays or day of the month, calendar or from completion; says where the series starts. */
-export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
+export function RepeatForm({ activity: a, me, now, onApply, onPending, onCancel }: {
   activity: Activity; me: AccountId; now: Instant; onApply(next: Activity): void; onPending?: ((build: (() => Activity) | null) => void) | undefined;
+  onCancel?: (() => void) | undefined;
 }) {
   const stored = a.props.repeat ? specOf(a.props.repeat) : null;
   const [spec, setSpec] = useState(stored ?? DEFAULT);
@@ -48,6 +51,8 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
   const endTooEarly = ending && until !== null && until < start.slice(0, 10);
   const valid = Number.isInteger(n) && n > 0 && start !== '' && !endTooEarly && Object.values(spec.times ?? {}).every(t => !t?.end || t.end >= t.start);
   const set = (patch: Partial<RepeatSpec>) => setSpec(s => ({ ...s, ...patch }));
+  // «A date scelte» (2026-11-17): a month to tap in place of the rule, its count, its days and its end.
+  const chosen = spec.mode === 'dates';
 
   // Each day's time starts as the schedule's; only the days that differ are kept with a time of their own. With no
   // schedule yet, the first time written among the days is the one the schedule gets, and the days left empty take it.
@@ -72,7 +77,8 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
   const build = (s: RepeatSpec) => setProp(dated(s), 'repeat', toRepeat(own(ended(s)), start), me, now);
 
   function apply(s: RepeatSpec) {
-    noteChoice(me, 'repeat', JSON.stringify(s));
+    // Days chosen belong to this activity alone: not a choice to offer again on another one.
+    if (s.mode !== 'dates') noteChoice(me, 'repeat', JSON.stringify(s));
     onApply(build(s));
   }
 
@@ -86,49 +92,76 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
 
   return (
     <div className="stack">
-      <div className="chips">
+      {/* The mode first, always (user's choice, 2026-11-17): what follows depends on it. */}
+      <MenuSelect label="Modo" value={spec.mode} options={[['dates', 'seleziona date'], ['calendar', 'a date fisse'], ['fromCompletion', 'da quando la completi']] as const}
+        onChange={mode => set({ mode })} />
+      {/* The rules used before: nothing to offer among days chosen one by one. */}
+      {!chosen && <div className="chips">
         {topChoices(me, 'repeat').map(choice => (
           <button key={choice} type="button" className="chip" onClick={() => apply(JSON.parse(choice) as RepeatSpec)}>
             {describeRepeat(toRepeat(JSON.parse(choice) as RepeatSpec, start))}
           </button>
         ))}
-      </div>
+      </div>}
       <form className="form" onSubmit={e => { e.preventDefault(); if (valid) apply({ ...spec, every: n }); }}>
         {/* One sentence, «Ripeti ogni 1 anno», kept together on a phone (user's choice, 2026-11-17: «ogni» alone over a
             field as wide as the panel read badly); only the mode goes to the next line when there is no room. */}
-        <span className="repeat-every">
+        {!chosen && <span className="repeat-every">
           <span>Ripeti ogni</span>
           <input aria-label="Ogni" type="number" min="1" step="1" className="num" value={count} onChange={e => setCount(e.target.value)} />
           <MenuSelect label="Unità di ripetizione" value={spec.unit} options={UNITS.map(u => [u, UNIT_NAMES[u][n === 1 ? 0 : 1]] as const)} onChange={unit => set({ unit })} />
-        </span>
-        <MenuSelect label="Modo" value={spec.mode} options={[['calendar', 'a date fisse'], ['fromCompletion', 'da quando la completi']] as const}
-          onChange={mode => set({ mode })} />
-        <RepeatExample spec={spec} n={n} start={start} />
-        {spec.mode === 'calendar' && spec.unit === 'week' && <WeekdayToggles value={spec.weekdays} onChange={weekdays => set({ weekdays })} />}
-        {weekly(spec) && start && <DayTimeRows days={daysOf(spec)} times={spec.times ?? {}} base={base} onChange={times => set({ times })}
+        </span>}
+        {chosen ? <ChosenDays start={start} dates={spec.dates ?? []} fromSchedule={a.props.schedule !== undefined} timeOf={scheduled}
+          onChange={dates => set({ dates })} /> : <RepeatExample spec={spec} n={n} start={start} />}
+        {!chosen && spec.mode === 'calendar' && spec.unit === 'week' && <WeekdayToggles value={spec.weekdays} onChange={weekdays => set({ weekdays })} />}
+        {!chosen && weekly(spec) && start && <DayTimeRows days={daysOf(spec)} times={spec.times ?? {}} base={base} onChange={times => set({ times })}
           onEmpty={scheduled ? undefined : () => setSuggested(null)} />}
-        {spec.mode === 'calendar' && spec.unit === 'month' && start && (
+        {!chosen && spec.mode === 'calendar' && spec.unit === 'month' && start && (
           <MenuSelect label="Giorno del mese" value={spec.monthly}
             options={(['day', 'nth'] as const).map(m => [m, monthlyLabel(m, describeRepeat(toRepeat({ ...spec, monthly: m }, start)).split(', ')[1] ?? m)] as const)}
             onChange={monthly => set({ monthly })} />
         )}
         {anchor
-          ? <span className="muted">parte dalla {a.props.schedule ? 'data' : 'scadenza'}, {anchor.replace('T', ' ')}</span>
+          ? !chosen && <span className="muted">parte dalla {a.props.schedule ? 'data' : 'scadenza'}, {anchor.replace('T', ' ')}</span>
           : asking
             ? <span className="repeat-start"><span className="muted">parte dal</span><DatePicker label="Parte dal" value={from} onChange={setFrom} /></span>
             : <span className="repeat-start muted">parte da oggi · <button type="button" className="link" aria-label="Cambia la partenza" onClick={() => setAsking(true)}>cambia</button></span>}
-        {ending
+        {chosen ? null : ending
           ? <span className="repeat-start"><span className="muted">finisce il</span><DatePicker label="Finisce il" value={until ?? ''} onChange={setUntil} />
               <button type="button" className="link" aria-label="Per sempre" onClick={() => { setEnding(false); setUntil(null); }}>per sempre</button></span>
           : <span className="repeat-start muted">per sempre · <button type="button" className="link" aria-label="Imposta la fine" onClick={() => setEnding(true)}>imposta la fine</button></span>}
         {endTooEarly && <span className="error small" role="alert">La fine viene prima della partenza</span>}
-        <button className="btn primary" type="submit" disabled={!valid}>Salva</button>
+        {onCancel ? <PanelActions disabled={!valid} onCancel={onCancel} /> : <button className="btn primary" type="submit" disabled={!valid}>Salva</button>}
       </form>
     </div>
   );
 }
 
 type Base = { start: string; end?: string | undefined };
+
+/**
+ * «A date scelte» (user's choices, 2026-11-17): a month where a tap lights a day and another puts it out, and the days
+ * as chips in order, each with × but the start's own, which the date or the schedule changes. They all keep its time.
+ */
+function ChosenDays({ start, dates, fromSchedule, timeOf, onChange }: {
+  start: LocalDate | LocalDateTime; dates: LocalDate[]; fromSchedule: boolean; timeOf: Base | null; onChange(dates: LocalDate[]): void;
+}) {
+  const first = start.slice(0, 10);
+  const toggle = (day: LocalDate) => onChange(dates.includes(day) ? dates.filter(d => d !== day) : [...dates, day]);
+  const days = [...new Set([first, ...dates])].sort();
+  return (
+    <>
+      <p className="repeat-example">Tocca i giorni: un tocco accende, un altro spegne.</p>
+      <DaysPicker label="Date scelte" fixed={first} values={dates} onToggle={toggle} />
+      <div className="chips" aria-label="Giorni scelti">
+        {days.map(d => (d === first
+          ? <span key={d} className="chip fixed">{shortDay(d)} · da {fromSchedule ? 'Data e ora' : 'Scadenza'}</span>
+          : <button key={d} type="button" className="chip" aria-label={`Togli ${shortDay(d)}`} onClick={() => toggle(d)}>{shortDay(d)} ×</button>))}
+      </div>
+      {timeOf && <span className="muted">tutte alle {timeOf.start}{timeOf.end ? `–${timeOf.end}` : ''}, come Data e ora</span>}
+    </>
+  );
+}
 
 /** The days whose time is not the schedule's; an end equal to the schedule's is kept only with a start that differs. */
 function differing(times: DayTimes | undefined, base: Base): DayTimes {

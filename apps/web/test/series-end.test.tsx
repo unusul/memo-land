@@ -34,7 +34,7 @@ test('testSetTheEnd', async () => {
   expect(screen.getByText(/per sempre/)).toBeTruthy();
   userClick('Imposta la fine');
   pickDate('Finisce il', '2026-12-14');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect(await stored(s)).toEqual({ mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH', until: '2026-12-14' }));
   expect(await screen.findByText('ogni settimana, mar e gio 9–9:30, fino al 14 dic')).toBeTruthy();
 });
@@ -44,21 +44,21 @@ test('testTakeTheEndAway', async () => {
   const s = await openRepeat();
   userClick('Imposta la fine');
   pickDate('Finisce il', '2026-12-14');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await stored(s))?.until).toBe('2026-12-14'));
   userClick('Modifica Ripeti');
   userClick('Per sempre');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await stored(s))?.until).toBeUndefined());
 });
 
-/** An end before the start: Salva stays off and the panel says why. */
+/** An end before the start: Applica stays off and the panel says why. */
 test('testAnEndBeforeTheStartIsRefused', async () => {
   await openRepeat();
   userClick('Imposta la fine');
   pickDate('Finisce il', '2026-10-01');
-  expect((screen.getByRole('button', { name: 'Salva' }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole('button', { name: 'Applica' }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByText('La fine viene prima della partenza')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Per sempre' }));
-  expect((screen.getByRole('button', { name: 'Salva' }) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole('button', { name: 'Applica' }) as HTMLButtonElement).disabled).toBe(false);
 });

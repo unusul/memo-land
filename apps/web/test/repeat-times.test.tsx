@@ -29,7 +29,7 @@ test('testAChangedDayIsSavedWithItsOwnTime', async () => {
   const s = await openRepeat();
   userType(screen.getByLabelText('Inizio gio'), '18:00');
   userType(screen.getByLabelText('Fine gio'), '19:15');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.props.repeat).toEqual({
     mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH', times: { TH: { start: '18:00', end: '19:15' } },
   }));
@@ -57,7 +57,7 @@ test('testAnEmptiedTimeGoesBackToTheSchedules', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'gio' }));
   expect((screen.getByLabelText('Inizio gio') as HTMLInputElement).value).toBe('18:00');
   userType(screen.getByLabelText('Inizio gio'), '09:00');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.history.at(-1)?.kind).toBe('propSet'));
   expect((await s.primary.getActivity('backup')).activity.props.repeat).toEqual({ mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH' });
 });
@@ -72,6 +72,7 @@ test('testEachDayTakesItsTimeWithoutASchedule', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick(/^\+ Ripeti/);
+  chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
   userClick('mar');
   userClick('gio');
   // Asked by the user on 2026-11-13: the fields come filled with the next full hour and the one after, not empty.
@@ -81,7 +82,7 @@ test('testEachDayTakesItsTimeWithoutASchedule', async () => {
   userType(screen.getByLabelText('Inizio gio'), '10:10');
   userType(screen.getByLabelText('Fine gio'), '11:30');
   expect((screen.getByLabelText('Inizio mar') as HTMLInputElement).value).toBe(nextHour(localNow()).start);
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props.repeat).toEqual({
     mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH', times: { TH: { start: '10:10', end: '11:30' } },
   }));
@@ -105,8 +106,9 @@ test('testADueDateBecomesTheScheduleOnceADayHasATime', async () => {
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Analisi costi' });
   userClick(/^\+ Ripeti/);
+  chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
   userType(screen.getByLabelText('Inizio ven'), '09:00');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.repeat).toEqual({ mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=FR' }));
   const { props } = (await s.primary.getActivity('costi')).activity;
   expect(props.schedule).toEqual({ start: '2026-11-06T09:00' });
@@ -119,7 +121,8 @@ test('testWithoutATimeTheDueDateStays', async () => {
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Analisi costi' });
   userClick(/^\+ Ripeti/);
-  userClick('Salva');
+  chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
+  userClick('Applica');
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.repeat).toEqual({ mode: 'calendar', rrule: 'FREQ=WEEKLY;BYDAY=FR' }));
   const { props } = (await s.primary.getActivity('costi')).activity;
   expect(props.due).toBe('2026-11-06');
@@ -149,8 +152,9 @@ test('testAMonthlySeriesKeepsItsDate', async () => {
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Analisi costi' });
   userClick(/^\+ Ripeti/);
+  chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
   chooseIn('Unità di ripetizione', 'month');
-  userClick('Salva');
+  userClick('Applica');
   await screen.findByText(/^ogni mese/);
   expect(screen.getByText('Scadenza')).toBeTruthy();
   expect(screen.getByText(/per toglierla, togli prima Ripeti/)).toBeTruthy();

@@ -64,7 +64,14 @@ function validateSchedule(s: NonNullable<Props['schedule']>): void {
   if (s.end !== undefined && toFloating(s.end) < toFloating(s.start)) fail('INVALID_INPUT', 'schedule end is before start');
 }
 
+const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 function validateRepeat(r: NonNullable<Props['repeat']>): void {
+  if (r.mode === 'dates') {
+    if (!Array.isArray(r.dates) || r.dates.some(d => typeof d !== 'string' || !LOCAL_DATE.test(d))) fail('INVALID_INPUT', 'the days chosen must be dates');
+    r.dates.forEach(d => toFloating(d));
+    return;
+  }
   if (r.mode === 'fromCompletion') {
     if (!(Number.isInteger(r.every.count) && r.every.count >= 1)) fail('INVALID_INPUT', 'repeat count must be a positive integer');
     return;

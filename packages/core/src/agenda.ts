@@ -87,7 +87,7 @@ export function needsAttention(sources: AgendaSource[], me: AccountId, today: Lo
       if (HIDDEN.has(shape) || shape === 'waiting') continue;
       const asg = a.props.assignment;
       if (asg?.state === 'proposed' && asg.assignee === me) proposed.push({ activity: a, groupId: group.id });
-      const since = dueDateOf(a);
+      const since = dueDateOf(a, today);
       if (since !== undefined && since < today && (asg === undefined || asg.assignee === me)) overdue.push({ activity: a, groupId: group.id, since });
     }
   }
@@ -96,8 +96,14 @@ export function needsAttention(sources: AgendaSource[], me: AccountId, today: Lo
   return { overdue, proposed, count };
 }
 
-function dueDateOf(a: Activity): LocalDate | undefined {
+function dueDateOf(a: Activity, today: LocalDate): LocalDate | undefined {
   if (a.props.repeat?.mode === 'calendar') return undefined;
+  // A due date on days chosen (2026-11-17): the first of them gone by and not done is overdue, as a single due date.
+  if (a.props.repeat?.mode === 'dates') {
+    if (a.props.due === undefined) return undefined;
+    const missed = occurrencesBetween(a, `${a.props.due.slice(0, 10)}T00:00`, `${today}T00:00`).find(o => !o.done && !o.skipped && o.movedTo === undefined && o.start.slice(0, 10) < today);
+    return missed?.start.slice(0, 10);
+  }
   const due = a.props.repeat?.mode === 'fromCompletion' ? nextDue(a) : a.props.due;
   return due?.slice(0, 10);
 }

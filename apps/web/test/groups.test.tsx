@@ -59,7 +59,8 @@ test('testIoShowsQueuedDrafts', async () => {
 
 /**
  * Invita opens a panel over the page (2026-11-16): the role is an app menu, not the browser's drop-down. A press
- * outside closes it keeping the address typed; nothing is sent until «Invia invito».
+ * outside does nothing; Annulla closes it keeping the address typed; nothing is sent until «Invia invito» (2026-11-17:
+ * before, a press outside closed it).
  */
 test('testInvitePanelKeepsWhatWasTypedAndChoosesTheRoleFromAMenu', async () => {
   const s = memorySession();
@@ -68,6 +69,8 @@ test('testInvitePanelKeepsWhatWasTypedAndChoosesTheRoleFromAMenu', async () => {
   userClick(/Invita in developers/);
   userType(within(card).getByLabelText('Email'), 'nuovo@esempio.it');
   fireEvent.pointerDown(document.body);
+  expect(within(card).getByLabelText('Email')).toBeTruthy();
+  fireEvent.click(within(screen.getByRole('menu', { name: 'Invita in developers' })).getByRole('button', { name: 'Annulla' }));
   expect(within(card).queryByLabelText('Email')).toBeNull();
   userClick(/Invita in developers/);
   expect((within(card).getByLabelText('Email') as HTMLInputElement).value).toBe('nuovo@esempio.it');

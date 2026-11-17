@@ -17,6 +17,8 @@ const SHELL_PATHS = {
   edit: <><path d="M4 20h4.5L19.5 9a2.1 2.1 0 0 0-3-3L5.5 17z" /><path d="M14.5 8l3 3" /></>,
   invite: <><circle cx="9.5" cy="8" r="3.5" /><path d="M3 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M18.5 8v6M15.5 11h6" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  /* «Ripeti qui un evento» (2026-11-17): two arrows going round. */
+  repeat: <path d="M4.5 11a7.5 7.5 0 0 1 13.2-4.6L20 8.5M20 4v4.5h-4.5M19.5 13a7.5 7.5 0 0 1-13.2 4.6L4 15.5M4 20v-4.5h4.5" />,
   leave: <><path d="M14 4.5h4A1.5 1.5 0 0 1 19.5 6v12a1.5 1.5 0 0 1-1.5 1.5h-4" /><path d="M10 8l-4 4 4 4M6 12h9" /></>,
   newGroup: <><circle cx="9" cy="9" r="3.2" /><path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6 1.4 0 2.6.4 3.6 1.2M18 13v7M14.5 16.5h7" /><circle cx="17" cy="8.5" r="2.5" /></>,
   archive: <><rect x="3.5" y="4.5" width="17" height="4.5" rx="1.2" /><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4" /></>,

@@ -21,7 +21,7 @@ test('testWaitingForAChosenActivity', async () => {
   const s = await waitingForm();
   chooseIn("Scegli un'attività", 'sal');
   expect((screen.getByLabelText('Condizione') as HTMLInputElement).value).toBe('Stato avanzamento');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await stored(s)).props.waitingFor).toEqual({ condition: 'Stato avanzamento', activityId: 'sal' }));
 });
 
@@ -32,7 +32,7 @@ test('testWaitingForANewActivity', async () => {
   userClick('Creane una nuova');
   await waitFor(async () => expect((await s.primary.listActivities('inv:developers')).map(a => a.title)).toContain('Firma del legale'));
   const made = (await s.primary.listActivities('inv:developers')).find(a => a.title === 'Firma del legale')!;
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await stored(s)).props.waitingFor).toEqual({ condition: 'Firma del legale', activityId: made.id }));
 });
 
@@ -41,7 +41,7 @@ test('testTypingLetsTheActivityGo', async () => {
   const s = await waitingForm();
   chooseIn("Scegli un'attività", 'sal');
   userType(screen.getByLabelText('Condizione'), 'altro');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect((await stored(s)).props.waitingFor).toEqual({ condition: 'altro' }));
 });
 

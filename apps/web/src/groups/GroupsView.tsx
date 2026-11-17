@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { addMember, can, groupTypeOf, leaveGroup, reopen, roleIn } from '@attivita/core';
-import { shapeOf } from '@attivita/core';
+import { anchorOf, shapeOf } from '@attivita/core';
 import type { Activity, Group, GroupType, Role, Shape } from '@attivita/core';
 import { waitingIn } from './listGroup.js';
 import { KIND_COLOR } from '../agenda/AgendaView.js';
@@ -22,6 +22,7 @@ import { useWs } from '../workspace/useWorkspace.js';
 import { useBackLayer } from '../shell/back.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
 import { MenuChoice, PopMenu } from '../shell/PopMenu.js';
+import { PanelActions } from '../shell/PanelActions.js';
 import { GoogleGroupWizard, InviteLink, appBase } from './GoogleGroupWizard.js';
 
 export const groupName = (g: Group) => (g.kind === 'personal' ? 'Personale' : g.name);
@@ -251,8 +252,8 @@ function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { gro
       <ul className="people">
         {Object.entries(g.members).map(([m, r]) => <li key={m}><span>{m === account ? 'tu' : shortName(m)}</span><span className="muted small">{ROLE_LABEL[r]}</span></li>)}
       </ul>
-      {/* A panel under Invita, over the page (2026-11-16). A press outside closes it keeping what was typed: sending an
-          invite stays a tap of its own. */}
+      {/* A panel under Invita, over the page (2026-11-16). Annulla closes it keeping what was typed, a press outside does
+          nothing (2026-11-17): sending an invite stays a tap of its own. */}
       {can(g, account, 'invite') && (
         <PopMenu className="btn" buttonLabel={`Invita in ${label}`} label={<><Icon name="invite" size={18} /> Invita</>} menuLabel={`Invita in ${label}`} panel>
           {close => (
@@ -263,8 +264,7 @@ function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { gro
                   <MenuChoice key={r} label={r === 'member' ? 'membro' : 'ospite'} checked={role === r} onChoose={() => { setRole(r); closeRole(); }} />
                 ))}
               </PopMenu>
-              <button className="btn primary" type="submit" disabled={!email.trim()}>Invia invito</button>
-              <button className="btn" type="button" onClick={() => { setEmail(''); close(); }}>Annulla</button>
+              <PanelActions disabled={!email.trim()} applyLabel="Invia invito" onCancel={close} />
             </form>
           )}
         </PopMenu>
@@ -324,7 +324,7 @@ function whoseText(a: Activity, shape: Shape, g: Group, me: string): string | un
  */
 function listMeta(a: Activity, shape: Shape, g: Group, me: string): string {
   const list = a.checklist && a.checklist.items.length > 0 ? `lista ${a.checklist.items.filter(i => i.done).length}/${a.checklist.items.length}` : undefined;
-  return [whoseText(a, shape, g, me), a.props.repeat && describeRepeat(a.props.repeat), list].filter(Boolean).join(' · ');
+  return [whoseText(a, shape, g, me), a.props.repeat && describeRepeat(a.props.repeat, undefined, anchorOf(a)), list].filter(Boolean).join(' · ');
 }
 
 /** Every open activity of the group, dated or not, by form: the way to reach ideas and tasks with no date. */

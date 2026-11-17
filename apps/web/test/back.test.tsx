@@ -17,8 +17,11 @@ const noiIsShown = () => expect(within(screen.getByRole('navigation', { name: 'S
 /** As a person would: a moment after the screen opened, when its history entry is there. */
 const back = async () => { await new Promise(r => setTimeout(r, 10)); window.history.back(); };
 
-/** The phone's back closes the open activity as Chiudi does, saving a property form left open. */
-test('testBackClosesTheDetailSavingTheOpenForm', async () => {
+/**
+ * The phone's back first cancels an open panel, as its Annulla (user's choice, 2026-11-17), then closes the activity.
+ * Before, it closed the activity at once saving the panel's change.
+ */
+test('testBackCancelsThePanelThenClosesTheDetail', async () => {
   const s = memorySession(PIPPO);
   renderWithSession(<Shell />, s);
   fireEvent.click(within(await nav()).getByRole('button', { name: /^Io/ }));
@@ -28,9 +31,11 @@ test('testBackClosesTheDetailSavingTheOpenForm', async () => {
   userClick(/^\+ Data e ora/);
   pickDateTime('Data e ora', '2026-11-20T10:10');
   await back();
-  expect(await screen.findByText('Data e ora salvata')).toBeTruthy();
-  expect(screen.queryByRole('heading', { name: 'app gestione core' })).toBeNull();
-  expect((await s.primary.getActivity('idea')).activity.props.schedule?.start).toBe('2026-11-20T10:10');
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Data e ora' })).toBeNull());
+  expect(screen.getByRole('heading', { name: 'app gestione core' })).toBeTruthy();
+  await back();
+  await waitFor(() => expect(screen.queryByRole('heading', { name: 'app gestione core' })).toBeNull());
+  expect((await s.primary.getActivity('idea')).activity.props.schedule).toBeUndefined();
 });
 
 /** With nothing open, back walks back: the group's page, then Noi, then the agenda. */

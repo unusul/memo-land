@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { Shell } from '../src/shell/Shell.js';
-import { PLUTO, memorySession, renderWithSession, userClick, userType, pickDate, pickDateTime } from './memory-session.js';
+import { PLUTO, chooseIn, memorySession, renderWithSession, userClick, userType, pickDate, pickDateTime } from './memory-session.js';
 
 beforeEach(() => localStorage.clear());
 
@@ -55,6 +55,7 @@ test('testCloseSavesAnOpenChangedForm', async () => {
 test('testCloseSavesANewRepeat', async () => {
   const { s, onClose } = await open('idea', 'app gestione core');
   userClick(/^\+ Ripeti/);
+  chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
   userType(screen.getByLabelText('Ogni'), '2');
   userClick('Indietro');
   await waitFor(() => expect(onClose).toHaveBeenCalledWith('Ripeti salvato'));

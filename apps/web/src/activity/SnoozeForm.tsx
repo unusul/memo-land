@@ -4,13 +4,14 @@ import { localNow } from '../dates.js';
 import { noteChoice, topChoices } from '../usage/choicesStore.js';
 import { DateTimePicker } from './DatePicker.js';
 import { MenuSelect } from '../shell/PopMenu.js';
+import { Icon } from '../shell/icons.js';
 import { UNIT_NAMES, describeSnooze, snoozeUntil } from './timing.js';
 import type { SnoozeUnit } from './timing.js';
 
 const UNITS = Object.keys(UNIT_NAMES) as SnoozeUnit[];
 
 /** "Tra N unità" or a chosen day and time; the relative choices a person uses come back as shortcuts. */
-export function SnoozeForm({ me, onSnooze }: { me: AccountId; onSnooze(until: LocalDateTime): void }) {
+export function SnoozeForm({ me, onSnooze, onCancel }: { me: AccountId; onSnooze(until: LocalDateTime): void; onCancel(): void }) {
   const [count, setCount] = useState('1');
   const [unit, setUnit] = useState<SnoozeUnit>('day');
   const [at, setAt] = useState('');
@@ -41,6 +42,10 @@ export function SnoozeForm({ me, onSnooze }: { me: AccountId; onSnooze(until: Lo
         <DateTimePicker label="Il giorno" value={at} onChange={setAt} />
         <button className="btn" type="submit" disabled={!at}>Rimanda al giorno scelto</button>
       </form>
+      {/* Annulla at the bottom right as in the other panels (2026-11-17); its two Rimanda stay until a single Applica is chosen. */}
+      <div className="panel-actions">
+        <button type="button" className="icon-choice small" aria-label="Annulla" title="Annulla" onClick={onCancel}><Icon name="close" size={18} /></button>
+      </div>
     </div>
   );
 }

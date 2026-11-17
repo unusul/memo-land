@@ -64,32 +64,43 @@ test('testASetPriorityRowOpensTheMenuWithNormal', async () => {
 });
 
 /**
- * Data e ora, Ripeti and In attesa di keep their fields, in a panel over the page under the chip; a press outside it
- * saves what was changed (user's choice, 2026-11-16), Esc closes it with nothing saved.
+ * Data e ora, Ripeti and In attesa di keep their fields, in a panel over the page under the chip, the page dimmed; it
+ * closes with Applica or Annulla, two icons at its bottom right, and Esc drops it; a press outside does nothing (user's
+ * choices, 2026-11-17). Before, a press outside saved and closed it, and a Salva button followed the fields.
  */
-test('testAPanelSavesOnAPressOutsideAndEscDropsIt', async () => {
+test('testAPanelClosesOnlyWithItsIcons', async () => {
   const s = await openDoc();
   userClick('+ Data e ora');
   const panel = screen.getByRole('dialog', { name: 'Data e ora' });
-  expect(within(panel).getByRole('button', { name: 'Salva' })).toBeTruthy();
+  expect(within(panel).getAllByRole('button').slice(-2).map(b => b.getAttribute('aria-label'))).toEqual(['Annulla', 'Applica']);
+  expect(document.querySelector('.panel-backdrop')).not.toBeNull();
   pickDateTime('Data e ora', '2026-12-04T18:10');
   fireEvent.pointerDown(document.body);
+  expect(screen.getByRole('dialog', { name: 'Data e ora' })).toBeTruthy();
+  userClick('Applica');
   await waitFor(async () => expect((await s.primary.getActivity('doc')).activity.props.schedule?.start).toBe('2026-12-04T18:10'));
   expect(screen.queryByRole('dialog', { name: 'Data e ora' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Modifica Data e ora' }));
   pickDateTime('Data e ora', '2026-12-05T08:10');
   fireEvent.keyDown(screen.getByRole('dialog', { name: 'Data e ora' }), { key: 'Escape' });
   expect(screen.queryByRole('dialog', { name: 'Data e ora' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Modifica Data e ora' }));
+  pickDateTime('Data e ora', '2026-12-06T08:10');
+  userClick('Annulla');
+  expect(screen.queryByRole('dialog', { name: 'Data e ora' })).toBeNull();
+  expect(document.querySelector('.panel-backdrop')).toBeNull();
   expect((await s.primary.getActivity('doc')).activity.props.schedule?.start).toBe('2026-12-04T18:10');
 });
 
-/** Rifiuta… asks the reason in a panel under it; a press outside closes it keeping what was typed, refusing nothing. */
-test('testRejectReasonInAPanelKeptOnAPressOutside', async () => {
+/** Rifiuta… asks the reason in a panel under it; a press outside does nothing, Annulla closes it keeping what was typed. */
+test('testRejectReasonInAPanelKeptOnAnnulla', async () => {
   const s = memorySession(PLUTO);
   renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, s);
   fireEvent.click(await screen.findByRole('button', { name: 'Rifiuta…' }));
   fireEvent.change(within(menu('Rifiuta')).getByLabelText('Motivo'), { target: { value: 'non ho tempo' } });
   fireEvent.pointerDown(document.body);
+  expect(screen.getByRole('menu', { name: 'Rifiuta' })).toBeTruthy();
+  userClick('Annulla');
   expect(screen.queryByRole('menu', { name: 'Rifiuta' })).toBeNull();
   expect((await s.primary.getActivity('costi')).activity.props.assignment?.state).toBe('proposed');
   userClick('Rifiuta…');

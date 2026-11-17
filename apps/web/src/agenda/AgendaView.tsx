@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { buildAgenda, needsAttention, outOfCalendar } from '@attivita/core';
 import { nextTime, shortDay } from './when.js';
+import { RepeatHere } from './RepeatHere.js';
 import { highlightsOf, rowSizeOf, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
 import { setAgendaMode, setShownMonth, useAgendaMode, useShownMonth } from './agendaMode.js';
 import type { Activity, AgendaItem, Group, GroupKind, LocalDate } from '@attivita/core';
@@ -88,7 +89,10 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
         <DaySheet day={openDay} onClose={() => setOpenDay(null)}>
           {(monthAgenda.days[openDay] ?? []).length === 0 ? <p className="muted">Niente in questo giorno.</p>
             : <ul className="items">{rows(openDay, monthAgenda.days[openDay]!)}</ul>}
-          {onAddOn && <button type="button" className="btn" onClick={() => onAddOn(openDay)}><Icon name="plus" size={18} /> Aggiungi {onDayLabel(openDay)}</button>}
+          <div className="btns">
+            {onAddOn && <button type="button" className="btn" onClick={() => onAddOn(openDay)}><Icon name="plus" size={18} /> Aggiungi {onDayLabel(openDay)}</button>}
+            <RepeatHere key={openDay} day={openDay} />
+          </div>
         </DaySheet>
       )}
       {!monthAgenda && <>

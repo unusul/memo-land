@@ -1,7 +1,7 @@
 import { resetForNextRound } from './checklist.js';
 import { addUnits, asDateTime, endOfDay } from './dates.js';
 import { fail } from './errors.js';
-import { anchorOf, isOccurrence, occurrencesBetween } from './occurrences.js';
+import { anchorOf, chosenStarts, isOccurrence, occurrencesBetween } from './occurrences.js';
 import { touch } from './props.js';
 import type { AccountId, Activity, Instant, LocalDate, LocalDateTime, OccurrenceKey } from './types.js';
 
@@ -20,8 +20,16 @@ export function complete(a: Activity, by: AccountId, doneOn: LocalDate | LocalDa
   if (key !== undefined && !isOccurrence(a, key)) fail('INVALID_INPUT', `"${key}" is not an occurrence of this activity`);
   const target = key ?? currentPendingOccurrence(a, doneOn);
   if (target === undefined) fail('INVALID_STATE', 'no pending occurrence to complete');
-  const closes = repeat.until !== undefined && isLastOccurrence(a, target, repeat.until);
+  // Days chosen end on the last of them, as a rule ends on its `until`.
+  const until = repeat.mode === 'dates' ? lastChosenDay(a) : repeat.until;
+  const closes = until !== undefined && isLastOccurrence(a, target, until);
   return touch({ ...resetForNextRound(a), ...(closes ? { status: 'done' as const } : {}) }, { kind: 'completed', detail: { key: target, doneOn } }, by, now);
+}
+
+/** The last day of a series on days chosen, the anchor's among them. */
+function lastChosenDay(a: Activity): LocalDate | undefined {
+  const anchor = anchorOf(a);
+  return a.props.repeat?.mode !== 'dates' || anchor === undefined ? undefined : chosenStarts(anchor, a.props.repeat.dates).at(-1)!.slice(0, 10);
 }
 
 /** No time of the series after `key` up to its last day, a skipped one aside: `key` is the last one. */

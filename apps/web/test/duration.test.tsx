@@ -22,7 +22,7 @@ test('testDurationShortcutSetsTheEnd', async () => {
   expect((screen.getByLabelText('Fine') as HTMLInputElement).value).toBe('15:45');
   fireEvent.click(durations().getByRole('button', { name: '1 ora' }));
   expect((screen.getByLabelText('Fine') as HTMLInputElement).value).toBe('16:00');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect(await stored(s, 'sal')).toEqual({ start: '2026-11-01T15:00', end: '2026-11-01T16:00' }));
 });
 
@@ -31,7 +31,7 @@ test('testNoDurationLeavesOnlyTheStart', async () => {
   userClick('Modifica Data e ora');
   fireEvent.click(durations().getByRole('button', { name: 'nessuna' }));
   expect(durations().getByRole('button', { name: 'nessuna' }).getAttribute('aria-pressed')).toBe('true');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect(await stored(s, 'sal')).toEqual({ start: '2026-11-01T15:00' }));
 });
 
@@ -42,6 +42,6 @@ test('testAnEndOfOnesOwn', async () => {
   userType(screen.getByLabelText('Ora'), '10:00');
   expect(durations().getByRole('button', { name: 'nessuna' }).getAttribute('aria-pressed')).toBe('true');
   userType(screen.getByLabelText('Fine'), '12:30');
-  userClick('Salva');
+  userClick('Applica');
   await waitFor(async () => expect(await stored(s, 'costi')).toEqual({ start: '2026-11-20T10:00', end: '2026-11-20T12:30' }));
 });

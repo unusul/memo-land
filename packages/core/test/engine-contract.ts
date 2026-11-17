@@ -74,6 +74,14 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
       expect((await e.getActivity(a.id)).activity.props.repeat).toEqual(repeat);
     });
 
+    /** «A date scelte» (2026-11-17): a third case of Ripeti, kept as it is in the activity's document. */
+    test('testChosenDatesRoundTrip', async () => {
+      const { e, a } = await subject();
+      const repeat = { mode: 'dates' as const, dates: ['2026-12-04', '2026-12-18'] };
+      await e.saveActivity({ ...a, props: { ...a.props, due: '2026-11-20', repeat } }, null);
+      expect((await e.getActivity(a.id)).activity.props.repeat).toEqual(repeat);
+    });
+
     /** «Si chiude da sola» (2026-11-16) is a field of the activity's document: no column of its own. */
     test('testClosesItselfRoundTrips', async () => {
       const { e, a } = await subject();
