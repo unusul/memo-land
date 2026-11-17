@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { buildAgenda, needsAttention } from '@attivita/core';
+import { buildAgenda, needsAttention, outOfCalendar } from '@attivita/core';
 import { highlightsOf, isExpanded, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
 import { setAgendaMode, setShownMonth, useAgendaMode, useShownMonth } from './agendaMode.js';
-import type { Activity, AgendaItem, GroupKind, LocalDate } from '@attivita/core';
+import type { Activity, AgendaItem, Group, GroupKind, LocalDate } from '@attivita/core';
 import { addDays, dayParts, today } from '../dates.js';
 import { shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
@@ -52,9 +52,12 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   const month = useShownMonth() || from.slice(0, 7);
   const [openDay, setOpenDay] = useState<LocalDate | null>(null);
   const grid = monthDays(month);
-  const monthAgenda = mode === 'month' ? buildAgenda(sources, `${grid[0]!}T00:00`, `${grid.at(-1)!}T23:59`) : null;
+  // The Calendar leaves out the informations and what is switched off there (user's choices, 2026-11-17).
+  const inCalendar = sources.map(s => ({ ...s, activities: s.activities.filter(a => !outOfCalendar(a)) }));
+  const monthAgenda = mode === 'month' ? buildAgenda(inCalendar, `${grid[0]!}T00:00`, `${grid.at(-1)!}T23:59`) : null;
+  const infoIds = new Set(ws.activities.filter(a => a.info).map(a => a.id));
   const rows = (day: LocalDate, items: AgendaItem[]) => items.map(it => (
-    <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} today={day === today()} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
+    <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} shared={sharedGroup(groupOf(it.groupId))} info={infoIds.has(it.activityId)} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
       high={ws.activities.find(a => a.id === it.activityId)?.props.priority === 'high'} /></SwipeRow></li>
   ));
 
@@ -138,6 +141,11 @@ const struck = (it: AgendaItem): boolean => it.done === true || it.skipped === t
 
 /** A high priority beside the title; normal and low say nothing, so the agenda stays quiet. */
 const High = () => <span className="pill high">alta</span>;
+/** A group of two or more: there, who takes what is worth seeing at once (user's choice, 2026-11-17). */
+const sharedGroup = (g: Group | undefined): boolean => g !== undefined && g.kind !== 'personal' && Object.keys(g.members).length > 1;
+
+/** An information (2026-11-17): to know, not to do. */
+const Info = () => <span className="pill info">info</span>;
 
 /**
  * The rows switched by their arrow, by activity and start, for as long as the app stays open (user's choice,
@@ -147,22 +155,24 @@ const folds = new Map<string, boolean>();
 export const clearFolds = (): void => folds.clear();
 const foldKey = (it: AgendaItem) => `${it.activityId}|${it.start}`;
 
-function Item({ it, today: isToday, kind, group, me, high, onOpen }: { it: AgendaItem; today: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void }) {
+function Item({ it, shared, info, kind, group, me, high, onOpen }: { it: AgendaItem; shared: boolean; info: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void }) {
   useBarPrefs();
   const [, redraw] = useState(0);
   const who = it.assignee ? (it.assignee === me ? 'tu' : shortName(it.assignee)) : 'libera';
-  // Reduced: one lower line, the title on the left and the time on the right; every row at first (user's choice,
-  // 2026-11-16), but those the person keeps «Sempre espansa» and today's still to do (user's choice, 2026-11-17).
-  const small = folds.get(foldKey(it)) ?? !(isExpanded(me, it.activityId) || (isToday && !struck(it)));
+  // Reduced: one lower line, the title on the left and the time on the right. In a group of two or more a row still to
+  // do starts in full, so whether it is free or whose it is shows at once, on every day; in Personale, once done, and
+  // for an information it starts reduced (user's choices, 2026-11-17; before: every row reduced, then today's in full).
+  // «Sempre espansa» and the arrow open any row.
+  const small = folds.get(foldKey(it)) ?? !(isExpanded(me, it.activityId) || (shared && !struck(it) && !info));
   const toggle = () => { folds.set(foldKey(it), !small); redraw(n => n + 1); };
   return (
     <div className="item-row">
     {/* The row's own start opens it: a moved occurrence has two rows with one key. */}
-    <button className={`item${struck(it) ? ' done' : ''}${small ? ' reduced' : ''}`} style={{ '--grp': KIND_COLOR[kind] } as React.CSSProperties}
-      data-take={takeOf(it, kind, me)} onClick={() => onOpen({ activityId: it.activityId, occurrenceKey: it.start })}>
+    <button className={`item${struck(it) ? ' done' : ''}${small ? ' reduced' : ''}${info ? ' info' : ''}`} style={{ '--grp': info ? 'var(--muted)' : KIND_COLOR[kind] } as React.CSSProperties}
+      data-take={info ? undefined : takeOf(it, kind, me)} onClick={() => onOpen({ activityId: it.activityId, occurrenceKey: it.start })}>
       <span className="bar" />
-      {small ? <span className="t">{it.title}</span> : <span>
-        <span className="t">{it.title}</span>{high && <High />}<br />
+      {small ? <span className="t">{it.title}{info && <Info />}</span> : <span>
+        <span className="t">{it.title}</span>{info && <Info />}{high && <High />}<br />
         {/* In the personal group «libera» would say nothing: everything there is the person's own. */}
         <span className="meta">{kind === 'personal' ? group : `${group} · ${who}`}</span>
         {it.coveredFor && <span className="pill cover">copre {shortName(it.coveredFor)}</span>}

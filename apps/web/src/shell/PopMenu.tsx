@@ -63,16 +63,21 @@ export function PopMenu({ label, menuLabel, buttonLabel, className = 'chip', pan
 }
 
 /**
- * Width and shift of a panel opened under `anchor`: up to 360px, 16px inside each side of the page's own area (not
- * the window, whose width also counts the page's scroll bar, and a panel over it scrolls the page sideways).
+ * Width and shift of a panel opened under `anchor`, up to `max` px. It starts at the left edge of the page's column,
+ * wherever its button is (user's choice, 2026-11-17): before, it opened under its button and moved with it, across the
+ * page on a computer. Without a column, 16px inside the page's own area (not the window, whose width also counts the
+ * scroll bar). The small menus of choices stay under their button.
  */
-export function panelFit(anchor: Element): { left: number; width: number } {
-  const area = anchor.closest('.content') ?? document.documentElement;
-  const from = area.getBoundingClientRect().left;
-  const to = from + area.clientWidth;
-  const at = anchor.getBoundingClientRect().left;
-  const width = Math.min(360, to - from - 32);
-  return { width, left: Math.max(from + 16 - at, Math.min(0, to - 16 - width - at)) };
+export function panelFit(anchor: Element, max = 360): { left: number; width: number } {
+  const column = anchor.closest('.content > *');
+  const area = column ?? anchor.closest('.content') ?? document.documentElement;
+  const box = area.getBoundingClientRect();
+  // From the margin the other elements keep, the left edge of the row holding the button (the chips, the buttons),
+  // and as far from the right as from the left (user's choice, 2026-11-17: on the column's very edge it stuck out).
+  const row = (anchor.closest('.chips, .btns') ?? anchor.parentElement)?.getBoundingClientRect();
+  const from = row && row.left >= box.left ? row.left : box.left + (column ? 0 : 16);
+  const inset = from - box.left;
+  return { width: Math.min(max, box.width - 2 * inset), left: from - anchor.getBoundingClientRect().left };
 }
 
 /** One choice of a PopMenu: highlighted when it is the value set now. */

@@ -33,6 +33,8 @@ const SHELL_PATHS = {
   sort: <path d="M8 19.5v-15M4 8.5l4-4 4 4M16 4.5v15M12 15.5l4 4 4-4" />,
   unfold: <path d="M4 5h16M4 19h16M8 13.5l4-3 4 3" />,
   autoDone: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l2.5 1.5" /><path d="m14.5 18 2 2 4-4.5" /></>,
+  info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></>,
+  calendarOff: <><path d="M8 3v3M16 3v3M4.5 9.5h15" /><path d="M6.5 5h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" /><path d="M3 3l18 18" /></>,
 };
 
 /** The icons a person can give a group, by section, with the name read out and shown in the picker. */

@@ -68,6 +68,21 @@ test('testCoverOccurrenceKeepsSeries', async () => {
   expect((await s.primary.getActivity('backup')).activity.props.assignment?.assignee).toBe(PIPPO);
 });
 
+/**
+ * «Lascia questa volta» gives back the occurrence covered (user's bug, 2026-11-17: after «Copro io questa» nothing let
+ * it go): the occurrence is the series' assignee's again.
+ */
+test('testLeaveTheCoveredOccurrence', async () => {
+  const s = memorySession(PLUTO);
+  renderWithSession(<ActivityDetail activityId="backup" occurrenceKey="2026-11-05T09:00" onClose={() => undefined} />, s);
+  await screen.findByRole('heading', { name: 'Controllo backup' });
+  expect(screen.queryByRole('button', { name: 'Lascia questa volta' })).toBeNull();
+  userClick('Copro io questa');
+  fireEvent.click(await screen.findByRole('button', { name: 'Lascia questa volta' }));
+  await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.overrides['2026-11-05T09:00']).toBeUndefined());
+  expect(await screen.findByRole('button', { name: 'Copro io questa' })).toBeTruthy();
+});
+
 /** Found in the manual offline check: a draft still in the outbox was missing from the list, as if lost. */
 test('testQueuedDraftIsListedAsWaitingForNetwork', async () => {
   const s = memorySession(PLUTO);

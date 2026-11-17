@@ -5,6 +5,8 @@
  */
 :root {
   --bg: #f5f3ee; --surface: #ffffff; --surface-2: #efece4; --fg: #1c2130; --muted: #5f6576; --line: #e1ddd2;
+  /* What opens over the page, menus and panels (2026-11-17): lighter than the cards, with a marked edge. */
+  --raised: #ffffff; --edge: #c9c2b1;
   --accent: #3a45c4; --accent-soft: #e5e7fa; --marker: #d24f27; --marker-soft: #fbe4da;
   --acc-dom: #2f6fbe; --acc-inv: #8a4fc0; --acc-per: #b9770e;
   --ok: #1f7a4d; --ok-soft: #dcefe3; --warn: #9a5b00; --warn-soft: #fff1d6; --bad: #b3261e; --bad-soft: #fbe3e1;
@@ -18,6 +20,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #13151c; --surface: #1b1e28; --surface-2: #242835; --fg: #e8e9f0; --muted: #9ba1b4; --line: #2e3242;
+    --raised: #2a2e3d; --edge: #4a5070;
     --accent: #a3abff; --accent-soft: #272b48; --marker: #ff8a5c; --marker-soft: #3b2219;
     --acc-dom: #6ea8f0; --acc-inv: #c49bf0; --acc-per: #f0b552;
     --ok: #63d39a; --ok-soft: #173326; --warn: #f0a14a; --warn-soft: #3a2a12; --bad: #ff8a80; --bad-soft: #3d1b19;
@@ -27,6 +30,7 @@
 /* The same dark colours when the person chose Scuro in the settings, whatever the system says. */
 :root[data-theme="dark"] {
   --bg: #13151c; --surface: #1b1e28; --surface-2: #242835; --fg: #e8e9f0; --muted: #9ba1b4; --line: #2e3242;
+  --raised: #2a2e3d; --edge: #4a5070;
   --accent: #a3abff; --accent-soft: #272b48; --marker: #ff8a5c; --marker-soft: #3b2219;
   --acc-dom: #6ea8f0; --acc-inv: #c49bf0; --acc-per: #f0b552;
   --ok: #63d39a; --ok-soft: #173326; --warn: #f0a14a; --warn-soft: #3a2a12; --bad: #ff8a80; --bad-soft: #3d1b19;
@@ -163,6 +167,12 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .pill.cover { color: var(--warn); background: var(--warn-soft) }
 .pill.ok { color: var(--ok); background: var(--ok-soft) }
 .pill.high { color: var(--bad); background: var(--bad-soft) }
+/* An information (2026-11-17): grey, to know and not to do. */
+.pill.info { color: var(--muted); background: var(--surface-2) }
+/* Under Ripeti's mode, what it means with the numbers written (2026-11-17). */
+.repeat-example { flex: 1 1 100%; margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent); border-radius: 10px; background: var(--surface-2); color: var(--muted); font-size: .85rem }
+.repeat-example b { color: var(--fg); font-weight: 600 }
+.item.info .t { color: var(--muted) }
 .pill.prop { margin: 0; color: var(--accent); background: var(--accent-soft) }
 
 /* Controls: 44px touch targets, 16px text in fields so phones do not zoom. */
@@ -205,7 +215,7 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .icon-choice[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
 .attach { position: relative; display: inline-flex }
 .attach .menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 200px; display: grid; padding: 6px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18) }
+  background: var(--raised); border: 1.5px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18) }
 .attach .menu.end { left: auto; right: 0 }
 .attach .menu.up { top: auto; bottom: calc(100% + 6px) }
 .attach .menu > button { min-height: 44px; border: 0; background: none; color: var(--fg); text-align: left; padding: 8px 12px; border-radius: 8px; font: inherit; cursor: pointer }
@@ -329,6 +339,11 @@ textarea { width: 100%; resize: vertical }
 .check-items .who-menu form { margin-top: 4px }
 .check-items .who-menu input { width: 100%; min-height: 40px }
 .attach .menu form input { width: 100%; min-height: 40px }
+/* Ripeti's «Ripeti ogni [1] anno»: one piece, the number as narrow as its digits (2026-11-17). */
+.repeat-every { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap }
+.attach .menu form input.num, .repeat-every .num { width: 4.5em }
+/* The times beside each day of a weekly series: as wide as a time, not as the panel (2026-11-17). */
+.attach .menu form input[type="time"] { width: 8.5em }
 .check-items .check-row > button.link { display: grid; place-items: center; min-height: 44px }
 .check-items .check-row > button.link svg { display: block }
 /* The handle: a narrow strip on the left; touch-action none, or the phone scrolls the page instead of dragging. */

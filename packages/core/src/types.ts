@@ -68,7 +68,7 @@ export interface OccurrenceOverride {
 
 export type HistoryKind =
   | 'created' | 'propSet' | 'propRemoved' | 'assigned' | 'accepted' | 'rejected' | 'released'
-  | 'claimed' | 'conditionMet' | 'completed' | 'occurrenceTaken' | 'unassignedOnLeave'
+  | 'claimed' | 'conditionMet' | 'completed' | 'occurrenceTaken' | 'occurrenceLeft' | 'unassignedOnLeave'
   | 'occurrenceSkipped' | 'occurrenceMoved' | 'occurrenceRestored' | 'occurrenceReopened'
   | 'snoozed' | 'resumed' | 'archived' | 'reopened' | 'movedToGroup' | 'movedToDrafts' | 'decomposed' | 'textEdited';
 
@@ -156,6 +156,10 @@ export interface Activity {
    * switched on, and only the times ending after it count.
    */
   closesItself?: { since: LocalDateTime };
+  /** «Informazione utile» (2026-11-17): to know, not to do; out of the Calendar, reduced and grey in the Agenda. */
+  info?: true;
+  /** «Non mostrare in calendario» (2026-11-17): in the Agenda, not in the Calendar. */
+  offCalendar?: true;
   history: HistoryEntry[];
   createdAt: Instant;
   updatedAt: Instant;

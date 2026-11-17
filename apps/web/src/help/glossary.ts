@@ -58,7 +58,7 @@ export const GLOSSARY: Topic[] = [
   { topic: 'Proprietà', groups: [{ terms: [
     t('Scadenza', 'entro quando va fatta.'),
     t('Data e ora', 'quando succede.'),
-    t('Ripeti', "ogni quanto si ripete: a calendario fisso, oppure dal giorno in cui l'hai fatta l'ultima volta."),
+    t('Ripeti', "ogni quanto si ripete: a date fisse, oppure da quando la completi, cioè contando dal giorno in cui l'hai fatta l'ultima volta."),
     t('Assegna', "chi la deve fare; la persona l'accetta o la rifiuta con un motivo."),
     t('In attesa di…', 'cosa si aspetta; chiunque nel gruppo può segnarla come avverata.'),
     t('Riprendi il…', 'la data in cui una rimandata torna.'),
@@ -70,6 +70,7 @@ export const GLOSSARY: Topic[] = [
     t('Smistare', 'decidere dove va una bozza.'),
     t('Me la prendo', "ti assegni un'attività libera del gruppo."),
     t('Copro io questa', 'fai tu una sola occorrenza di una ricorrente assegnata a un altro.'),
+    t('Lascia questa volta', "restituisci l'occorrenza che avevi coperto: torna a chi ha la ricorrente, o libera."),
     t('Lascia', "rinunci a un'attività che avevi accettato; torna libera."),
     t('Rifiuta', "non accetti un'assegnazione; serve un motivo."),
     t('Scomponi', "divide un'attività in più sotto-attività."),

@@ -10,6 +10,7 @@ export * from './completion.js';
 export * from './checklist.js';
 export * from './model.js';
 export * from './closes-itself.js';
+export * from './calendar-flags.js';
 export * from './public-domains.js';
 export * from './groups.js';
 export * from './limits.js';

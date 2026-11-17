@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { calendarStarts } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
@@ -143,6 +143,30 @@ test('testRepeatOnDatedActivityStartsFromItsDate', async () => {
   userClick('Salva');
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.props.repeat)
     .toEqual({ mode: 'fromCompletion', every: { unit: 'month', count: 1 } }));
+});
+
+/**
+ * Ripeti said «a calendario» and «da quando la completi», and nobody knew what they meant (user, 2026-11-17): now «a date
+ * fisse», and a line under the mode with an example made of the numbers written; the day of the month as «il giorno 6
+ * di ogni mese» or «il primo venerdì di ogni mese».
+ */
+test('testRepeatSaysWhatItsModesMean', async () => {
+  renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, memorySession(PIPPO));
+  await screen.findByRole('heading', { name: 'Analisi costi' });
+  userClick(/^\+ Ripeti/);
+  fireEvent.click(screen.getByRole('button', { name: 'Modo' }));
+  expect(within(screen.getByRole('menu', { name: 'Modo' })).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['a date fisse', 'da quando la completi']);
+  fireEvent.click(screen.getByRole('button', { name: 'Modo' }));
+  expect(document.querySelector('.repeat-example')?.textContent).toMatch(/riunione, .*, a date fisse: torna alle sue date anche se la volta prima non l'hai fatta/);
+  fireEvent.change(screen.getByLabelText('Ogni'), { target: { value: '4' } });
+  chooseIn('Unità di ripetizione', 'day');
+  chooseIn('Modo', 'fromCompletion');
+  expect(document.querySelector('.repeat-example')?.textContent).toMatch(/annaffia le piante, ogni 4 giorni da quando la completi.*lunedì → torna venerdì/);
+  chooseIn('Unità di ripetizione', 'month');
+  chooseIn('Modo', 'calendar');
+  fireEvent.click(screen.getByRole('button', { name: 'Giorno del mese' }));
+  expect(within(screen.getByRole('menu', { name: 'Giorno del mese' })).getAllByRole('menuitemradio').map(b => b.textContent))
+    .toEqual(['il giorno 6 di ogni mese', 'il primo venerdì di ogni mese']);
 });
 
 /** Rules saved by the old preset menu stay readable: before, the detail showed them raw ("a calendario (FREQ=…)"). */

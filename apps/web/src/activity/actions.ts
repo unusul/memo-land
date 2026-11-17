@@ -2,7 +2,7 @@ import { can, shapeOf } from '@attivita/core';
 import type { AccountId, Activity, Group, Occurrence } from '@attivita/core';
 
 export type ActionKind =
-  | 'accept' | 'reject' | 'release' | 'claim' | 'cover' | 'complete' | 'reopenOccurrence' | 'met'
+  | 'accept' | 'reject' | 'release' | 'claim' | 'cover' | 'leaveOccurrence' | 'complete' | 'reopenOccurrence' | 'met'
   | 'skip' | 'moveOccurrence' | 'restore'
   | 'moveToGroup' | 'decompose' | 'snooze' | 'archive' | 'toDraft';
 
@@ -24,6 +24,8 @@ export function availableActions(a: Activity, occ: Occurrence | null, group: Gro
   const off = one !== null && (one.skipped === true || one.movedTo !== undefined);
   // Not in the personal group: every occurrence there is already the account's own.
   if (one && !off && group.kind !== 'personal' && one.assignee !== me && !one.done && can(group, me, 'takeOccurrence')) out.push('cover');
+  // The way back from cover (user's bug, 2026-11-17): who covered an occurrence gives it back.
+  if (one && !one.done && a.overrides[one.key]?.takenBy === me) out.push('leaveOccurrence');
   const waiting = shapeOf(a, group.id) === 'waiting';
   const completes = can(group, me, 'editActivity') || (mine && can(group, me, 'completeOwn'));
   if (!waiting && !off && !occ?.done && completes) out.push('complete');

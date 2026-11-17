@@ -81,6 +81,13 @@ export function engineContract(name: string, makeBackend: () => Promise<SessionF
       expect((await e.getActivity(a.id)).activity.closesItself).toEqual({ since: '2026-11-16T10:00' });
     });
 
+    test('testInfoAndOffCalendarRoundTrip', async () => {
+      const { e, a } = await subject();
+      await e.saveActivity({ ...a, info: true, offCalendar: true }, null);
+      const { activity } = await e.getActivity(a.id);
+      expect([activity.info, activity.offCalendar]).toEqual([true, true]);
+    });
+
     test('testListNamesItsModel', async () => {
       const { e, a } = await subject();
       const checklist = { items: [{ id: 'i1', text: 'burrata', done: false }], fixed: false, known: { burrata: 1 }, seq: 1, model: `${a.id}-model` };

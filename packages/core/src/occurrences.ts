@@ -75,6 +75,20 @@ export function takeOccurrence(a: Activity, key: OccurrenceKey, by: AccountId, b
   return touch({ ...a, overrides }, { kind: 'occurrenceTaken', detail: { key } }, by, now);
 }
 
+/**
+ * Gives back an occurrence the account covered (user's bug, 2026-11-17: «Copro io questa» had no way back): it goes to
+ * the series' assignee again, or free; a skip or a move made meanwhile stays. Only who covered it gives it back.
+ */
+export function leaveOccurrence(a: Activity, key: OccurrenceKey, by: AccountId, now: Instant): Activity {
+  const current = a.overrides[key];
+  if (!current?.takenBy) fail('INVALID_STATE', 'nobody covered this occurrence');
+  if (current.takenBy !== by) fail('FORBIDDEN', 'only who covered the occurrence gives it back');
+  const { assignee: _a, takenBy: _t, ...rest } = current;
+  const { [key]: _gone, ...others } = a.overrides;
+  const overrides = Object.keys(rest).length > 0 ? { ...others, [key]: rest } : others;
+  return touch({ ...a, overrides }, { kind: 'occurrenceLeft', detail: { key } }, by, now);
+}
+
 /** The occurrence does not take place this time; the rest of the series is untouched. */
 export function skipOccurrence(a: Activity, key: OccurrenceKey, by: AccountId, byRole: Role, now: Instant): Activity {
   return changeOccurrence(a, key, by, byRole, now, ({ moved: _gone, ...o }) => ({ ...o, skipped: true }), { kind: 'occurrenceSkipped', detail: { key } });

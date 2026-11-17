@@ -11,6 +11,24 @@ import type { DayTimes, RepeatSpec, Weekday } from './timing.js';
 const UNITS: Unit[] = ['day', 'week', 'month', 'year'];
 const DEFAULT: RepeatSpec = { mode: 'calendar', every: 1, unit: 'week', weekdays: [], monthly: 'day' };
 
+const DAY_NAMES = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+const everyText = (n: number, unit: Unit) => (n === 1 ? `ogni ${UNIT_NAMES[unit][0]}` : `ogni ${n} ${UNIT_NAMES[unit][1]}`);
+
+/**
+ * The line under the mode, an example made of the numbers written (user's choice, 2026-11-17): «a calendario» and «da
+ * quando la completi» alone said nothing to who read them.
+ */
+function RepeatExample({ spec, n, start }: { spec: RepeatSpec; n: number; start: string }) {
+  if (spec.mode === 'fromCompletion') {
+    const rule = `${everyText(n, spec.unit)} da quando la completi`;
+    const days = spec.unit === 'day' && n < 7
+      ? ` La fai lunedì → torna ${DAY_NAMES[(1 + n) % 7]}; se la fai mercoledì → torna ${DAY_NAMES[(3 + n) % 7]}.` : '';
+    return <p className="repeat-example">Esempio: <b>annaffia le piante, {rule}</b>: si conta dal giorno in cui la segni fatta.{days}</p>;
+  }
+  const rule = start ? describeRepeat(toRepeat({ ...spec, every: n }, start)) : everyText(n, spec.unit);
+  return <p className="repeat-example">Esempio: <b>riunione, {rule}</b>, a date fisse: torna alle sue date anche se la volta prima non l'hai fatta.</p>;
+}
+
 /** "Ogni N unità", weekdays or day of the month, calendar or from completion; says where the series starts. */
 export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
   activity: Activity; me: AccountId; now: Instant; onApply(next: Activity): void; onPending?: ((build: (() => Activity) | null) => void) | undefined;
@@ -76,17 +94,22 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending }: {
         ))}
       </div>
       <form className="form" onSubmit={e => { e.preventDefault(); if (valid) apply({ ...spec, every: n }); }}>
-        <span>ogni</span>
-        <input aria-label="Ogni" type="number" min="1" step="1" className="num" value={count} onChange={e => setCount(e.target.value)} />
-        <MenuSelect label="Unità di ripetizione" value={spec.unit} options={UNITS.map(u => [u, UNIT_NAMES[u][n === 1 ? 0 : 1]] as const)} onChange={unit => set({ unit })} />
-        <MenuSelect label="Modo" value={spec.mode} options={[['calendar', 'a calendario'], ['fromCompletion', 'da quando la completi']] as const}
+        {/* One sentence, «Ripeti ogni 1 anno», kept together on a phone (user's choice, 2026-11-17: «ogni» alone over a
+            field as wide as the panel read badly); only the mode goes to the next line when there is no room. */}
+        <span className="repeat-every">
+          <span>Ripeti ogni</span>
+          <input aria-label="Ogni" type="number" min="1" step="1" className="num" value={count} onChange={e => setCount(e.target.value)} />
+          <MenuSelect label="Unità di ripetizione" value={spec.unit} options={UNITS.map(u => [u, UNIT_NAMES[u][n === 1 ? 0 : 1]] as const)} onChange={unit => set({ unit })} />
+        </span>
+        <MenuSelect label="Modo" value={spec.mode} options={[['calendar', 'a date fisse'], ['fromCompletion', 'da quando la completi']] as const}
           onChange={mode => set({ mode })} />
+        <RepeatExample spec={spec} n={n} start={start} />
         {spec.mode === 'calendar' && spec.unit === 'week' && <WeekdayToggles value={spec.weekdays} onChange={weekdays => set({ weekdays })} />}
         {weekly(spec) && start && <DayTimeRows days={daysOf(spec)} times={spec.times ?? {}} base={base} onChange={times => set({ times })}
           onEmpty={scheduled ? undefined : () => setSuggested(null)} />}
         {spec.mode === 'calendar' && spec.unit === 'month' && start && (
           <MenuSelect label="Giorno del mese" value={spec.monthly}
-            options={(['day', 'nth'] as const).map(m => [m, describeRepeat(toRepeat({ ...spec, monthly: m }, start)).split(', ')[1] ?? m] as const)}
+            options={(['day', 'nth'] as const).map(m => [m, monthlyLabel(m, describeRepeat(toRepeat({ ...spec, monthly: m }, start)).split(', ')[1] ?? m)] as const)}
             onChange={monthly => set({ monthly })} />
         )}
         {anchor
@@ -148,3 +171,6 @@ function WeekdayToggles({ value, onChange }: { value: Weekday[]; onChange(next: 
     </span>
   );
 }
+
+/** «il giorno 17 di ogni mese», «il terzo martedì di ogni mese» (user's choice, 2026-11-17: «il 17» alone said little). */
+const monthlyLabel = (m: 'day' | 'nth', short: string) => `${m === 'day' ? short.replace(/^il /, 'il giorno ') : short} di ogni mese`;

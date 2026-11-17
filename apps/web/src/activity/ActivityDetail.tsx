@@ -7,7 +7,7 @@ import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
   accept, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
-  moveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, setClosesItself, shapeOf, skipOccurrence, snooze, takeOccurrence,
+  moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, setClosesItself, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
 import { instantNow, localNow } from '../dates.js';
@@ -27,6 +27,7 @@ import { CopyButton } from './CopyButton.js';
 import { Disclosure } from '../shell/Disclosure.js';
 import { useBackLayer } from '../shell/back.js';
 import { Icon } from '../shell/icons.js';
+import type { IconName } from '../shell/icons.js';
 import { MenuChoice, PopMenu, panelFit } from '../shell/PopMenu.js';
 import { DatePicker } from './DatePicker.js';
 import { SnoozeForm } from './SnoozeForm.js';
@@ -42,11 +43,14 @@ import type { Chip } from './PropertyForms.js';
 /** The chips that open a menu under themselves instead of a form (user's choice, 2026-11-16). */
 type InlineKey = 'priority' | 'assignment' | 'due';
 const INLINE: ReadonlySet<Chip> = new Set<Chip>(['priority', 'assignment', 'due']);
+/** The widest Ripeti's panel gets: about the page's column on a computer (2026-11-17). */
+const REPEAT_PANEL_MAX = 560;
+
 /** The properties with more fields at once: a panel under the chip or row, over the page (user's choice, 2026-11-16). */
 const PANEL: ReadonlySet<Chip> = new Set<Chip>(['schedule', 'repeat', 'waitingFor']);
 const CHIP_PROPS: readonly PropKey[] = ['due', 'schedule', 'repeat', 'assignment', 'waitingFor', 'priority'];
 const ACTION_LABEL: Record<ActionKind, string> = {
-  accept: 'Accetta', reject: 'Rifiuta…', release: 'Lascia…', claim: 'Me la prendo', cover: 'Copro io questa', complete: 'Fatto', reopenOccurrence: 'Togli fatta',
+  accept: 'Accetta', reject: 'Rifiuta…', release: 'Lascia…', claim: 'Me la prendo', cover: 'Copro io questa', leaveOccurrence: 'Lascia questa volta', complete: 'Fatto', reopenOccurrence: 'Togli fatta',
   skip: 'Salta questa volta', moveOccurrence: 'Sposta questa volta…', restore: 'Rimetti',
   met: 'Segna avverata', moveToGroup: 'Sposta in un gruppo', decompose: 'Scomponi…',
   snooze: 'Rimanda…', archive: 'Archivia', toDraft: 'Torna bozza',
@@ -152,7 +156,9 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   /** Opens a panel under `anchor`, kept inside the screen with a 16px margin on each side. */
   function openPanel(k: Chip, anchor: Element) {
     if (form === k) return savePanel.current();
-    setPanelPlace(panelFit(anchor));
+    // Ripeti wider (user's choice, 2026-11-17): its fields and its example line take room. The whole width on a phone;
+    // on a computer no wider than the page's column, or it ran across the whole window.
+    setPanelPlace(panelFit(anchor, k === 'repeat' ? REPEAT_PANEL_MAX : undefined));
     setForm(k);
   }
   const panelOf = (k: Chip) => form === k && (
@@ -236,6 +242,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       case 'release': return setForm('release');
       case 'claim': return run(() => claim(it, me, role, now));
       case 'cover': return run(() => takeOccurrence(it, occ!.key, me, role, now));
+      case 'leaveOccurrence': return run(() => leaveOccurrence(it, occ!.key, me, now));
       case 'complete': return run(() => complete(it, me, occ?.key ?? localNow(), now, occ?.key));
       case 'reopenOccurrence': return run(() => reopenOccurrence(it, occ!.key, me, now));
       case 'skip': return run(() => skipOccurrence(it, occ!.key, me, role, now));
@@ -328,7 +335,10 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
-        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<ExpandedButton id={a.id} me={me} /><HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
+        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<ExpandedButton id={a.id} me={me} />{a.groupId !== null && canEdit && <>
+          <FlagButton on={a.info === true} label="Informazione utile" icon="info" title="Informazione utile: da sapere, non da fare; ridotta nell'Agenda, fuori dal Calendario" onToggle={on => void run(() => setInfo(a, on, instantNow()))} />
+          <FlagButton on={a.offCalendar === true} label="Non mostrare in calendario" icon="calendarOff" title="Non mostrare in calendario: resta nell'Agenda" onToggle={on => void run(() => setOffCalendar(a, on, instantNow()))} />
+        </>}<HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
       </header>}
       {asGroupList && closed && group && can(group, me, 'editActivity') && (
         <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>
@@ -439,6 +449,18 @@ function ClosesItselfButton({ on, onToggle }: { on: boolean; onToggle(on: boolea
     <button type="button" className="icon-choice small" aria-label="Si chiude da sola" aria-pressed={on}
       title="Si chiude da sola: alla fine dell'orario si segna fatta" onClick={() => onToggle(!on)}>
       <Icon name="autoDone" size={18} />
+    </button>
+  );
+}
+
+/**
+ * A switch of the group's on the activity (user's choices, 2026-11-17): «Informazione utile», «Non mostrare in
+ * calendario». They sit before the star, which stays the last of the switches on the right.
+ */
+function FlagButton({ on, label, icon, title, onToggle }: { on: boolean; label: string; icon: IconName; title: string; onToggle(on: boolean): void }) {
+  return (
+    <button type="button" className="icon-choice small" aria-label={label} aria-pressed={on} title={title} onClick={() => onToggle(!on)}>
+      <Icon name={icon} size={18} />
     </button>
   );
 }

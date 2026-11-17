@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import {
-  complete, leaveGroup, moveOccurrence, occurrencesBetween, reopenOccurrence, restoreOccurrence, setProp, skipOccurrence, takeOccurrence,
+  complete, leaveGroup, leaveOccurrence, moveOccurrence, occurrencesBetween, reopenOccurrence, restoreOccurrence, setProp, skipOccurrence, takeOccurrence,
 } from '../src/index.js';
 import type { Activity } from '../src/index.js';
 import { domainGroup, series, t1, t2 } from './fixtures.js';
@@ -129,4 +129,26 @@ test('testLeavingKeepsSkipsAndMoves', () => {
   s = moveOccurrence(s, '2026-10-27T09:00', '2026-10-30T20:00', 'pluto', 'member', t1);
   const { changed } = leaveGroup(domainGroup, 'pluto', [s], 'left', t2);
   expect(changed[0]?.overrides).toEqual({ '2026-10-27T09:00': { moved: '2026-10-30T20:00' } });
+});
+
+/**
+ * The way back from «Copro io questa» (user's bug, 2026-11-17: «se mi prendo una attività non la posso lasciare»): the
+ * occurrence goes back to the series' assignee, and keeps a move made meanwhile. Before, nothing gave it back.
+ */
+test('testLeaveGivesTheCoveredOccurrenceBack', () => {
+  let s = takeOccurrence(series, '2026-10-27T09:00', 'pluto', 'member', t1);
+  s = moveOccurrence(s, '2026-10-27T09:00', '2026-10-30T20:00', 'pippo', 'member', t1);
+  s = leaveOccurrence(s, '2026-10-27T09:00', 'pluto', t2);
+  expect(week(s).at(-1)).toMatchObject({ start: '2026-10-30T20:00', assignee: 'pippo' });
+  expect(week(s).at(-1)?.coveredFor).toBeUndefined();
+  expect(s.overrides['2026-10-27T09:00']).toEqual({ moved: '2026-10-30T20:00' });
+  expect(s.history.at(-1)).toMatchObject({ kind: 'occurrenceLeft', by: 'pluto', detail: { key: '2026-10-27T09:00' } });
+  expect(leaveOccurrence(takeOccurrence(series, '2026-10-27T09:00', 'pluto', 'member', t1), '2026-10-27T09:00', 'pluto', t2).overrides).toEqual({});
+});
+
+/** Only who covered it gives it back: not another member, nor an occurrence nobody covered. */
+test('testOnlyWhoCoveredLeaves', () => {
+  const s = takeOccurrence(series, '2026-10-27T09:00', 'pluto', 'member', t1);
+  expect(() => leaveOccurrence(s, '2026-10-27T09:00', 'pippo', t2)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+  expect(() => leaveOccurrence(series, '2026-10-29T09:00', 'pluto', t2)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
 });
