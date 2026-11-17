@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
+import { DraftsView } from '../src/drafts/DraftsView.js';
+import { pin } from '../src/groups/barPrefs.js';
 import { GroupsView } from '../src/groups/GroupsView.js';
 import { Shell } from '../src/shell/Shell.js';
 import { SwipeRow } from '../src/shell/SwipeRow.js';
@@ -150,4 +152,44 @@ test('testSectionSwipeFromAnEmptySpotOnly', async () => {
   await waitFor(() => expect(noi()).toBe('page'));
   swipe(page, 200);
   await waitFor(() => expect(screen.getByRole('button', { name: /^Agenda/ }).getAttribute('aria-current')).toBe('page'));
+});
+
+/**
+ * Sorting drafts by swipe (user's choice, 2026-11-17): towards the left «Sposta» opens the menu of the groups on the
+ * row, Personale among them, and a tap moves the draft there. Before, a draft was moved only from its detail.
+ */
+test('testSwipeLeftMovesADraftToAGroup', async () => {
+  const s = memorySession();
+  renderWithSession(<DraftsView onOpen={() => undefined} />, s);
+  swipe(await screen.findByText('app gestione core'), -200);
+  const menu = screen.getByRole('menu', { name: 'Sposta app gestione core' });
+  expect(within(menu).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Personale', 'altereos.com', 'developers']);
+  fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'altereos.com' }));
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.groupId).toBe('domain:altereos.com'));
+  await waitFor(() => expect(screen.queryByText('app gestione core')).toBeNull());
+});
+
+/** A tap outside or Esc closes the menu and the draft stays where it is. */
+test('testDraftMoveMenuClosesWithoutMoving', async () => {
+  const s = memorySession();
+  renderWithSession(<DraftsView onOpen={() => undefined} />, s);
+  swipe(await screen.findByText('app gestione core'), -200);
+  fireEvent.keyDown(screen.getByRole('menu', { name: 'Sposta app gestione core' }), { key: 'Escape' });
+  expect(screen.queryByRole('menu')).toBeNull();
+  swipe(screen.getByText('app gestione core'), -200);
+  fireEvent.pointerDown(document.body);
+  expect(screen.queryByRole('menu')).toBeNull();
+  expect((await s.primary.getActivity('idea')).activity.groupId).toBeNull();
+});
+
+/**
+ * The groups follow the order of Noi, Personale first (user's choice, 2026-11-17): a pinned group comes before the
+ * others. Before, they came in the order the engines gave them, whatever the person had set in Noi.
+ */
+test('testDraftMoveMenuFollowsTheOrderOfNoi', async () => {
+  pin(PIPPO, 'inv:developers');
+  renderWithSession(<DraftsView onOpen={() => undefined} />, memorySession());
+  swipe(await screen.findByText('app gestione core'), -200);
+  const menu = screen.getByRole('menu', { name: 'Sposta app gestione core' });
+  expect(within(menu).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Personale', 'developers', 'altereos.com']);
 });

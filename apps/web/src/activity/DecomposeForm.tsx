@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { archive, decompose, groupTypeOf, roleIn } from '@attivita/core';
+import { archive, decompose } from '@attivita/core';
 import type { Activity, Props } from '@attivita/core';
 import { instantNow, newId, today } from '../dates.js';
 import { errorText } from '../labels.js';
+import { groupName } from '../groups/GroupsView.js';
+import { moveTargets } from '../groups/moveTargets.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
 
@@ -22,7 +24,7 @@ export function DecomposeForm({ parent, onDone }: { parent: Activity; onDone(): 
   const { account, personalGroupId } = useSession();
   const ws = useWs();
   // The groups that take activities, as in the move menu: not archived, not where the person is a guest, not lists.
-  const targets = ws.groups.filter(g => !g.archived && roleIn(g, account) !== 'guest' && groupTypeOf(g) !== 'list');
+  const targets = moveTargets(ws.groups, account, null);
   const [groupId, setGroupId] = useState(targets.find(g => g.kind === 'domain')?.id ?? personalGroupId);
   const [rows, setRows] = useState<Row[]>([{ title: '', kind: 'event', when: `${today()}T10:00` }]);
   const [problem, setProblem] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function DecomposeForm({ parent, onDone }: { parent: Activity; onDone(): 
   return (
     <form className="stack decompose" onSubmit={submit}>
       <label>Gruppo <select value={groupId} onChange={e => setGroupId(e.target.value)}>
-        {targets.map(g => <option key={g.id} value={g.id}>{g.kind === 'personal' ? 'Idee personali' : g.name}</option>)}
+        {targets.map(g => <option key={g.id} value={g.id}>{groupName(g)}</option>)}
       </select></label>
       {rows.map((r, i) => (
         <fieldset key={i} className="form">

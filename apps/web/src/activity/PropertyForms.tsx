@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { assign, groupTypeOf, moveBetweenGroups, moveToGroup, roleIn, setProp } from '@attivita/core';
+import { assign, moveBetweenGroups, moveToGroup, roleIn, setProp } from '@attivita/core';
 import type { AccountId, Activity, ActivityId, Group, GroupId, Instant, LocalDateTime, Priority, PropKey } from '@attivita/core';
 import { today } from '../dates.js';
 import { shortName } from '../labels.js';
+import { groupName } from '../groups/GroupsView.js';
+import { moveTargets } from '../groups/moveTargets.js';
 import { DatePicker, DateTimePicker, DurationRow, minutesBetween, plusMinutes } from './DatePicker.js';
 import { RepeatForm } from './RepeatForm.js';
 import { WaitedActivity } from './WaitedActivity.js';
@@ -26,7 +28,7 @@ export interface PropertyFormProps {
 export function PropertyForm({ chip, activity: a, group, groups, me, personalGroupId, now, onApply, onPending }: PropertyFormProps) {
   // Where it can go: not where it is, not where the person is a guest, not into a list group (it would not be seen), not
   // into an archived group (read only).
-  const targets = groups.filter(g => g.id !== a.groupId && !g.archived && roleIn(g, me) !== 'guest' && groupTypeOf(g) !== 'list');
+  const targets = moveTargets(groups, me, a.groupId);
   const [value, setValue] = useState(() => current(chip, a) ?? (chip === 'groupId' && a.groupId !== null ? targets[0]?.id ?? '' : initial(chip, personalGroupId, group)));
   const editing = current(chip, a) !== undefined;
   const role = group ? roleIn(group, me) ?? 'guest' : 'owner';
@@ -57,7 +59,7 @@ export function PropertyForm({ chip, activity: a, group, groups, me, personalGro
     <form className="form" onSubmit={apply}>
       {chip === 'groupId' && (
         <select aria-label="Gruppo" value={value} onChange={e => setValue(e.target.value)}>
-          {targets.map(g => <option key={g.id} value={g.id}>{g.kind === 'personal' ? 'Idee personali' : g.name}</option>)}
+          {targets.map(g => <option key={g.id} value={g.id}>{groupName(g)}</option>)}
         </select>
       )}
       {chip === 'due' && <DatePicker label="Scadenza" value={value} onChange={setValue} />}

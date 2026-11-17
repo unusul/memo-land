@@ -19,7 +19,7 @@ test('testAvailableActionsForGuest', () => {
 
 test('testAvailableActionsForDraft', () => {
   const draft: Activity = { ...costTask, groupId: null, props: {} };
-  expect(availableActions(draft, null, null, 'u1')).toEqual(['moveToGroup', 'keepAsIdea', 'decompose', 'snooze', 'archive']);
+  expect(availableActions(draft, null, null, 'u1')).toEqual(['moveToGroup', 'decompose', 'snooze', 'archive']);
 });
 
 test('testRejectNeedsReason', async () => {
@@ -52,7 +52,7 @@ test('testAddDueDateTurnsIdeaIntoTask', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick('+ Gruppo');
-  fireEvent.click(within(screen.getByRole('menu', { name: 'Gruppo' })).getByRole('menuitemradio', { name: 'Idee personali' }));
+  fireEvent.click(within(screen.getByRole('menu', { name: 'Gruppo' })).getByRole('menuitemradio', { name: 'Personale' }));
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.groupId).toBe(`personal:${PIPPO}`));
   userClick(/^\+ Scadenza/);
   pickDate('Scadenza', '2026-11-20');

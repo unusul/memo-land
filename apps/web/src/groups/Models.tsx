@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   addSection, archive, can, itemsIn, moveSection, newModel, placeItem, removeModelItem, removeSection, renameModel,
   renameSection, setModelIcon, undoTo, unplacedItems,
@@ -218,10 +218,16 @@ function NewItem({ sections, onAdd }: { sections: readonly ModelSection[]; onAdd
 /** A field with a + beside it, as the list's new item: the return key adds too, and the field stays for the next one. */
 function AddField({ label, placeholder, button, onAdd }: { label: string; placeholder: string; button: string; onAdd(text: string): void }) {
   const [text, setText] = useState('');
-  const add = () => { if (!text.trim()) return; onAdd(text.trim()); setText(''); };
+  // As the list's new item (user's bug, 2026-11-17): text left without Enter is added on leaving the field, unless
+  // toward the + or the section menu beside it, and when the page closes without moving the focus.
+  const pending = useRef({ text, onAdd });
+  pending.current = { text, onAdd };
+  const add = () => { pending.current.text = ''; if (!text.trim()) return; onAdd(text.trim()); setText(''); };
+  useEffect(() => () => { const p = pending.current; if (p.text.trim()) p.onAdd(p.text.trim()); }, []);
+  const addOnLeave = (to: EventTarget | null) => { if (!(to instanceof Element && to.closest('.new-item-row, .model-new-item'))) add(); };
   return (
     <form className="new-item-row" onSubmit={e => { e.preventDefault(); add(); }}>
-      <input className="new-item" aria-label={label} placeholder={placeholder} enterKeyHint="enter" autoCapitalize="none" value={text} onChange={e => setText(e.target.value)} />
+      <input className="new-item" aria-label={label} placeholder={placeholder} enterKeyHint="enter" autoCapitalize="none" value={text} onChange={e => setText(e.target.value)} onBlur={e => addOnLeave(e.relatedTarget)} />
       <button type="submit" className="icon-choice" aria-label={button} title={button} disabled={!text.trim()} onPointerDown={e => e.preventDefault()}><Icon name="plus" /></button>
     </form>
   );

@@ -22,7 +22,7 @@ import { SwipeRow } from '../shell/SwipeRow.js';
 import { MenuChoice, PopMenu } from '../shell/PopMenu.js';
 import { GoogleGroupWizard, InviteLink, appBase } from './GoogleGroupWizard.js';
 
-export const groupName = (g: Group) => (g.kind === 'personal' ? 'Idee personali' : g.name);
+export const groupName = (g: Group) => (g.kind === 'personal' ? 'Personale' : g.name);
 
 /**
  * Noi: the shared groups (the personal one is in Io), one row each: tapping the row opens the group, ⋯ opens its

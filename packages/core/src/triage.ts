@@ -33,10 +33,6 @@ export function backToDraft(a: Activity, by: AccountId, now: Instant): Activity 
   return touch(withProps({ ...a, groupId: null }, props), { kind: 'movedToDrafts', detail: { groupId: a.groupId } }, by, now);
 }
 
-export function keepAsIdea(a: Activity, personalGroupId: GroupId, by: AccountId, now: Instant): Activity {
-  return moveToGroup(a, personalGroupId, by, now);
-}
-
 export function archive(a: Activity, by: AccountId, now: Instant): Activity {
   return touch({ ...a, status: 'archived' }, { kind: 'archived' }, by, now);
 }

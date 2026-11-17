@@ -93,7 +93,7 @@ test('testAuthorMovesAnActivityToAnotherGroup', async () => {
   await screen.findByLabelText('Titolo');
   fireEvent.click(screen.getByRole('button', { name: 'Modifica Dove' }));
   const menu = screen.getByRole('menu', { name: 'Dove' });
-  expect(within(menu).getAllByRole('menuitemradio').map(o => o.textContent)).toEqual(['Idee personali', 'altereos.com']);
+  expect(within(menu).getAllByRole('menuitemradio').map(o => o.textContent)).toEqual(['Personale', 'altereos.com']);
   fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'altereos.com' }));
   await waitFor(async () => expect((await s.primary.getActivity('costi')).activity.groupId).toBe('domain:altereos.com'));
   expect((await s.primary.getActivity('costi')).activity.props.assignment).toBeUndefined();

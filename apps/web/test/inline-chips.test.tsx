@@ -108,11 +108,11 @@ test('testAnArchivedGroupIsNoPlaceToMoveTo', async () => {
   const view = renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick('+ Gruppo');
-  expect(within(menu('Gruppo')).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Idee personali', 'altereos.com']);
+  expect(within(menu('Gruppo')).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Personale', 'altereos.com']);
   view.unmount();
   renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
   fireEvent.click(await screen.findByRole('button', { name: 'Modifica Dove' }));
-  expect(within(menu('Dove')).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Idee personali']);
+  expect(within(menu('Dove')).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Personale']);
 });
 
 /**
@@ -126,7 +126,7 @@ test('testDecomposeOffersOnlyGroupsThatTakeActivities', async () => {
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick('Scomponi…');
   const select = screen.getByLabelText('Gruppo') as HTMLSelectElement;
-  expect([...select.options].map(o => o.textContent)).toEqual(['Idee personali', 'altereos.com']);
+  expect([...select.options].map(o => o.textContent)).toEqual(['Personale', 'altereos.com']);
   expect(select.value).toBe('domain:altereos.com');
 });
 

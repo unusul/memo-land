@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { archive, backToDraft, complete, decompose, moveBetweenGroups, keepAsIdea, markConditionMet, moveToGroup, resumeIfDue, setProp, shapeOf, reopen, snooze, undoTo, waitingOnDone } from '../src/index.js';
+import { archive, backToDraft, complete, decompose, moveBetweenGroups, markConditionMet, moveToGroup, resumeIfDue, setProp, shapeOf, reopen, snooze, undoTo, waitingOnDone } from '../src/index.js';
 import { draft, movedIdea, t1, t2, task } from './fixtures.js';
 
 test('testDecomposeLinksChildrenToParent', () => {
@@ -50,7 +50,6 @@ test('testWaitingOnADoneActivityIsFound', () => {
 test('testMoveToGroupOnlyFromDraft', () => {
   expect(() => moveToGroup(task, 'g2', 'u1', t1)).toThrow(expect.objectContaining({ code: 'INVALID_STATE' }));
   expect(moveToGroup(draft, 'g2', 'u1', t1).groupId).toBe('g2');
-  expect(keepAsIdea(draft, 'p1', 'u1', t1).groupId).toBe('p1');
 });
 
 test('testArchive', () => {

@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, expect, test } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { complete } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { AgendaView, clearFolds } from '../src/agenda/AgendaView.js';
@@ -7,7 +7,7 @@ import { isExpanded, toggleExpanded } from '../src/groups/barPrefs.js';
 import { PIPPO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
 
 /*
- * Rows reduced and expanded in the Agenda (user's choices, 2026-11-16): every row starts reduced, one lower line with
+ * Rows reduced and expanded in the Agenda (user's choices, 2026-11-16, and today's on 2026-11-17): every row starts reduced, one lower line with
  * the title on the left and the time on the right; a small arrow switches each row for as long as the app stays open.
  * «Sempre espansa», the person's own like the star, keeps an activity in full. Before, only done, skipped or moved-away
  * times started reduced, and the switch was «Sempre ridotta»: the user chose all reduced at first.
@@ -72,6 +72,39 @@ test('testAlwaysExpandedFromTheDetail', async () => {
   fireEvent.click(sw);
   expect(isExpanded(PIPPO, 'backup')).toBe(true);
   expect(screen.getByRole('button', { name: 'Sempre espansa' }).getAttribute('aria-pressed')).toBe('true');
+});
+
+/**
+ * Today's rows still to do start in full (user's choice, 2026-11-17, «giorno attuale espanso»); done, skipped or
+ * moved-away ones stay reduced, as every row of the other days. Before, today's rows started reduced too.
+ */
+test('testTodaysOpenRowsStartInFull', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  try {
+    vi.setSystemTime(new Date('2026-11-05T08:00'));
+    renderWithSession(<AgendaView from="2026-11-03" days={3} onOpen={() => undefined} />, bench());
+    const [doneTuesday, openToday] = await rows();
+    expect(reduced(openToday!)).toBe(false);
+    expect(reduced(doneTuesday!)).toBe(true);
+    fireEvent.click(within(openToday!).getByRole('button', { name: 'Riduci Controllo backup' }));
+    await waitFor(() => expect(reduced(openToday!)).toBe(true));
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+/** Done today, the row stays reduced; an open row of another day too. */
+test('testTodaysDoneRowStaysReduced', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  try {
+    vi.setSystemTime(new Date('2026-11-03T18:00'));
+    renderWithSession(<AgendaView from="2026-11-03" days={3} onOpen={() => undefined} />, bench());
+    const [doneToday, openThursday] = await rows();
+    expect(reduced(doneToday!)).toBe(true);
+    expect(reduced(openThursday!)).toBe(true);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 /** Always expanded, its rows start in full; the arrow still reduces them. */

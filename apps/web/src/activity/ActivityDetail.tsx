@@ -6,7 +6,7 @@ import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, archive, assign, assignToName, backToDraft, can, claim, complete, groupTypeOf, moveBetweenGroups, moveToGroup, setProp, editText, keepAsIdea, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, setClosesItself, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
@@ -35,6 +35,8 @@ import type { ActionKind } from './actions.js';
 import { DecomposeForm } from './DecomposeForm.js';
 import { TextFields } from './TextFields.js';
 import { PropertyForm } from './PropertyForms.js';
+import { moveTargets } from '../groups/moveTargets.js';
+import { groupName } from '../groups/GroupsView.js';
 import type { Chip } from './PropertyForms.js';
 
 /** The chips that open a menu under themselves instead of a form (user's choice, 2026-11-16). */
@@ -46,7 +48,7 @@ const CHIP_PROPS: readonly PropKey[] = ['due', 'schedule', 'repeat', 'assignment
 const ACTION_LABEL: Record<ActionKind, string> = {
   accept: 'Accetta', reject: 'Rifiuta…', release: 'Lascia…', claim: 'Me la prendo', cover: 'Copro io questa', complete: 'Fatto', reopenOccurrence: 'Togli fatta',
   skip: 'Salta questa volta', moveOccurrence: 'Sposta questa volta…', restore: 'Rimetti',
-  met: 'Segna avverata', moveToGroup: 'Sposta in un gruppo', keepAsIdea: 'Tienila come idea', decompose: 'Scomponi…',
+  met: 'Segna avverata', moveToGroup: 'Sposta in un gruppo', decompose: 'Scomponi…',
   snooze: 'Rimanda…', archive: 'Archivia', toDraft: 'Torna bozza',
 };
 /** Highlighted only where someone waits for the person's answer: a proposal to accept. */
@@ -241,7 +243,6 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       case 'restore': return run(() => restoreOccurrence(it, occ!.key, me, role, now));
       case 'met': return run(() => markConditionMet(it, me, role, now));
       case 'moveToGroup': return setForm('groupId');
-      case 'keepAsIdea': return run(() => keepAsIdea(it, personalGroupId, me, now));
       case 'decompose': return setForm('decompose');
       case 'snooze': return setForm('snooze');
       case 'archive': return run(() => archive(it, me, now), () => onClose());
@@ -257,15 +258,13 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   // A function, not a component: a component declared here would be a new one at each render, and lose its open menu.
   /**
    * Where it can go, as a menu: from the «+ Gruppo» chip of a draft, the Dove row and «Sposta in un gruppo» (2026-11-16).
-   * Not where it is, not where the person is a guest, not into a list group (it would not be seen there), not into an
-   * archived group (read only until its owner reopens it).
    */
   function groupChoices(close: () => void) {
     const it = a!;
-    const targets = ws.groups.filter(g => g.id !== it.groupId && !g.archived && roleIn(g, me) !== 'guest' && groupTypeOf(g) !== 'list');
+    const targets = moveTargets(ws.groups, me, it.groupId);
     if (targets.length === 0) return <span className="menu-note">Nessun altro gruppo.</span>;
     return targets.map(g => (
-      <MenuChoice key={g.id} label={g.kind === 'personal' ? 'Idee personali' : g.name} onChoose={() => {
+      <MenuChoice key={g.id} label={groupName(g)} onChoose={() => {
         close();
         void run(() => (it.groupId === null ? moveToGroup(it, g.id, me, instantNow()) : moveBetweenGroups(it, g.id, me, instantNow())));
       }} />
@@ -353,7 +352,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         {/* A list group's page says the group above, and a list is always an "idea": neither row tells anything there. */}
         {!asGroupList && <>
           <dt>Forma</dt><dd><span className="pill prop">{SHAPE_LABEL[shape]}</span></dd>
-          <PropRow label="Dove" value={group ? `${group.kind === 'personal' ? 'Idee personali' : group.name} · tu: ${ROLE_LABEL[role]}` : 'bozza, la vedi solo tu'}
+          <PropRow label="Dove" value={group ? `${group.kind === 'personal' ? 'Personale' : group.name} · tu: ${ROLE_LABEL[role]}` : 'bozza, la vedi solo tu'}
             editing={false} menu={movable ? groupChoices : undefined} />
         </>}
         {set.map(k => (

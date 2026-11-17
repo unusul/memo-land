@@ -8,9 +8,9 @@ export interface Topic { topic: string; intro?: string; groups: TermGroup[] }
 
 export const HELP: string[] = [
   'Premi + per scrivere al volo: finisce fra le bozze (sezione Io), che vedi solo tu.',
-  'Apri una bozza per smistarla: in un gruppo, fra le idee personali, rimandata o scomposta.',
+  'Apri una bozza per smistarla: in un gruppo, in Personale, rimandata o scomposta.',
   "Un'attività cambia forma con le proprietà: una scadenza la rende una cosa da fare, data e ora un evento, Ripeti una ricorrente.",
-  "Noi mostra i gruppi, Io le tue bozze e idee, l'agenda quello che c'è da fare giorno per giorno.",
+  "Noi mostra i gruppi, Io le tue bozze e Personale, l'agenda quello che c'è da fare giorno per giorno.",
 ];
 
 const t = (word: string, meaning: string): Term => ({ word, meaning });
@@ -19,13 +19,13 @@ export const GLOSSARY: Topic[] = [
   { topic: 'Sezioni', groups: [{ terms: [
     t('Agenda', 'la vista per giorni: scadute, oggi, i prossimi giorni, di tutti i tuoi gruppi.'),
     t('Noi', 'i gruppi di cui fai parte.'),
-    t('Io', 'le tue bozze e le tue idee personali.'),
+    t('Io', 'le tue bozze e Personale.'),
     t('Bozze', 'quello che hai scritto con + e non hai ancora smistato. Le vedi solo tu.'),
-    t('Idee personali', 'il tuo gruppo personale: solo tuo, nessun altro lo vede.'),
+    t('Personale', 'il tuo gruppo: idee, cose da fare, eventi, liste. Solo tuo, nessun altro lo vede.'),
   ] }] },
   { topic: 'Gruppi', intro: 'Un gruppo si descrive in tre modi indipendenti: chi ne fa parte, cosa contiene, dove stanno i dati.', groups: [
     { title: 'Chi ne fa parte', note: 'deciso quando il gruppo nasce, non cambia', terms: [
-      t('Personale', 'uno per account, solo tuo: le tue idee personali.'),
+      t('Personale', 'uno per account, solo tuo: è Personale.'),
       t('Di dominio', "nasce da solo per chi ha un'email aziendale dello stesso dominio (es. @azienda.it): tutti membri alla pari, ognuno entra ed esce da sé."),
       t('Su invito', 'lo crea chiunque e invita chi vuole; ha un proprietario.'),
     ] },
@@ -74,7 +74,6 @@ export const GLOSSARY: Topic[] = [
     t('Rifiuta', "non accetti un'assegnazione; serve un motivo."),
     t('Scomponi', "divide un'attività in più sotto-attività."),
     t('Rimanda', 'la nasconde fino a una data.'),
-    t('Tienila come idea', 'sposta una bozza fra le idee personali.'),
     t('Torna bozza', "riporta un'attività fra le bozze."),
     t('Occorrenza', 'una delle volte di una ricorrente.'),
     t('Libera / presa', "un'attività o un'occorrenza senza nessuno che se ne occupa, o con qualcuno."),

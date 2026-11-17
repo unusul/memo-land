@@ -109,11 +109,20 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
     if (model?.model && sortBySection(a, model.model, me, instantNow()) !== a) void change(() => sortBySection(latest.current, model.model!, me, instantNow()));
   };
 
+  // Text typed and left without Enter is added, not lost (user's bug, 2026-11-17): on leaving the field, and when the
+  // page closes without moving the focus (the phone's back button). Toward the + or a suggestion, those add instead.
+  const typing = useRef('');
+  typing.current = text;
   function add(t: string) {
+    typing.current = '';
     if (!t.trim()) return;
     setText('');
     void change(() => addItem(a, t, me, instantNow()));
   }
+  const addOnLeave = (to: EventTarget | null) => {
+    if (!(to instanceof Element && to.closest('.new-item-row, .suggestions'))) add(text);
+  };
+  useEffect(() => () => { if (typing.current.trim()) void change(() => addItem(latest.current, typing.current, me, instantNow())); }, []);
 
   return (
     <section className="checklist" aria-label="Lista">
@@ -157,13 +166,13 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
           <form className="new-item-row" onSubmit={e => { e.preventDefault(); add(text); }}>
             {/* The keyboard's return key adds the item and the field keeps the focus for the next one, as in a notes app.
                 No capital first letter from the phone keyboard (user's choice, 2026-11-16): a list is written in lower case. */}
-            <input className="new-item" aria-label="Nuova voce" placeholder="Aggiungi una voce…" enterKeyHint="enter" autoCapitalize="none" value={text} onChange={e => setText(e.target.value)} />
+            <input className="new-item" aria-label="Nuova voce" placeholder="Aggiungi una voce…" enterKeyHint="enter" autoCapitalize="none" value={text} onChange={e => setText(e.target.value)} onBlur={e => addOnLeave(e.relatedTarget)} />
             {/* The + adds too; pressing it does not take the focus, so the phone keyboard stays open for the next item. */}
             <button type="submit" className="icon-choice" aria-label="Aggiungi la voce" title="Aggiungi la voce" disabled={!text.trim()} onPointerDown={e => e.preventDefault()}><Icon name="plus" /></button>
           </form>
           {suggestions.length > 0 && (
             <ul className="chips suggestions" aria-label="Suggerimenti">
-              {suggestions.map(s => <li key={s}><button type="button" className="chip" onClick={() => add(s)}>{s}</button></li>)}
+              {suggestions.map(s => <li key={s}><button type="button" className="chip" onPointerDown={e => e.preventDefault()} onClick={() => add(s)}>{s}</button></li>)}
             </ul>
           )}
           {a.props.repeat && (

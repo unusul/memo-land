@@ -61,7 +61,7 @@ export function AgendaView({ from = today(), days = 14, onOpen }: { from?: Local
           <div key={day} className={`day${day === today() ? ' today' : ''}`}>
             <div className="d">{p.weekday}<b>{p.day}</b>{p.month}</div>
             <ul className="items">
-              {items.map(it => <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
+              {items.map(it => <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} today={day === today()} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
                 high={ws.activities.find(a => a.id === it.activityId)?.props.priority === 'high'} /></SwipeRow></li>)}
             </ul>
           </div>
@@ -110,13 +110,13 @@ const folds = new Map<string, boolean>();
 export const clearFolds = (): void => folds.clear();
 const foldKey = (it: AgendaItem) => `${it.activityId}|${it.start}`;
 
-function Item({ it, kind, group, me, high, onOpen }: { it: AgendaItem; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void }) {
+function Item({ it, today: isToday, kind, group, me, high, onOpen }: { it: AgendaItem; today: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void }) {
   useBarPrefs();
   const [, redraw] = useState(0);
   const who = it.assignee ? (it.assignee === me ? 'tu' : shortName(it.assignee)) : 'libera';
   // Reduced: one lower line, the title on the left and the time on the right; every row at first (user's choice,
-  // 2026-11-16), but those the person keeps «Sempre espansa».
-  const small = folds.get(foldKey(it)) ?? !isExpanded(me, it.activityId);
+  // 2026-11-16), but those the person keeps «Sempre espansa» and today's still to do (user's choice, 2026-11-17).
+  const small = folds.get(foldKey(it)) ?? !(isExpanded(me, it.activityId) || (isToday && !struck(it)));
   const toggle = () => { folds.set(foldKey(it), !small); redraw(n => n + 1); };
   return (
     <div className="item-row">

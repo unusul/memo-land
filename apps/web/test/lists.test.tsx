@@ -140,6 +140,49 @@ test('testSuggestionsFromTheListHistory', async () => {
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text)).toEqual(['latte']));
 });
 
+/**
+ * A new item typed and left without Enter is added (user's bug, 2026-11-17: «premuto fuori senza premere invio, item
+ * perduto»). Before, only Enter or + added it: leaving the field or closing the page lost the text.
+ */
+test('testNewItemIsAddedWhenLeavingTheField', async () => {
+  const s = await openDetail('idea', 'app gestione core');
+  userClick('+ Lista');
+  const input = screen.getByLabelText('Nuova voce') as HTMLInputElement;
+  userType(input, 'latte');
+  fireEvent.blur(input);
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text)).toEqual(['latte']));
+  expect(input.value).toBe('');
+});
+
+/** The phone's back button closes the page without moving the focus: the text typed is added all the same. */
+test('testNewItemIsAddedWhenThePageCloses', async () => {
+  const s = memorySession();
+  const { unmount } = renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
+  await screen.findByDisplayValue('app gestione core');
+  userClick('+ Lista');
+  addVoice('pane');
+  await screen.findByRole('checkbox', { name: 'pane' });
+  userType(screen.getByLabelText('Nuova voce'), 'latte');
+  unmount();
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text)).toEqual(['pane', 'latte']));
+});
+
+/** Moving from the field to a suggestion adds only the suggestion, not the half word typed. */
+test('testSuggestionAddsOnlyItself', async () => {
+  const s = memorySession();
+  let { activity } = await s.primary.getActivity('idea');
+  activity = addItem(activity, 'latte', 'pippo@altereos.com', '2026-11-11T08:00:00Z');
+  activity = removeItem(activity, activity.checklist!.items[0]!.id, 'pippo@altereos.com', '2026-11-11T08:00:00Z');
+  await s.primary.saveActivity(activity, activity.version);
+  await openDetail('idea', 'app gestione core', s);
+  const input = screen.getByLabelText('Nuova voce');
+  userType(input, 'la');
+  const chip = within(screen.getByRole('list', { name: 'Suggerimenti' })).getByRole('button', { name: 'latte' });
+  fireEvent.blur(input, { relatedTarget: chip });
+  fireEvent.click(chip);
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.checklist?.items.map(i => i.text)).toEqual(['latte']));
+});
+
 test('testFixedSwitchOnlyOnRepeatingActivities', async () => {
   const s = await openDetail('backup', 'Controllo backup');
   userClick('+ Lista');

@@ -48,7 +48,7 @@ test('testNoiListsSharedGroupsOnly', async () => {
   renderWithSession(<GroupsView />, memorySession(PIPPO));
   await groupRow('altereos.com');
   expect(screen.getByRole('heading', { name: 'Noi' })).toBeTruthy();
-  expect(screen.queryByRole('button', { name: /^Apri Idee personali/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^Apri Personale/ })).toBeNull();
 });
 
 test('testPinAndArrowsReorderTheBar', async () => {
@@ -126,7 +126,7 @@ test('testIoHoldsDraftsPersonalActivitiesAndQueue', async () => {
   await s.primary.saveActivity(newActivity({ id: 'p1', accountId: PIPPO, title: 'leggere il libro', groupId: `personal:${PIPPO}` }, '2026-11-01T08:00:00Z'), null);
   renderWithSession(<MeView />, s);
   expect(await screen.findByText('app gestione core')).toBeTruthy();
-  const personal = await screen.findByRole('region', { name: 'Elenco di Idee personali' });
+  const personal = await screen.findByRole('region', { name: 'Elenco di Personale' });
   expect(within(personal).getByText('leggere il libro')).toBeTruthy();
   expect(screen.queryByText(PIPPO)).toBeNull();
   expect(screen.queryByRole('button', { name: "Esci dall'account" })).toBeNull();

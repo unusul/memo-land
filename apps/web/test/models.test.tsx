@@ -119,6 +119,21 @@ test('testAddMoveAndRemoveItems', async () => {
   await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('kombucha')]).toBeUndefined());
 });
 
+/**
+ * As the list's new item (user's bug, 2026-11-17): a new item typed and left without Enter is added, to the section
+ * chosen beside it. Before, leaving the field lost the text. Moving to the section menu does not add it yet.
+ */
+test('testNewModelItemIsAddedWhenLeavingTheField', async () => {
+  const s = bench();
+  await openModelPage(s);
+  const field = screen.getByRole('textbox', { name: 'Nuova voce del modello' });
+  userType(field, 'kombucha');
+  fireEvent.blur(field, { relatedTarget: screen.getByRole('button', { name: 'Sezione della nuova voce' }) });
+  chooseIn('Sezione della nuova voce', 'bevande');
+  fireEvent.blur(field);
+  await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('kombucha')]?.section).toBe('bevande'));
+});
+
 test('testRenameAddRemoveAndReorderSections', async () => {
   const s = bench();
   const p = await openModelPage(s);
