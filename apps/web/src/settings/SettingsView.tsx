@@ -3,6 +3,7 @@ import type { AccountId } from '@attivita/core';
 import { chosenName, setName, useBarPrefs } from '../groups/barPrefs.js';
 import { shortName } from '../labels.js';
 import { useWs } from '../workspace/useWorkspace.js';
+import { TelegramSection } from '../telegram/TelegramSection.js';
 import { startDemo } from '../demo/demo.js';
 import { retryPrefsSync, useSyncStatus } from './prefsSync.js';
 import { useSession } from '../session/SessionContext.js';
@@ -32,6 +33,7 @@ export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
         </div>
       </div>
       <People account={account} />
+      <TelegramSection />
       <SyncLine kept={prefs !== undefined} />
       {onHelp &&<button className="btn" onClick={onHelp}>Aiuto e glossario</button>}
       {/* In the demo there is no account to leave: only the demo, and nothing to lose by it. */}

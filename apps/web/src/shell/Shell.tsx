@@ -10,6 +10,7 @@ import { CaptureSheet } from '../capture/CaptureSheet.js';
 import { sharedText } from '../capture/shared.js';
 import { activityOnDay } from '../agenda/MonthView.js';
 import { UpdateBand, UpdatedBand } from './appUpdate.js';
+import { UnreachedBand } from './UnreachedBand.js';
 import { setAgendaMode, useAgendaMode } from '../agenda/agendaMode.js';
 import { ViewStrip } from '../agenda/ViewStrip.js';
 import { useWideScreen } from './wideScreen.js';
@@ -33,6 +34,7 @@ import { Icon } from './icons.js';
 import { TodayTitle } from './TodayTitle.js';
 import { useLinkedWaits } from '../workspace/linkedWaits.js';
 import { useClosesItself } from '../workspace/closesItself.js';
+import { useTelegramQueue } from '../telegram/useTelegramQueue.js';
 
 export type Tab = 'agenda' | 'groups' | 'me' | 'settings' | 'help';
 
@@ -44,6 +46,8 @@ export function Shell() {
   setNamesViewer(account);
   const ws = useWs();
   useBarPrefs();
+  // The alerts of the next days, handed to the server that sends them on Telegram.
+  useTelegramQueue();
   // What waits for an activity now done comes back by itself.
   useLinkedWaits();
   // What «Si chiude da sola» closes at the end of its time, when the app is opened after it.
@@ -132,6 +136,7 @@ export function Shell() {
       <main className="content" {...swipe}>
         <UpdatedBand />
         <UpdateBand />
+        <UnreachedBand />
         {demo && (
           <section className="demo-band" aria-label="Modalità demo">
             <span>Modalità demo: niente viene salvato</span>

@@ -140,6 +140,23 @@ export function setName(account: AccountId, who: AccountId, name: string): void 
   setNames(account, name.trim() ? { ...rest, [who]: name.trim() } : rest);
 }
 
+/**
+ * The person's own alerts for an activity (2026-11-18, decided while the user was away, to discuss): when, in place of
+ * the choice in Impostazioni, and one more some minutes before the start. Theirs only, as «In evidenza».
+ */
+export type AlertWhen = 'start' | 'both' | 'end' | 'none';
+export const ALERT_BEFORE = [10, 30, 60, 1440] as const;
+export type AlertBefore = typeof ALERT_BEFORE[number];
+export interface ActivityAlert { when?: AlertWhen; before?: AlertBefore }
+const alertsKey = (account: AccountId) => `attivita:alerts:${account}`;
+export const alertsOf = (account: AccountId): Record<ActivityId, ActivityAlert> => read<Record<string, ActivityAlert>>(alertsKey(account), {});
+export const setAlerts = (account: AccountId, alerts: Record<ActivityId, ActivityAlert>): void => write(alertsKey(account), alerts);
+/** An empty choice (no when, no before) gives the activity back to Impostazioni. */
+export function setActivityAlert(account: AccountId, id: ActivityId, alert: ActivityAlert): void {
+  const { [id]: _old, ...rest } = alertsOf(account);
+  setAlerts(account, alert.when || alert.before ? { ...rest, [id]: alert } : rest);
+}
+
 /** Whose names the labels use: the signed-in account, set when the app opens. */
 let viewer: AccountId | null = null;
 let cached: { account: AccountId; version: number; names: Record<AccountId, string> } | null = null;

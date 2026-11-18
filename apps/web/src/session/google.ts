@@ -10,6 +10,7 @@ import type { Firestore } from 'firebase/firestore';
 import { GoogleEngine } from '@attivita/engine-google';
 import { fail } from '@attivita/core';
 import type { FirebaseWebConfig } from './google-config.js';
+import type { Unreached } from './session.js';
 import { emulatorHosts, onForgetGoogleProjects, registerGoogleEngine, rememberedProjects } from './google-config.js';
 
 /** The only module that knows the app runs on Firebase. It is loaded on demand, never in the first bundle. */
@@ -74,12 +75,18 @@ export async function connectGoogleProject(config: FirebaseWebConfig, opts: { em
 }
 
 /** Projects connected before, whose Google login is still valid in this browser; the others are skipped. */
-export async function reopenGoogleProjects(): Promise<GoogleEngine[]> {
+export async function reopenGoogleProjects(): Promise<{ engines: GoogleEngine[]; unreached: Unreached[] }> {
   const engines: GoogleEngine[] = [];
+  const unreached: Unreached[] = [];
   for (const config of rememberedProjects()) {
-    const o = open(config, emulatorHosts());
-    await o.auth.authStateReady();
-    if (o.auth.currentUser?.emailVerified) engines.push(engineFor(config, o, o.auth.currentUser));
+    try {
+      const o = open(config, emulatorHosts());
+      await o.auth.authStateReady();
+      if (o.auth.currentUser?.emailVerified) engines.push(engineFor(config, o, o.auth.currentUser));
+      else unreached.push({ projectId: config.projectId, reason: 'signedOut' });
+    } catch {
+      unreached.push({ projectId: config.projectId, reason: 'failed' });
+    }
   }
-  return engines;
+  return { engines, unreached };
 }

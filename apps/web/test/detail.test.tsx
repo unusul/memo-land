@@ -8,7 +8,7 @@ import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { availableActions } from '../src/activity/actions.js';
 import { DraftsView } from '../src/drafts/DraftsView.js';
 import { seedUsage } from '../src/usage/usageStore.js';
-import { PIPPO, PLUTO, memorySession, renderWithSession, userClick, userType, pickDate } from './memory-session.js';
+import { PIPPO, PLUTO, benchBackend, memorySession, renderWithSession, userClick, userType, pickDate } from './memory-session.js';
 
 test('testAvailableActionsForGuest', () => {
   const mine: Activity = { ...costTask, props: { ...costTask.props, assignment: { state: 'accepted', assignee: 'guest1', assignedBy: 'u1' } } };
@@ -138,4 +138,24 @@ test('testSomeoneElsesChangeStaysAConflict', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Archivia' }));
   expect(await screen.findByText(/Qualcun altro/)).toBeTruthy();
   expect((await s.primary.getActivity('costi')).activity.status).toBe('open');
+});
+
+/**
+ * A snooze whose time has come is over in the detail too, as in the Agenda (user's bug, 2026-11-18): before, the detail
+ * said «rimandata» until something was saved. One still to come says it.
+ */
+test('testDetailSaysASnoozeIsOverOnceItsTimeHasCome', async () => {
+  const backend = benchBackend();
+  const base = newActivity({ id: 'riposo', accountId: PIPPO, title: 'Riposo', groupId: 'inv:developers' }, '2026-11-01T08:00:00Z');
+  backend.activities.set('riposo', { ...base, props: { resumeAt: '2020-01-01' } });
+  backend.activities.set('dopo', { ...base, id: 'dopo', title: 'Dopo', props: { resumeAt: '2999-01-01' } });
+  const s = memorySession(PIPPO, {}, backend);
+  const { unmount } = renderWithSession(<ActivityDetail activityId="riposo" onClose={() => undefined} />, s);
+  await screen.findByRole('heading', { name: 'Riposo' });
+  expect(screen.queryByText('rimandata')).toBeNull();
+  expect(screen.getByText('idea')).toBeTruthy();
+  unmount();
+  renderWithSession(<ActivityDetail activityId="dopo" onClose={() => undefined} />, s);
+  await screen.findByRole('heading', { name: 'Dopo' });
+  expect(screen.getByText('rimandata')).toBeTruthy();
 });

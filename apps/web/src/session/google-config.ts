@@ -1,4 +1,5 @@
 import type { Engine } from '@attivita/core';
+import type { Unreached } from './session.js';
 
 /** The public web configuration of a Firebase project, as the Firebase console shows it. Not a secret. */
 export interface FirebaseWebConfig {
@@ -94,9 +95,15 @@ export function emulatorHosts(): { auth: string; firestore: string } | undefined
   return import.meta.env.VITE_FIREBASE_EMULATOR === '1' ? { auth: '127.0.0.1:9099', firestore: '127.0.0.1:8080' } : undefined;
 }
 
-/** Adds the Google projects connected before to a session; Firebase is loaded only when there are some. */
-export async function withGoogleProjects<S extends { primary: Engine; engines: Engine[] }>(session: S | null): Promise<S | null> {
+/**
+ * Adds the Google projects connected before to a session; Firebase is loaded only when there are some. Those that do
+ * not open again are named in `unreached`, for the band that says their groups are missing (user's bug, 2026-11-18:
+ * they went without a word).
+ */
+export async function withGoogleProjects<S extends { primary: Engine; engines: Engine[]; unreached?: Unreached[] }>(session: S | null): Promise<S | null> {
   if (!session || rememberedProjects().length === 0) return session;
-  const extra = await import('./google.js').then(m => m.reopenGoogleProjects()).catch(() => []);
-  return { ...session, engines: [session.primary, ...extra] };
+  const all: Unreached[] = rememberedProjects().map(c => ({ projectId: c.projectId, reason: 'failed' }));
+  const { engines, unreached } = await import('./google.js').then(m => m.reopenGoogleProjects())
+    .catch(() => ({ engines: [] as Engine[], unreached: all }));
+  return { ...session, engines: [session.primary, ...engines], ...(unreached.length > 0 ? { unreached } : {}) };
 }

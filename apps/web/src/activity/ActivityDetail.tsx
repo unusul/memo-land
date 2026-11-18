@@ -6,7 +6,7 @@ import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, addItem, anchorOf, removeAttachment, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, addItem, anchorOf, removeAttachment, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, resumeIfDue, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, rebase, setClosesItself, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
@@ -19,7 +19,10 @@ import { availableActions } from './actions.js';
 import { movedNote, occurrenceAt } from './occurrence.js';
 import { MoveOccurrenceForm } from './MoveOccurrenceForm.js';
 import { shortDay } from './DatePicker.js';
-import { isHighlighted, rowSizeOf, setRowSize, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
+import { ALERT_BEFORE, alertsOf, isHighlighted, rowSizeOf, setActivityAlert, setRowSize, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
+import type { AlertWhen } from '../groups/barPrefs.js';
+import { beforeText } from '../telegram/alerts.js';
+import { useTelegramStatus } from '../telegram/state.js';
 import type { RowSize } from '../groups/barPrefs.js';
 import { Attachments } from './Attachments.js';
 import { Links } from './Links.js';
@@ -116,7 +119,9 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const group = a.groupId ? ws.groups.find(g => g.id === a.groupId) ?? null : null;
   const role = group ? roleIn(group, me) ?? 'guest' : 'owner';
   const occ = occurrenceAt(a, occurrenceKey);
-  const shape = shapeOf(a, personalGroupId);
+  // As the Agenda sees it: a snooze whose time has come is over, though not saved yet (user's bug: the detail said
+  // «rimandata» after the time, while the Agenda showed it again).
+  const shape = shapeOf(a.props.resumeAt !== undefined ? resumeIfDue(a, localNow(), instantNow()) : a, personalGroupId);
   const actions = (a.status === 'open' && !group?.archived ? availableActions(a, occ, group, me) : []).filter(k => !asGroupList || (k !== 'archive' && k !== 'toDraft'));
   // A done or archived activity is read only: it is reopened from the list it sits in.
   const closed = a.status !== 'open';
@@ -361,7 +366,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
-        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<RowSizeButton id={a.id} me={me} />{a.groupId !== null && canEdit && <>
+        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<AlertButton activity={a} me={me} /><RowSizeButton id={a.id} me={me} />{a.groupId !== null && canEdit && <>
           <FlagButton on={a.info === true} label="Informazione utile" icon="info" title="Informazione utile: da sapere, non da fare; ridotta nell'Agenda, fuori dal Calendario" onToggle={on => void run(() => setInfo(a, on, instantNow()))} />
           <FlagButton on={a.offCalendar === true} label="Non mostrare in calendario" icon="calendarOff" title="Non mostrare in calendario: resta nell'Agenda" onToggle={on => void run(() => setOffCalendar(a, on, instantNow()))} />
         </>}<HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
@@ -508,6 +513,48 @@ function RowSizeButton({ id, me }: { id: string; me: string }) {
       label={<Icon name={icon} size={18} />} menuLabel="Riga nell'Agenda" roomBelow={24 + 44 * ROW_SIZES.length}>
       {close => ROW_SIZES.map(([s, t, i]) => <MenuChoice key={s} label={t} value={s} icon={<Icon name={i} size={18} />} checked={s === size}
         onChoose={() => { close(); setRowSize(me, id, s); }} />)}
+    </PopMenu>
+  );
+}
+
+/**
+ * What the bell's hint says is set (user's choice, 2026-11-18: the lit bell alone did not say what): «all'inizio, 30
+ * minuti prima», «nessuno», «come in Impostazioni (all'inizio)».
+ */
+export function alertSummary(mine: { when?: AlertWhen; before?: number }, general: string): string {
+  if (mine.when === 'none') return 'nessuno';
+  const when = mine.when ? { start: "all'inizio", both: "all'inizio e alla fine", end: 'solo alla fine' }[mine.when] : `come in Impostazioni (${general})`;
+  return mine.before ? `${when}, ${mine.before >= 1440 ? '1 giorno' : beforeText(mine.before).replace('Tra ', '')} prima` : when;
+}
+
+const ALERT_WHEN: Array<[AlertWhen, string]> = [['start', "All'inizio"], ['both', "All'inizio e alla fine"], ['end', 'Solo alla fine'], ['none', 'Nessun avviso']];
+
+/**
+ * The bell of an activity with a time (2026-11-18, decided while the user was away, to discuss): its own Telegram
+ * alerts in place of Impostazioni's, and one more before the start; the person's only, as «In evidenza». Lit when the
+ * activity has a choice of its own. Not where there is no server (the demo).
+ */
+function AlertButton({ activity: a, me }: { activity: Activity; me: string }) {
+  const { telegram } = useSession();
+  const status = useTelegramStatus();
+  useBarPrefs();
+  const timed = a.props.schedule !== undefined || (a.props.due?.length ?? 0) > 10;
+  if (!telegram || !timed) return null;
+  const mine = alertsOf(me)[a.id] ?? {};
+  const general = status ? (status.start && status.end ? "all'inizio e alla fine" : status.end ? 'solo alla fine' : status.start ? "all'inizio" : 'nessuno') : "all'inizio";
+  const set = (next: typeof mine) => setActivityAlert(me, a.id, next);
+  return (
+    <PopMenu className={`icon-choice small${mine.when || mine.before ? ' on' : ''}`} buttonLabel="Avvisi su Telegram" title={`Avvisi: ${alertSummary(mine, general)}`}
+      label={<Icon name="bell" size={18} />} menuLabel="Avvisi su Telegram" roomBelow={24 + 44 * 11}>
+      {close => <>
+        {!status?.linked && <p className="muted small menu-note">Collega Telegram in Impostazioni perché arrivino.</p>}
+        <MenuChoice label={`Come in Impostazioni (${general})`} value="" checked={!mine.when} onChoose={() => { close(); set({ ...(mine.before ? { before: mine.before } : {}) }); }} />
+        {ALERT_WHEN.map(([w, t]) => <MenuChoice key={w} label={t} value={w} checked={mine.when === w} onChoose={() => { close(); set({ ...mine, when: w }); }} />)}
+        <p className="label menu-label">Anche prima</p>
+        <MenuChoice label="No" value="0" checked={!mine.before} onChoose={() => { close(); set({ ...(mine.when ? { when: mine.when } : {}) }); }} />
+        {ALERT_BEFORE.map(m => <MenuChoice key={m} label={m >= 1440 ? '1 giorno prima' : `${beforeText(m).replace('Tra ', '')} prima`} value={String(m)}
+          checked={mine.before === m} onChoose={() => { close(); set({ ...mine, before: m }); }} />)}
+      </>}
     </PopMenu>
   );
 }
