@@ -54,6 +54,9 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
+        // Condividi on Android (user's choice, 2026-11-17): memo-land among the apps that take a text or a link; it opens
+        // the capture with it in the field. iPhones have no such place for web apps.
+        share_target: { action: base, method: 'GET', params: { title: 'title', text: 'text', url: 'url' } },
         shortcuts: [{ name: 'Nuova bozza', short_name: 'Bozza', url: `${base}?capture=1`, icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }] }],
       },
       workbox: { navigateFallback: `${base}index.html`, globPatterns: ['**/*.{js,css,html,svg}'] },

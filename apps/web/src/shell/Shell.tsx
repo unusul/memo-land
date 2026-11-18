@@ -7,6 +7,7 @@ import { ActivityDetail } from '../activity/ActivityDetail.js';
 import { AgendaView, KIND_COLOR } from '../agenda/AgendaView.js';
 import type { OpenTarget } from '../agenda/AgendaView.js';
 import { CaptureSheet } from '../capture/CaptureSheet.js';
+import { sharedText } from '../capture/shared.js';
 import { activityOnDay } from '../agenda/MonthView.js';
 import { UpdateBand, UpdatedBand } from './appUpdate.js';
 import { setAgendaMode, useAgendaMode } from '../agenda/agendaMode.js';
@@ -55,7 +56,9 @@ export function Shell() {
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(null), 4000); return () => clearTimeout(t); }, [flash]);
   // The new activity being written on a group's page, not stored until it has a title.
   const [creating, setCreating] = useState<Activity | null>(null);
-  const [capturing, setCapturing] = useState(() => new URLSearchParams(window.location.search).has('capture'));
+  // A text or a link shared from another app (Condividi, Android): the capture opens with it in the field.
+  const [shared] = useState(() => sharedText(new URLSearchParams(window.location.search)));
+  const [capturing, setCapturing] = useState(() => new URLSearchParams(window.location.search).has('capture') || shared !== undefined);
 
   // What is still in the outbox: drafts waiting for the network, and drafts the server refused.
   const [queue, setQueue] = useState<OutboxEntry[]>([]);
@@ -150,7 +153,7 @@ export function Shell() {
           </>
         )}
       </main>
-      {capturing && <CaptureSheet onSaved={() => { setCapturing(false); go('me'); refreshQueue(); }} onClose={() => setCapturing(false)} />}
+      {capturing && <CaptureSheet shared={shared} onSaved={() => { setCapturing(false); go('me'); refreshQueue(); }} onClose={() => setCapturing(false)} />}
       {!capturing && !creating && !onList && <button className="fab" aria-label={here ? `Nuova attività in ${here.name}` : 'Nuova bozza'} onClick={plus}>+</button>}
       {viewSwitch && !wide && <ViewStrip />}
       <nav className="tabs" aria-label="Sezioni">

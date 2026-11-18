@@ -188,7 +188,7 @@ test('testAssignToANameOutsideTheGroup', async () => {
   fireEvent.change(screen.getByLabelText('Altro nome'), { target: { value: 'Pluto' } });
   fireEvent.submit(screen.getByLabelText('Altro nome').closest('form')!);
   await waitFor(async () => expect((await s.primary.getActivity('doc')).activity.props.assignment)
-    .toEqual({ state: 'proposed', assignee: PLUTO, assignedBy: 'pippo@altereos.com' }));
+    .toEqual({ state: 'accepted', assignee: PLUTO, assignedBy: 'pippo@altereos.com' }));
 });
 
 /** In the agenda a name outside the group shows as who has it, and the bar's bottom says taken by someone else. */

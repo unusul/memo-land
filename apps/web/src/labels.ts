@@ -47,7 +47,8 @@ export function historyText(h: HistoryEntry): string {
     case 'created': return `${who} l'ha creata`;
     case 'propSet': return `${who} ha impostato ${PROP_LABEL[d['key'] as PropKey] ?? d['key']}`;
     case 'propRemoved': return `${who} ha tolto ${PROP_LABEL[d['key'] as PropKey] ?? d['key']}`;
-    case 'assigned': return `${who} l'ha assegnata a ${short(String(d['assignee']))}`;
+    case 'assigned': return d['direct'] ? `${who} l'ha assegnata direttamente a ${short(String(d['assignee']))}`
+      : d['state'] === 'proposed' ? `${who} l'ha proposta a ${short(String(d['assignee']))}` : `${who} l'ha assegnata a ${short(String(d['assignee']))}`;
     case 'accepted': return `${who} ha accettato`;
     case 'rejected': return `${who} ha rifiutato: ${d['reason']}`;
     case 'claimed': return `${who} se l'è presa`;

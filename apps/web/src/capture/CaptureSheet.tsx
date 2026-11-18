@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { newActivity } from '@attivita/core';
 import type { EngineLimits } from '@attivita/core';
 import { instantNow, newId } from '../dates.js';
-import { toggleHighlight } from '../groups/barPrefs.js';
+import { MAX_CLIP_CHARS, addClip, toggleHighlight } from '../groups/barPrefs.js';
+import { deviceKind, lastClip, noteLastClip, readClipboard } from '../clips/device.js';
 import { enqueueDraft, flushOutbox } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import { useSession } from '../session/SessionContext.js';
@@ -22,11 +23,30 @@ export function readBytes(f: Blob): Promise<Uint8Array> {
   });
 }
 
-/** Quick capture: text plus pasted, dropped or picked files; saved to the outbox first, so it works offline. */
-export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage }: { onSaved(): void; onClose(): void; shrink?: Shrink }) {
+/**
+ * Quick capture: text plus pasted, dropped or picked files; saved to the outbox first, so it works offline. `shared`:
+ * the text or link another app sent with Condividi (Android), already in the field.
+ */
+export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage, shared }: { onSaved(): void; onClose(): void; shrink?: Shrink; shared?: string | undefined }) {
   const { account, primary: engine, outbox } = useSession();
   const ws = useWs();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(shared ?? '');
+  // What the device's clipboard holds, offered under the field (user's choices, 2026-11-17): the field stays empty, as
+  // filling it meant clearing it each time something else was to be written; not offered again once used or saved.
+  const [clip, setClip] = useState('');
+  const [kept, setKept] = useState(false);
+  useEffect(() => {
+    if (shared) return;
+    let gone = false;
+    void readClipboard().then(t => { if (!gone && t && t !== lastClip()) setClip(t.slice(0, MAX_CLIP_CHARS)); });
+    return () => { gone = true; };
+  }, [shared]);
+  /** «Da appunti»: the text into the person's Appunti, on every device, for 7 days. */
+  function keepClip(t: string) {
+    addClip(account, { id: newId(), text: t.slice(0, MAX_CLIP_CHARS), at: instantNow(), from: deviceKind() });
+    noteLastClip(t);
+    setKept(true);
+  }
   const [files, setFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -76,13 +96,25 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage }: { onSav
       <form className="stack" onSubmit={save}>
         <label htmlFor="capture-text" className="label">Idea</label>
         <textarea id="capture-text" autoFocus rows={3} placeholder="Scrivi, incolla uno screenshot o trascina un file" value={text} onChange={e => setText(e.target.value)} />
+        {clip && (
+          <div className="clip-preview" role="group" aria-label="Dagli appunti">
+            <span className="clip-text">Dagli appunti: «{clip.length > 80 ? `${clip.slice(0, 80)}…` : clip}»</span>
+            <span className="btns">
+              <button type="button" className="btn" onClick={() => { setText(clip); noteLastClip(clip); setClip(''); }}>Usa</button>
+              <button type="button" className="btn" onClick={() => { keepClip(clip); setClip(''); }}>Da appunti</button>
+            </span>
+          </div>
+        )}
         {files.length > 0 && <ul className="attachments">{files.map((f, i) => <li key={i}>{f.name} <button type="button" className="link" aria-label={`Togli ${f.name}`} onClick={() => setFiles(l => l.filter((_, j) => j !== i))}>togli</button></li>)}</ul>}
         {notice && <p className="error" role="alert">{notice}</p>}
+        {kept && <p className="muted small" role="status">Salvato in Appunti: lo trovi in Io, per 7 giorni.</p>}
         <div className="btns">
           <AttachMenu className="btn" onFiles={f => void add(f)} />
           {/* The three ways out stay together: on a phone they go under + Allega as one row, on the right. */}
           <span className="btns end">
             <button type="button" className="btn" onClick={onClose}>Annulla</button>
+            {/* Something shared from another app may be kept as a clip instead of a draft (user's choice, 2026-11-17). */}
+            {shared && <button type="button" className="btn" disabled={!text.trim()} onClick={() => { keepClip(text.trim()); onClose(); }}>Da appunti</button>}
             <button type="button" className="btn" disabled={saving || (!text.trim() && files.length === 0)} onClick={e => void save(e, true)}>In evidenza</button>
             <button type="submit" className="btn primary" disabled={saving || (!text.trim() && files.length === 0)}>Salva</button>
           </span>

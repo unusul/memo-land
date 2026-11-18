@@ -146,7 +146,12 @@ test('testEditorChangesTheAssignee', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Modifica Assegna' }));
   const menu = screen.getByRole('menu', { name: 'Assegna' });
   expect(within(menu).getByRole('menuitemradio', { name: 'a me' }).getAttribute('aria-checked')).toBe('true');
+  // The name gives it at once (user's choice, 2026-11-18); «proposta» beside it asks first.
   fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'pluto' }));
+  await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.props.assignment)
+    .toEqual({ state: 'accepted', assignee: 'pluto@altereos.com', assignedBy: PIPPO }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Modifica Assegna' }));
+  fireEvent.click(within(screen.getByRole('menu', { name: 'Assegna' })).getByRole('button', { name: 'Proponi a pluto' }));
   await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.props.assignment)
     .toEqual({ state: 'proposed', assignee: 'pluto@altereos.com', assignedBy: PIPPO }));
 });

@@ -82,3 +82,12 @@ test('testDateOfARepeatingActivityCannotBeRemoved', async () => {
   userClick('Togli Ripeti');
   expect(await screen.findByRole('button', { name: 'Togli Data e ora' })).toBeTruthy();
 });
+
+/**
+ * The detail writes its dates as the Agenda does (user's choice, 2026-11-18): «ven 6 nov», «mar 20 ott 09:00–09:30».
+ * Before, as the engine keeps them, «2026-11-06» and «2026-10-20 09:00–09:30».
+ */
+test('testTheDetailWritesItsDatesAsTheAgenda', async () => {
+  renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, memorySession(PIPPO));
+  expect(await screen.findByRole('button', { name: 'Modifica Scadenza' })).toHaveProperty('textContent', 'ven 6 nov');
+});

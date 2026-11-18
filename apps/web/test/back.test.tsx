@@ -74,3 +74,21 @@ test('testBackClosesTheCaptureSheet', async () => {
   await waitFor(() => expect(screen.queryByPlaceholderText(/Scrivi/)).toBeNull());
   agendaIsShown();
 });
+
+/**
+ * Back from an activity added on a day of the Calendar, the month shown stays (user's bug, 2026-11-17: the grid went
+ * back to the current month). Gone since the month is kept outside the Agenda's page (115df41); this keeps it so.
+ */
+test('testTheMonthStaysAfterAnActivityAddedOnIt', async () => {
+  const { setAgendaMode } = await import('../src/agenda/agendaMode.js');
+  renderWithSession(<Shell />, memorySession(PIPPO));
+  await nav();
+  setAgendaMode('month');
+  fireEvent.click(await screen.findByRole('button', { name: 'Mese dopo' }));
+  const grid = await screen.findByRole('grid', { name: 'Dicembre 2026' });
+  fireEvent.click(grid.querySelector('[data-day="2026-12-10"]') as HTMLElement);
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Aggiungi/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Indietro' }));
+  expect(await screen.findByRole('grid', { name: 'Dicembre 2026' })).toBeTruthy();
+  setAgendaMode('list');
+});

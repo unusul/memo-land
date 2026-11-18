@@ -76,3 +76,29 @@ test('testNewActivityOfflineIsKeptAsADraft', async () => {
   expect((await s.outbox.list(PIPPO)).map(e => e.activity.title)).toEqual(['senza rete']);
   expect(await created(s, 'senza rete')).toBeUndefined();
 });
+
+/**
+ * An item typed in a new activity's list and left without Enter is kept when the activity is saved by going back
+ * (user's bug, 2026-11-17): before, it was lost, added only after the activity had been created without it.
+ */
+test('testATypedItemIsKeptWhenANewActivityCloses', async () => {
+  const s = await plusInDevelopers();
+  userType(within(detail()).getByLabelText('Titolo'), 'spesa per la cena');
+  userClick('+ Lista');
+  userType(within(detail()).getByLabelText('Nuova voce'), 'pane');
+  userClick('Indietro');
+  await waitFor(async () => expect((await created(s, 'spesa per la cena'))?.checklist?.items.map(i => i.text)).toEqual(['pane']));
+});
+
+/**
+ * The title goes on as many lines as it needs (user's bug, 2026-11-17: a long title was cut in a one-line field); Enter
+ * makes no new line, it ends the title as before.
+ */
+test('testTheTitleTakesSeveralLinesAndEnterEndsIt', async () => {
+  await plusInDevelopers();
+  const title = within(detail()).getByLabelText('Titolo');
+  expect(title.tagName).toBe('TEXTAREA');
+  const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+  title.dispatchEvent(enter);
+  expect(enter.defaultPrevented).toBe(true);
+});

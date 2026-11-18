@@ -67,3 +67,12 @@ test('testAssignToANameOutsideIsTakenAtOnce', () => {
   expect(() => assignToName(task, '  ', 'u1', 'member', t1)).toThrow(expect.objectContaining({ code: 'INVALID_INPUT' }));
   expect(() => assignToName(task, 'idraulico', 'g1', 'guest', t1)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
 });
+
+/** Direct (user's choice, 2026-11-18): accepted at once, and the history says so; to oneself it is accepted anyway. */
+test('testAssignDirectlyIsAcceptedAtOnce', () => {
+  const a = assign(task, 'pluto', 'u1', 'member', t1, true);
+  expect(a.props.assignment).toEqual({ state: 'accepted', assignee: 'pluto', assignedBy: 'u1' });
+  expect(a.history.at(-1)).toMatchObject({ kind: 'assigned', detail: { assignee: 'pluto', state: 'accepted', direct: true } });
+  expect(assign(task, 'pluto', 'u1', 'member', t1).props.assignment?.state).toBe('proposed');
+  expect(() => assign(task, 'pluto', 'g1', 'guest', t1, true)).toThrow();
+});

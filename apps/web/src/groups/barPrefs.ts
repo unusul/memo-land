@@ -106,6 +106,27 @@ export function setRowSize(account: AccountId, id: ActivityId, size: RowSize): v
   setReduced(account, size === 'reduced' ? [...others(reducedOf(account)), id] : others(reducedOf(account)));
 }
 
+/** Where a clip was saved from, as its row says: «oggi 10:42 · telefono». */
+export type ClipFrom = 'telefono' | 'tablet' | 'computer';
+/**
+ * «Appunti» (user's choices, 2026-11-17): text copied on a device and kept for the person, the newest first, on every
+ * device of the account. Text only, up to about 2,000 characters; each goes by itself after 7 days, unless made a draft.
+ */
+export interface Clip { id: string; text: string; at: string; from: ClipFrom }
+export const CLIP_DAYS = 7;
+export const MAX_CLIP_CHARS = 2000;
+const clipsKey = (account: AccountId) => `attivita:clips:${account}`;
+const fresh = (c: Clip, now: number) => now - Date.parse(c.at) < CLIP_DAYS * 86_400_000;
+/** The clips still within their 7 days, the newest first. */
+export const clipsOf = (account: AccountId, now = Date.now()): Clip[] =>
+  read<Clip[]>(clipsKey(account), []).filter(c => fresh(c, now)).sort((x, y) => y.at.localeCompare(x.at));
+/** Every clip at once, as the account keeps them: a gone one is written away for real. */
+export const setClips = (account: AccountId, clips: Clip[]): void => write(clipsKey(account), clips.filter(c => fresh(c, Date.now())));
+export function addClip(account: AccountId, clip: Clip): void {
+  setClips(account, [{ ...clip, text: clip.text.slice(0, MAX_CLIP_CHARS) }, ...clipsOf(account)]);
+}
+export const removeClip = (account: AccountId, id: string): void => setClips(account, clipsOf(account).filter(c => c.id !== id));
+
 /** Calls `listener` when pins, icons or highlights change, in this tab; returns the way to stop. */
 export function onBarPrefsChange(listener: () => void): () => void {
   listeners.add(listener);

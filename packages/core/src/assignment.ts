@@ -11,10 +11,15 @@ function withAssignment(a: Activity, assignment: Assignment | undefined): Activi
   return withProps(a, assignment ? { ...rest, assignment } : rest);
 }
 
-export function assign(a: Activity, assignee: AccountId, by: AccountId, byRole: Role, now: Instant): Activity {
+/**
+ * Gives the activity to a member: proposed, to be accepted, or `direct`, accepted at once (user's choice, 2026-11-18: the
+ * name in Assegna's menu gives it directly, a small «proposta» beside it proposes). To oneself it is always accepted.
+ */
+export function assign(a: Activity, assignee: AccountId, by: AccountId, byRole: Role, now: Instant, direct = false): Activity {
   requireNotGuest(byRole, 'assign');
-  const state = assignee === by ? 'accepted' : 'proposed';
-  return touch(withAssignment(a, { state, assignee, assignedBy: by }), { kind: 'assigned', detail: { assignee, state } }, by, now);
+  const state = assignee === by || direct ? 'accepted' : 'proposed';
+  const detail = direct && assignee !== by ? { assignee, state, direct: true } : { assignee, state };
+  return touch(withAssignment(a, { state, assignee, assignedBy: by }), { kind: 'assigned', detail }, by, now);
 }
 
 /**

@@ -6,7 +6,7 @@ import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, anchorOf, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, addItem, anchorOf, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, rebase, setClosesItself, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
@@ -36,7 +36,7 @@ import { SnoozeForm } from './SnoozeForm.js';
 import { describeRepeat, isWeekly } from './timing.js';
 import type { ActionKind } from './actions.js';
 import { DecomposeForm } from './DecomposeForm.js';
-import { TextFields } from './TextFields.js';
+import { TextFields, TitleField } from './TextFields.js';
 import { PropertyForm } from './PropertyForms.js';
 import { moveTargets } from '../groups/moveTargets.js';
 import { groupName } from '../groups/GroupsView.js';
@@ -86,6 +86,9 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const [problem, setProblem] = useState<string | null>(null);
   // The open property form's change, if any: Chiudi saves it instead of dropping it.
   const pending = useRef<(() => Activity) | null>(null);
+  // The list's item being typed in a new activity: Salva, Indietro and the phone's back add it (user's bug, 2026-11-17:
+  // it was lost, added only after the new activity had already been created from what it held).
+  const typedItem = useRef('');
   const [listOpen, setListOpen] = useState(false);
   // The phone's back closes the activity as Chiudi does (a list group's page is the group's, not a layer of its own).
   const closeOnBack = useRef<() => void>(() => onClose());
@@ -160,7 +163,10 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   }
 
   async function close() {
-    if (isNew) return create(pending.current ? pending.current() : a!);
+    if (isNew) {
+      const it = pending.current ? pending.current() : a!;
+      return create(typedItem.current.trim() ? addItem(it, typedItem.current, me, instantNow()) : it);
+    }
     const next = pending.current;
     if (!next || !form || form === 'reject' || form === 'release' || form === 'decompose' || form === 'snooze' || form === 'moveOccurrence') return onClose(undefined);
     if (await run(next)) onClose(SAVED[form]);
@@ -319,7 +325,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       if (k === 'assignment') return group ? (
         <AssignChoices current={it.props.assignment?.assignee} me={me} members={[me, ...Object.keys(group.members).filter(m => m !== me)]}
           outside={namesOutside(ws.activities, group.id)}
-          onMember={m => set(() => assign(it, m, me, role, instantNow()))} onName={n => set(() => assignToName(it, n, me, role, instantNow()))} />
+          onMember={m => set(() => assign(it, m, me, role, instantNow(), true))} onPropose={m => set(() => assign(it, m, me, role, instantNow()))} onName={n => set(() => assignToName(it, n, me, role, instantNow()))} />
       ) : <span className="menu-note">Prima mettila in un gruppo.</span>;
       return <DatePicker label="Scadenza" value={it.props.due?.slice(0, 10) ?? ''} onChange={day => set(() => setProp(it, 'due', day, me, instantNow()))} />;
     };
@@ -367,7 +373,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       {asGroupList && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} members={listMembers} modelChoice copy={!isNew && <CopyButton activity={a} />} />}
       {isNew ? (
         <div className="text-fields">
-          <input className="title-field" aria-label="Titolo" autoFocus placeholder="Cosa c'è da fare?" value={a.title} onChange={e => setLocal({ ...a, title: e.target.value })} />
+          <TitleField autoFocus placeholder="Cosa c'è da fare?" value={a.title} onChange={e => setLocal({ ...a, title: e.target.value })} />
           <textarea className="body-field" aria-label="Testo" placeholder="Aggiungi un testo…" rows={2} value={a.body} onChange={e => setLocal({ ...a, body: e.target.value })} />
         </div>
       ) : canEdit
@@ -377,7 +383,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       {isNew
         ? files.length > 0 && <ul className="attachments">{files.map((f, i) => <li key={i}>{f.name} <button type="button" className="link" aria-label={`Togli ${f.name}`} onClick={() => setFiles(l => l.filter((_, j) => j !== i))}>togli</button></li>)}</ul>
         : <Attachments activity={a} />}
-      {!asGroupList && (a.checklist || listOpen) && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} members={listMembers} />}
+      {!asGroupList && (a.checklist || listOpen) && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} members={listMembers} typed={isNew ? typedItem : undefined} />}
       <dl className="kv">
         {/* A list group's page says the group above, and a list is always an "idea": neither row tells anything there. */}
         {!asGroupList && <>
@@ -393,7 +399,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
             onRemove={removable(k) && !startsTheSeries(k) ? () => run(() => removeProp(a, k, me, instantNow())) : undefined}
             note={editable(k) && startsTheSeries(k) ? 'per toglierla, togli prima Ripeti' : undefined} />
         ))}
-        {occ && <><dt>Occorrenza</dt><dd>{occ.start.replace('T', ' ')} · {occ.assignee ? shortName(occ.assignee) : 'libera'}{occ.coveredFor ? ` (copre ${shortName(occ.coveredFor)})` : ''}{occ.done ? ' · fatta' : ''}{occ.skipped ? ' · saltata' : ''}{movedNote(occ) ? ` · ${movedNote(occ)}` : ''}</dd></>}
+        {occ && <><dt>Occorrenza</dt><dd>{when(occ.start)} · {occ.assignee ? shortName(occ.assignee) : 'libera'}{occ.coveredFor ? ` (copre ${shortName(occ.coveredFor)})` : ''}{occ.done ? ' · fatta' : ''}{occ.skipped ? ' · saltata' : ''}{movedNote(occ) ? ` · ${movedNote(occ)}` : ''}</dd></>}
       </dl>
       {editingSet && !PANEL.has(form as Chip) && propForm}
 
@@ -545,12 +551,18 @@ function PropRow({ label, value, editing, onEdit, onRemove, note, menu, panel, b
 
 const scheduleTime = (p: Activity['props']) => p.schedule ? { start: p.schedule.start.slice(11, 16), ...(p.schedule.end ? { end: p.schedule.end.slice(11, 16) } : {}) } : undefined;
 
+/**
+ * A date as the Agenda writes it, «lun 16 nov» or «gio 20 nov 08:00», the year only when it is not this one (user's
+ * choice, 2026-11-18). Before, as the engine keeps it, «2026-11-16» or «2026-11-20 08:00».
+ */
+const when = (at: string | undefined): string => (at ? `${shortDay(at.slice(0, 10))}${at.length > 10 ? ` ${at.slice(11, 16)}` : ''}` : '');
+
 function describe(a: Activity, k: PropKey): string {
   const p = a.props;
   switch (k) {
-    case 'due': return p.due ?? '';
-    case 'schedule': return p.schedule ? p.schedule.start.replace('T', ' ') + (p.schedule.end ? `–${p.schedule.end.slice(11)}` : '') : '';
-    case 'repeat': return p.repeat ? describeRepeat(p.repeat, scheduleTime(p), anchorOf(a)) + (p.repeat.mode === 'fromCompletion' ? ` · prossima ${nextDue(a)}` : '') : '';
+    case 'due': return when(p.due);
+    case 'schedule': return p.schedule ? when(p.schedule.start) + (p.schedule.end ? `–${p.schedule.end.slice(11)}` : '') : '';
+    case 'repeat': return p.repeat ? describeRepeat(p.repeat, scheduleTime(p), anchorOf(a)) + (p.repeat.mode === 'fromCompletion' ? ` · prossima ${when(nextDue(a))}` : '') : '';
     case 'assignment': return !p.assignment ? '' : p.assignment.external ? p.assignment.assignee
       : `${shortName(p.assignment.assignee)} · ${p.assignment.state === 'proposed' ? `proposta da ${shortName(p.assignment.assignedBy)}` : 'accettata'}`;
     case 'waitingFor': return p.waitingFor ? p.waitingFor.condition + (p.waitingFor.metAt ? ` · avverata da ${shortName(p.waitingFor.metBy ?? '')}` : '') : '';
@@ -572,11 +584,12 @@ function namesOutside(activities: readonly Activity[], groupId: string): string[
 /**
  * Assegna's menu: «a me», the members, the names outside used before in the group, and «Altro nome…», a field for
  * someone outside (user's choice, 2026-11-16). A typed name that is already a choice («me», «a me», a member's short
- * name, a name used before) is that choice, in any case.
+ * name, a name used before) is that choice, in any case. A member's name gives it at once; «proposta» beside it asks
+ * first, to be accepted (user's choice, 2026-11-18; before, the name proposed and there was no way to give it at once).
  */
-function AssignChoices({ current, me, members, outside, onMember, onName }: {
+function AssignChoices({ current, me, members, outside, onMember, onPropose, onName }: {
   current: string | undefined; me: string; members: readonly string[]; outside: readonly string[];
-  onMember(account: string): void; onName(name: string): void;
+  onMember(account: string): void; onPropose(account: string): void; onName(name: string): void;
 }) {
   const [typing, setTyping] = useState(false);
   const [name, setName] = useState('');
@@ -590,7 +603,12 @@ function AssignChoices({ current, me, members, outside, onMember, onName }: {
     onName(outside.find(n => n.toLocaleLowerCase('it') === t) ?? name.trim());
   }
   return <>
-    {members.map(m => <MenuChoice key={m} label={label(m)} checked={current === m} onChoose={() => onMember(m)} />)}
+    {members.map(m => (m === me ? <MenuChoice key={m} label={label(m)} checked={current === m} onChoose={() => onMember(m)} /> : (
+      <span key={m} className="assign-row">
+        <MenuChoice label={label(m)} checked={current === m} onChoose={() => onMember(m)} />
+        <button type="button" className="chip small" aria-label={`Proponi a ${label(m)}`} title="Proposta: deve accettarla" onClick={() => onPropose(m)}>proposta</button>
+      </span>
+    )))}
     {outside.map(n => <MenuChoice key={`name:${n}`} label={n} checked={current === n} onChoose={() => onName(n)} />)}
     {typing ? (
       <form onSubmit={submit}>

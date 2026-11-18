@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { OpenTarget } from '../agenda/AgendaView.js';
 import { DraftsView } from '../drafts/DraftsView.js';
+import { ClipsSection } from '../clips/ClipsSection.js';
 import { ClosedLists, GroupList, groupName } from '../groups/GroupsView.js';
 import { errorCodeText } from '../labels.js';
 import type { OutboxEntry } from '../offline/outbox.js';
@@ -21,6 +22,8 @@ export function MeView({ onOpen = () => undefined }: { onOpen?(t: OpenTarget): v
   return (
     <section aria-labelledby="me-h" className="stack">
       <h2 id="me-h">Io</h2>
+      {/* Above the drafts (user's choice, 2026-11-17). */}
+      <ClipsSection />
       <DraftsView onOpen={onOpen} />
       {personal.map(g => (
         <div key={g.id} className="stack">

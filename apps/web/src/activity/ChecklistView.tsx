@@ -18,8 +18,10 @@ import { useReorder } from './useReorder.js';
  * The list inside an activity: tick, add with Enter, remove. While typing, the texts this list has already seen are
  * proposed, most used first. Every change is saved at once through `change`.
  */
-export function ChecklistView({ activity: a, me, editable, change, copy, members, modelChoice = false }: {
+export function ChecklistView({ activity: a, me, editable, change, copy, members, modelChoice = false, typed: typedOut }: {
   activity: Activity; me: string; editable: boolean; change(next: () => Activity): Promise<unknown>;
+  /** Where the text being typed is kept, for a page that saves the list itself when it closes (a new activity). */
+  typed?: { current: string } | undefined;
   /** A list group's list can use a list model from Noi and be sorted by its sections (user's choice, 2026-11-16). */
   modelChoice?: boolean;
   /** Who an item can go to, the person first; absent where everything is the person's (personal group, draft). */
@@ -113,6 +115,7 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
   // page closes without moving the focus (the phone's back button). Toward the + or a suggestion, those add instead.
   const typing = useRef('');
   typing.current = text;
+  if (typedOut) typedOut.current = text;
   function add(t: string) {
     typing.current = '';
     if (!t.trim()) return;
