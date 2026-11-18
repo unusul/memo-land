@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { addItem, assignItem, editItem, setListAssignable, moveItem, removeItem, setListFixed, setListModel, sortBySection, splitQuantity, suggestItems, toggleItem, undoTo } from '@attivita/core';
+import { addItem, assignItem, can, editItem, learnItem, setListAssignable, moveItem, removeItem, setListFixed, setListModel, sortBySection, splitQuantity, suggestItems, toggleItem, undoTo } from '@attivita/core';
 import type { Activity, ChecklistItem } from '@attivita/core';
 import { Disclosure } from '../shell/Disclosure.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
@@ -55,6 +55,25 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
   const ws = useWs();
   const model = ws.models.find(m => m.id === a.checklist?.model);
   const suggestions = text.trim() ? suggestItems(a, text, 6, model?.model) : [];
+  // An item the model does not know is learnt in its Altro, marked new (user's choice, 2026-11-18), by who can change
+  // the model; for anyone else, or when the save fails, the model's page still shows it in Altro from the lists.
+  // One save after the other, each on the newest model: items typed in a row left from the same version, and all but
+  // the first were refused as a conflict.
+  const modelNow = useRef(model);
+  modelNow.current = model;
+  const learning = useRef<Promise<Activity | undefined>>(Promise.resolve(undefined));
+  const learn = (t: string) => {
+    const group = model && ws.groups.find(g => g.id === model.groupId);
+    const who = ws.engineOf(model?.groupId ?? '')?.account ?? me;
+    if (!model || !group || group.archived || !can(group, who, 'editActivity')) return;
+    learning.current = learning.current.then(saved => {
+      const shown = modelNow.current;
+      const base = saved && saved.id === shown?.id && saved.version >= shown.version ? saved : shown;
+      if (!base) return saved;
+      const next = learnItem(base, t, who, instantNow());
+      return next === base ? base : ws.save(next).catch(() => base);
+    });
+  };
 
   // The activity as last shown: Annulla puts back what was before, on top of the version stored by then.
   const latest = useRef(a);
@@ -121,11 +140,18 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
     if (!t.trim()) return;
     setText('');
     void change(() => addItem(a, t, me, instantNow()));
+    learn(t);
   }
   const addOnLeave = (to: EventTarget | null) => {
     if (!(to instanceof Element && to.closest('.new-item-row, .suggestions'))) add(text);
   };
-  useEffect(() => () => { if (typing.current.trim()) void change(() => addItem(latest.current, typing.current, me, instantNow())); }, []);
+  const learnLatest = useRef(learn);
+  learnLatest.current = learn;
+  useEffect(() => () => {
+    if (!typing.current.trim()) return;
+    void change(() => addItem(latest.current, typing.current, me, instantNow()));
+    learnLatest.current(typing.current);
+  }, []);
 
   return (
     <section className="checklist" aria-label="Lista">

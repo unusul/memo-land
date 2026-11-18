@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import {
   SUPERMARKET_ITEMS, SUPERMARKET_SECTIONS, addItem, addSection, isModel, itemKey, itemsIn, moveSection, newModel, placeItem,
   removeModelItem, removeSection, renameModel, renameSection, sectionOf, setListModel, setModelIcon, sortBySection,
-  suggestItems, toggleItem, unplacedItems,
+  learnItem, suggestItems, toggleItem, unplacedItems,
 } from '../src/index.js';
 import type { Activity } from '../src/index.js';
 import { base, t1, t2 } from './fixtures.js';
@@ -153,10 +153,30 @@ test('testItemsInASection', () => {
   expect(itemsIn(m.model!, 'altro')).toEqual([]);
 });
 
-/** «Senza sezione»: what the lists using the model hold and the model does not know, each once. */
+/**
+ * An item written in a list that the model does not know by its own name is learnt, marked new, until someone places
+ * it: in Altro when nothing known starts it, in the section of the known name it starts with otherwise (user's choice,
+ * 2026-11-18). Before, the model did not learn it: it stood apart under «Senza sezione», Altro said 0, and a variant
+ * as «nutella veg» was taken for «nutella», never seen as new.
+ */
+test('testUnknownItemIsLearntAsNew', () => {
+  let m = learnItem(ready(), 'Kombucha 2', 'u1', t2);
+  expect(m.model!.items[itemKey('kombucha')]).toEqual({ name: 'Kombucha', section: 'altro', fresh: true });
+  expect(itemsIn(m.model!, 'altro')).toContainEqual({ key: itemKey('kombucha'), name: 'Kombucha', fresh: true });
+  expect(learnItem(m, 'kombucha', 'u1', t2)).toBe(m);
+  expect(learnItem(m, 'latte 2', 'u1', t2)).toBe(m);
+  m = learnItem(m, 'nutella veg', 'u1', t2);
+  expect(m.model!.items[itemKey('nutella veg')]).toEqual({ name: 'nutella veg', section: 'colazione', fresh: true });
+  m = placeItem(m, 'kombucha', 'altro', 'u1', t2);
+  expect(m.model!.items[itemKey('kombucha')]).toEqual({ name: 'Kombucha', section: 'altro' });
+});
+
+/** What the lists using the model hold and it does not know by name, each once, with the section it would go to. */
 test('testUnplacedItemsOfTheLists', () => {
   const lists = [withItems('latte', 'kombucha', 'Tempeh'), withItems('kombucha 2', 'birra artigianale')];
-  expect(unplacedItems(ready().model!, lists)).toEqual(['kombucha']);
+  expect(unplacedItems(ready().model!, lists)).toEqual([
+    { name: 'birra artigianale', section: 'bevande' }, { name: 'kombucha', section: 'altro' },
+  ]);
 });
 
 /** Each ready item in one section only, and every section one of the ready ones. */

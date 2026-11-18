@@ -92,46 +92,100 @@ test('testCreateAnEmptyModel', async () => {
   expect(within(made).getAllByRole('group').map(g => g.getAttribute('aria-label'))).toEqual(['Altro']);
 });
 
-/** «Senza sezione»: what the lists using the model hold and the model does not know, placed from its chip. */
-test('testPlaceAnUnplacedItemOfAList', async () => {
+/**
+ * What the lists using the model hold and the model does not know is in Altro, lit as new, Altro open; placed from its
+ * chip. Before 2026-11-18 it stood apart under «Senza sezione» and Altro said 0 (user's bug: «non si capisce niente»).
+ */
+test('testUnplacedItemOfAListIsNewInAltro', async () => {
   const s = bench({ items: ['latte', 'kombucha'], uses: true });
   const p = await openModelPage(s);
-  expect(within(within(p).getByRole('group', { name: 'Senza sezione' })).getByText('kombucha')).toBeTruthy();
+  expect(within(p).queryByRole('group', { name: 'Senza sezione' })).toBeNull();
+  const altro = within(p).getByRole('group', { name: 'Altro' });
+  expect(within(altro).getByText(/· 1 nuova$/)).toBeTruthy();
+  expect(within(altro).getByRole('button', { name: 'Sezione di kombucha' }).className).toContain('fresh');
   chooseIn('Sezione di kombucha', 'bevande');
   await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('kombucha')]).toEqual({ name: 'kombucha', section: 'bevande' }));
-  await waitFor(() => expect(within(page()).queryByRole('group', { name: 'Senza sezione' })).toBeNull());
+  await waitFor(() => expect(within(page()).queryByRole('button', { name: 'Sezione di kombucha' })).toBeNull());
 });
 
-/** A new item goes to the section chosen beside it; a chip moves it or takes it away. */
+/** An item written in a list that the model does not know is learnt in its Altro, new; a known one leaves it as it is. */
+test('testItemWrittenInAListIsLearntInAltro', async () => {
+  const s = bench({ uses: true });
+  await openList(s);
+  const field = screen.getByRole('textbox', { name: 'Nuova voce' });
+  for (const t of ['kombucha 2', 'latte', 'nutella veg']) {
+    userType(field, t);
+    fireEvent.submit(field.closest('form')!);
+  }
+  await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('nutella veg')]).toEqual({ name: 'nutella veg', section: 'colazione', fresh: true }));
+  const items = (await stored(s, MODEL)).model!.items;
+  expect(items[itemKey('kombucha')]).toEqual({ name: 'kombucha', section: 'altro', fresh: true });
+  expect(items[itemKey('latte')]!.fresh).toBeUndefined();
+  // Learnt, new in the model itself: its sections open by themselves on the model's page.
+  fireEvent.click(within(screen.getByRole('navigation', { name: 'Sezioni' })).getByRole('button', { name: 'Noi' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Gestisci il modello Supermercato' }));
+  for (const name of ['Colazione e dolci', 'Altro']) {
+    expect(within(page()).getByRole('button', { name: `Voci di ${name}` }).getAttribute('aria-expanded')).toBe('true');
+  }
+  expect(within(page()).getByRole('button', { name: 'Voci di Banco frigo' }).getAttribute('aria-expanded')).toBe('false');
+});
+
+/** A variant held by a list, «nutella veg», is new in the section of «nutella», which opens by itself. */
+test('testVariantOfAListIsNewInTheSimilarSection', async () => {
+  const p = await openModelPage(bench({ items: ['nutella veg'], uses: true }));
+  const colazione = within(p).getByRole('group', { name: 'Colazione e dolci' });
+  expect(within(colazione).getByText(/· 1 nuova$/)).toBeTruthy();
+  expect(within(colazione).getByRole('button', { name: 'Sezione di nutella veg' }).className).toContain('fresh');
+  expect(within(within(p).getByRole('group', { name: 'Altro' })).queryByText(/nuova/)).toBeNull();
+});
+
+/**
+ * A new item is added from «+ voce» at the end of its open section, and the field stays for the next one; a chip moves
+ * it or takes it away. Before 2026-11-18 one field at the bottom, with a menu of the section starting on the first one.
+ */
 test('testAddMoveAndRemoveItems', async () => {
   const s = bench();
-  await openModelPage(s);
-  chooseIn('Sezione della nuova voce', 'bevande');
-  const field = screen.getByRole('textbox', { name: 'Nuova voce del modello' });
-  userType(field, 'kombucha');
-  fireEvent.submit(field.closest('form')!);
-  await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('kombucha')]?.section).toBe('bevande'));
+  const p = await openModelPage(s);
+  openSection('Bevande');
+  fireEvent.click(within(p).getByRole('button', { name: 'Aggiungi una voce a Bevande' }));
+  const field = within(p).getByRole('textbox', { name: 'Nuova voce in Bevande' });
+  expect(document.activeElement).toBe(field);
+  for (const t of ['kombucha', 'tepache']) {
+    userType(field, t);
+    fireEvent.submit(field.closest('form')!);
+  }
+  await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('tepache')]?.section).toBe('bevande'));
+  expect((await stored(s, MODEL)).model!.items[itemKey('kombucha')]?.section).toBe('bevande');
+  expect(within(p).queryByRole('button', { name: 'Sezione della nuova voce' })).toBeNull();
+  fireEvent.keyDown(field, { key: 'Escape' });
+  expect(within(p).queryByRole('textbox', { name: 'Nuova voce in Bevande' })).toBeNull();
   openSection('Banco frigo');
   chooseIn('Sezione di latte', 'colazione');
   await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('latte')]?.section).toBe('colazione'));
-  openSection('Bevande');
   chooseIn('Sezione di kombucha', '');
   await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('kombucha')]).toBeUndefined());
 });
 
 /**
- * As the list's new item (user's bug, 2026-11-17): a new item typed and left without Enter is added, to the section
- * chosen beside it. Before, leaving the field lost the text. Moving to the section menu does not add it yet.
+ * As the list's new item (user's bug, 2026-11-17): a new item typed and left without Enter is added to its section, and
+ * the field closes. Before, leaving the field lost the text. Esc closes it without adding.
  */
 test('testNewModelItemIsAddedWhenLeavingTheField', async () => {
   const s = bench();
-  await openModelPage(s);
-  const field = screen.getByRole('textbox', { name: 'Nuova voce del modello' });
+  const p = await openModelPage(s);
+  openSection('Bevande');
+  fireEvent.click(within(p).getByRole('button', { name: 'Aggiungi una voce a Bevande' }));
+  let field = within(p).getByRole('textbox', { name: 'Nuova voce in Bevande' });
   userType(field, 'kombucha');
-  fireEvent.blur(field, { relatedTarget: screen.getByRole('button', { name: 'Sezione della nuova voce' }) });
-  chooseIn('Sezione della nuova voce', 'bevande');
   fireEvent.blur(field);
   await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('kombucha')]?.section).toBe('bevande'));
+  expect(within(p).queryByRole('textbox', { name: 'Nuova voce in Bevande' })).toBeNull();
+  fireEvent.click(within(p).getByRole('button', { name: 'Aggiungi una voce a Bevande' }));
+  field = within(p).getByRole('textbox', { name: 'Nuova voce in Bevande' });
+  userType(field, 'tepache');
+  fireEvent.keyDown(field, { key: 'Escape' });
+  expect(within(p).queryByRole('textbox', { name: 'Nuova voce in Bevande' })).toBeNull();
+  expect((await stored(s, MODEL)).model!.items[itemKey('tepache')]).toBeUndefined();
 });
 
 test('testRenameAddRemoveAndReorderSections', async () => {
@@ -142,10 +196,16 @@ test('testRenameAddRemoveAndReorderSections', async () => {
   userType(name, 'Frigo');
   fireEvent.submit(name.closest('form')!);
   await waitFor(async () => expect((await stored(s, MODEL)).model!.sections[1]!.name).toBe('Frigo'));
-  const add = screen.getByRole('textbox', { name: 'Nuova sezione' });
+  // «+ sezione» (user's choice, 2026-11-18): a dashed row becomes the name; created before Altro, opened with «+ voce».
+  fireEvent.click(within(p).getByRole('button', { name: 'Aggiungi una sezione' }));
+  const add = within(p).getByRole('textbox', { name: 'Nome della nuova sezione' });
+  expect(document.activeElement).toBe(add);
   userType(add, 'Erboristeria');
   fireEvent.submit(add.closest('form')!);
   await waitFor(async () => expect((await stored(s, MODEL)).model!.sections.map(x => x.name).slice(-2)).toEqual(['Erboristeria', 'Altro']));
+  expect(within(page()).queryByRole('textbox', { name: 'Nome della nuova sezione' })).toBeNull();
+  await waitFor(() => expect(within(page()).getByRole('button', { name: 'Voci di Erboristeria' }).getAttribute('aria-expanded')).toBe('true'));
+  expect(within(page()).getByRole('button', { name: 'Aggiungi una voce a Erboristeria' })).toBeTruthy();
   expect(within(page()).queryByRole('button', { name: 'Togli Altro' })).toBeNull();
   fireEvent.click(within(page()).getByRole('button', { name: 'Togli Bevande' }));
   await waitFor(async () => expect((await stored(s, MODEL)).model!.sections.map(x => x.name)).not.toContain('Bevande'));
@@ -153,6 +213,25 @@ test('testRenameAddRemoveAndReorderSections', async () => {
   await waitFor(async () => expect((await stored(s, MODEL)).model!.sections.map(x => x.name)).toContain('Bevande'));
   fireEvent.keyDown(within(page()).getByRole('button', { name: 'Sposta Frutta e verdura' }), { key: 'ArrowDown' });
   await waitFor(async () => expect((await stored(s, MODEL)).model!.sections.map(x => x.id).slice(0, 2)).toEqual(['frigo', 'frutta']));
+});
+
+/** Esc or leaving the name of a new section closes it without creating: a section made by mistake is taken away by hand. */
+test('testNewSectionIsNotCreatedOnLeaving', async () => {
+  const s = bench();
+  const p = await openModelPage(s);
+  const before = (await stored(s, MODEL)).model!.sections.length;
+  fireEvent.click(within(p).getByRole('button', { name: 'Aggiungi una sezione' }));
+  let add = within(p).getByRole('textbox', { name: 'Nome della nuova sezione' });
+  userType(add, 'Erboristeria');
+  fireEvent.blur(add);
+  expect(within(p).queryByRole('textbox', { name: 'Nome della nuova sezione' })).toBeNull();
+  fireEvent.click(within(p).getByRole('button', { name: 'Aggiungi una sezione' }));
+  add = within(p).getByRole('textbox', { name: 'Nome della nuova sezione' });
+  expect(add.getAttribute('value') ?? (add as HTMLInputElement).value).toBe('');
+  userType(add, 'Erboristeria');
+  fireEvent.keyDown(add, { key: 'Escape' });
+  expect(within(p).queryByRole('textbox', { name: 'Nome della nuova sezione' })).toBeNull();
+  expect((await stored(s, MODEL)).model!.sections.length).toBe(before);
 });
 
 test('testRenameTheModelAndChangeItsIcon', async () => {

@@ -157,6 +157,29 @@ export function placeItem(a: Activity, text: string, sectionId: string, _by: Acc
   return withModel(a, { ...m, items: { ...m.items, [key]: { name: known?.name ?? name, section: sectionId } } }, now);
 }
 
+/**
+ * Where an item the model does not know by its own name would go: the section of the known name it starts with, so
+ * «nutella veg» goes by «nutella», else Altro. Undefined when the model knows the name itself, or there is no name.
+ */
+export function newItemSection(model: ListModel, text: string): string | undefined {
+  const key = itemKey(text);
+  if (key === '' || model.items[key]) return undefined;
+  return sectionOf(model, text) ?? OTHER_SECTION;
+}
+
+/**
+ * An item written in a list that the model does not know by its own name is learnt, marked new, in the section of the
+ * known name it starts with or in Altro, so the model proposes it next time and someone confirms or moves it (user's
+ * choices, 2026-11-18: a variant as «nutella veg» is a new item, not «nutella»). Known, or no name: the same activity.
+ */
+export function learnItem(a: Activity, text: string, _by: AccountId, now: Instant): Activity {
+  const m = modelOf(a);
+  const name = splitQuantity(text).name;
+  const section = newItemSection(m, name);
+  if (section === undefined) return a;
+  return withModel(a, { ...m, items: { ...m.items, [itemKey(name)]: { name, section, fresh: true } } }, now);
+}
+
 export function removeModelItem(a: Activity, key: string, _by: AccountId, now: Instant): Activity {
   const m = modelOf(a);
   if (!m.items[key]) fail('NOT_FOUND', `item ${key}`);
@@ -164,23 +187,28 @@ export function removeModelItem(a: Activity, key: string, _by: AccountId, now: I
   return withModel(a, { ...m, items }, now);
 }
 
-/** The model's items in a section, by name. */
-export function itemsIn(model: ListModel, sectionId: string): Array<{ key: string; name: string }> {
+/** The model's items in a section, by name; `fresh` for those learnt from a list and not yet placed. */
+export function itemsIn(model: ListModel, sectionId: string): Array<{ key: string; name: string; fresh: boolean }> {
   return Object.entries(model.items)
     .filter(([, it]) => (model.sections.some(s => s.id === it.section) ? it.section : OTHER_SECTION) === sectionId)
-    .map(([key, it]) => ({ key, name: it.name }))
+    .map(([key, it]) => ({ key, name: it.name, fresh: it.fresh === true }))
     .sort((x, y) => x.name.localeCompare(y.name, 'it', { sensitivity: 'base' }));
 }
 
-/** The items of the lists using the model that the model does not know, each once, by name: «Senza sezione». */
-export function unplacedItems(model: ListModel, lists: readonly Activity[]): string[] {
-  const seen = new Map<string, string>();
+/**
+ * The items of the lists using the model that the model does not know by their own name, each once, by name, with the
+ * section they would go to (`newItemSection`): written before it learnt them, or by someone who cannot change it.
+ * Shown there as new.
+ */
+export function unplacedItems(model: ListModel, lists: readonly Activity[]): Array<{ name: string; section: string }> {
+  const seen = new Map<string, { name: string; section: string }>();
   for (const l of lists) {
     for (const i of l.checklist?.items ?? []) {
       const name = splitQuantity(i.text).name;
       const key = itemKey(name);
-      if (key !== '' && !seen.has(key) && sectionOf(model, name) === undefined) seen.set(key, name);
+      const section = seen.has(key) ? undefined : newItemSection(model, name);
+      if (section !== undefined) seen.set(key, { name, section });
     }
   }
-  return [...seen.values()].sort((x, y) => x.localeCompare(y, 'it', { sensitivity: 'base' }));
+  return [...seen.values()].sort((x, y) => x.name.localeCompare(y.name, 'it', { sensitivity: 'base' }));
 }

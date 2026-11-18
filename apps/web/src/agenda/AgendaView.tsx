@@ -227,8 +227,8 @@ function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy }: { it:
       {small ? <span className="t">{it.title}{info && <Info />}</span> : <span>
         <span className="t">{it.title}</span>{info && <Info />}{high && <High />}<br />
         {/* In the personal group «libera» would say nothing: everything there is the person's own. */}
-        <span className="meta">{kind === 'personal' ? group : `${group} · ${who}`}</span>
-        {it.coveredFor && <span className="pill cover">copre {shortName(it.coveredFor)}</span>}
+        {/* Who covers for whom reads in the row's grey, after the names (user's choice, 2026-11-18): an orange pill was too much. */}
+        <span className="meta">{kind === 'personal' ? group : `${group} · ${who}`}{it.coveredFor && ` · copre ${shortName(it.coveredFor)}`}</span>
         {it.done && <span className="pill ok">fatta</span>}
         {it.skipped && <span className="pill">saltata</span>}
         {movedNote(it) && <span className="pill">{movedNote(it)}</span>}

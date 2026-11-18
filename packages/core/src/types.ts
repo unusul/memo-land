@@ -130,8 +130,11 @@ export interface ListModel {
   /** One of the group icons' names. */
   icon: string;
   sections: ModelSection[];
-  /** An item's key (`itemKey`) → its name as written and its section id. */
-  items: Record<string, { name: string; section: string }>;
+  /**
+   * An item's key (`itemKey`) → its name as written and its section id. `fresh`: written in a list and learnt in Altro,
+   * not yet placed by anyone (user's choice, 2026-11-18).
+   */
+  items: Record<string, { name: string; section: string; fresh?: true }>;
   /** Last section number handed out, so the ids of added sections never repeat. */
   seq: number;
 }

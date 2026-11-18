@@ -411,9 +411,13 @@ textarea { width: 100%; resize: vertical }
 /* A list model's page in Noi: the sections as list rows with their items as chips under them. */
 .model-items { list-style: none; margin: 0; padding: 6px 0 8px 30px; display: flex; flex-wrap: wrap; gap: 6px }
 .model-items:empty { display: none }
-.model-unplaced .model-items { padding-left: 0 }
 .model-items .chip { min-height: 32px; padding: 4px 12px; font-weight: 500; border-style: solid }
-.model-new-item { display: grid; gap: 8px }
+/* New: written in a list and not yet placed (user's choice, 2026-11-18). */
+.model-items .chip.fresh { background: var(--accent-soft); border-color: var(--accent); color: var(--accent) }
+/* «+ voce», the last chip of an open section, and the field it becomes, on a row of its own (2026-11-18). */
+.model-items .chip.add-chip { border-style: dashed; color: var(--muted); font-weight: 400; display: inline-flex; align-items: center; gap: 4px }
+.model-items .model-add { flex: 1 1 100%; padding-right: 4px }
+.add-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 0 12px; border: 1px dashed var(--line); border-radius: 10px; background: none; color: var(--muted); font: inherit; cursor: pointer }
 .model-sections .model-toggle { flex: none; width: auto; min-height: 44px; margin-right: -6px }
 .model-sections .model-count { flex: none; font-variant-numeric: tabular-nums }
 .model-name { margin: 0; flex: 1; min-width: 0 }
