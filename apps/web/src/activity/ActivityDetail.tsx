@@ -27,10 +27,10 @@ import { ChecklistView } from './ChecklistView.js';
 import { CopyButton } from './CopyButton.js';
 import { Disclosure } from '../shell/Disclosure.js';
 import { useBackLayer } from '../shell/back.js';
-import { PanelActions, PanelBackdrop } from '../shell/PanelActions.js';
+import { PanelActions, PanelBackdrop, PanelHead, useEscape } from '../shell/PanelActions.js';
 import { Icon } from '../shell/icons.js';
 import type { IconName } from '../shell/icons.js';
-import { MenuChoice, PopMenu, panelFit } from '../shell/PopMenu.js';
+import { MenuChoice, PopMenu } from '../shell/PopMenu.js';
 import { DatePicker } from './DatePicker.js';
 import { SnoozeForm } from './SnoozeForm.js';
 import { describeRepeat, isWeekly } from './timing.js';
@@ -45,10 +45,7 @@ import type { Chip } from './PropertyForms.js';
 /** The chips that open a menu under themselves instead of a form (user's choice, 2026-11-16). */
 type InlineKey = 'priority' | 'assignment' | 'due';
 const INLINE: ReadonlySet<Chip> = new Set<Chip>(['priority', 'assignment', 'due']);
-/** The widest Ripeti's panel gets: about the page's column on a computer (2026-11-17). */
-const REPEAT_PANEL_MAX = 560;
-
-/** The properties with more fields at once: a panel under the chip or row, over the page (user's choice, 2026-11-16). */
+/** The properties with more fields at once: a panel over the page (user's choices, 2026-11-16 and 2026-11-18). */
 const PANEL: ReadonlySet<Chip> = new Set<Chip>(['schedule', 'repeat', 'waitingFor']);
 const CHIP_PROPS: readonly PropKey[] = ['due', 'schedule', 'repeat', 'assignment', 'waitingFor', 'priority'];
 const ACTION_LABEL: Record<ActionKind, string> = {
@@ -95,6 +92,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   useBackLayer(!asGroupList, () => closeOnBack.current());
   // An open panel is a layer of its own: the phone's back cancels it, as Annulla (user's choice, 2026-11-17).
   useBackLayer(form !== null && PANEL.has(form as Chip), () => setForm(null));
+  useEscape(form !== null && PANEL.has(form as Chip), () => setForm(null));
   // A panel (Data e ora, Ripeti, In attesa di) opens over the page under what was tapped, the page dimmed behind it; it
   // closes with Applica or Annulla, Esc or the phone's back cancel it, a press outside does nothing (user's choices,
   // 2026-11-17; before, a press outside saved and closed it).
@@ -103,7 +101,6 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   // The detail's saves, one after the other, and the last one it made itself (see run).
   const saveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const ownSave = useRef<Activity | null>(null);
-  const [panelPlace, setPanelPlace] = useState({ left: 0, width: 360 });
   useEffect(() => {
     if (!form || !PANEL.has(form as Chip)) return;
     // All of it in sight: a panel opened low on the page would end under the bottom bar.
@@ -175,18 +172,18 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
     if (next) void run(next, () => setForm(null));
     else setForm(null);
   };
-  /** Opens a panel under `anchor`, kept inside the screen with a 16px margin on each side. */
-  function openPanel(k: Chip, anchor: Element) {
+  /**
+   * Opens a panel: a sheet from the bottom on a phone, a window in the middle on a wide screen (user's choice,
+   * 2026-11-18). Before, under what was tapped, placed and sized by hand.
+   */
+  function openPanel(k: Chip) {
     if (form === k) return savePanel.current();
-    // Ripeti wider (user's choice, 2026-11-17): its fields and its example line take room. The whole width on a phone;
-    // on a computer no wider than the page's column, or it ran across the whole window.
-    setPanelPlace(panelFit(anchor, k === 'repeat' ? REPEAT_PANEL_MAX : undefined));
     setForm(k);
   }
   const panelOf = (k: Chip) => form === k && (<>
     <PanelBackdrop />
-    <div className="menu panel" role="dialog" aria-label={k === 'groupId' ? 'Gruppo' : PROP_LABEL[k]} style={{ left: panelPlace.left, width: panelPlace.width }}
-      onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setForm(null); } }}>{propForm}</div>
+    <div className="menu panel" role="dialog" aria-label={k === 'groupId' ? 'Gruppo' : PROP_LABEL[k]}>
+      <PanelHead title={k === 'groupId' ? 'Gruppo' : PROP_LABEL[k]} onCancel={() => setForm(null)} />{propForm}</div>
   </>);
 
   /** The activity first, then its files, then the activity again with them. Offline it becomes a draft, with its files. */
@@ -390,7 +387,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         </>}
         {set.map(k => (
           <PropRow key={k} label={PROP_LABEL[k]} value={describe(a, k)} editing={form === k}
-            onEdit={editable(k) && !INLINE.has(k) ? (e => (PANEL.has(k) ? openPanel(k, e.currentTarget) : setForm(form === k ? null : k))) : undefined}
+            onEdit={editable(k) && !INLINE.has(k) ? (e => (PANEL.has(k) ? openPanel(k) : setForm(form === k ? null : k))) : undefined}
             panel={PANEL.has(k) ? panelOf(k) : undefined} boxRef={form === k && PANEL.has(k) ? panelBox : undefined}
             menu={editable(k) && INLINE.has(k) ? inlineChoices(k as InlineKey) : undefined}
             onRemove={removable(k) && !startsTheSeries(k) ? () => run(() => removeProp(a, k, me, instantNow())) : undefined}
@@ -439,7 +436,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
           <div className="chips">
             {chips.map(k => (k === 'groupId' ? <PopMenu key={k} label="+ Gruppo" menuLabel="Gruppo">{groupChoices}</PopMenu> : INLINE.has(k) ? inlineChip(k as InlineKey) : PANEL.has(k) ? (
               <span key={k} className="attach" ref={form === k ? panelBox : undefined}>
-                <button className="chip" aria-pressed={form === k} onClick={e => openPanel(k, e.currentTarget)}>+ {PROP_LABEL[k as PropKey]}</button>
+                <button className="chip" aria-pressed={form === k} onClick={e => openPanel(k)}>+ {PROP_LABEL[k as PropKey]}</button>
                 {!editingSet && panelOf(k)}
               </span>
             ) : (

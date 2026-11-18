@@ -28,7 +28,7 @@ function RepeatExample({ spec, n, start }: { spec: RepeatSpec; n: number; start:
     return <p className="repeat-example">Esempio: <b>annaffia le piante, {rule}</b>: si conta dal giorno in cui la segni fatta.{days}</p>;
   }
   const rule = start ? describeRepeat(toRepeat({ ...spec, every: n }, start)) : everyText(n, spec.unit);
-  return <p className="repeat-example">Esempio: <b>riunione, {rule}</b>, a date fisse: torna alle sue date anche se la volta prima non l'hai fatta.</p>;
+  return <p className="repeat-example">Esempio: <b>riunione, {rule}</b>: torna alle sue date anche se la volta prima non l'hai fatta.</p>;
 }
 
 /** "Ogni N unità", weekdays or day of the month, calendar or from completion; says where the series starts. */
@@ -92,8 +92,9 @@ export function RepeatForm({ activity: a, me, now, onApply, onPending, onCancel 
 
   return (
     <div className="stack">
-      {/* The mode first, always (user's choice, 2026-11-17): what follows depends on it. */}
-      <MenuSelect label="Modo" value={spec.mode} options={[['dates', 'seleziona date'], ['calendar', 'a date fisse'], ['fromCompletion', 'da quando la completi']] as const}
+      {/* The mode first, always (user's choice, 2026-11-17): what follows depends on it. Its names as Todoist's «ogni» and
+          «dopo» (user's choice, 2026-11-18; before, «a date fisse» and «da quando la completi»). */}
+      <MenuSelect label="Modo" value={spec.mode} options={[['dates', 'seleziona date'], ['calendar', 'ogni…'], ['fromCompletion', 'dopo…']] as const}
         onChange={mode => set({ mode })} />
       {/* The rules used before: nothing to offer among days chosen one by one. */}
       {!chosen && <div className="chips">

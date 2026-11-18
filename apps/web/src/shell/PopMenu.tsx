@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useBackLayer } from './back.js';
-import { PanelBackdrop } from './PanelActions.js';
+import { PanelBackdrop, PanelHead, useEscape } from './PanelActions.js';
 
 /** Room a menu needs below its button before it opens upwards, and beside it before it opens leftwards. */
 const ROOM_BELOW = 320;
@@ -27,12 +27,11 @@ export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chi
 }) {
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState({ end: false, up: false });
-  // A panel is as wide as its fields allow, up to 360px, and shifted to stay 16px inside each side of the screen.
-  const [fit, setFit] = useState<{ left: number; width: number } | null>(null);
   const box = useRef<HTMLSpanElement>(null);
   const close = () => setOpen(false);
   // The phone's back cancels an open panel, as its Annulla.
   useBackLayer(open && panel, close);
+  useEscape(open && panel, close);
   useEffect(() => {
     if (!open) return;
     // All of it in sight: a menu opened low on the page would end under the bottom bar.
@@ -53,7 +52,6 @@ export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chi
     const below = (area?.bottom ?? window.innerHeight) - (at?.bottom ?? 0);
     const above = (at?.top ?? 0) - (area?.top ?? 0);
     setPlace({ end: !panel && (at?.left ?? 0) + ROOM_RIGHT > window.innerWidth - 8, up: below < need && above >= need });
-    if (panel && box.current) setFit(panelFit(box.current));
     setOpen(o => !o);
   }
 
@@ -63,7 +61,8 @@ export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chi
       {open && panel && <PanelBackdrop />}
       {open && (
         <span role="menu" aria-label={menuLabel} className={['menu', panel && 'panel', place.end && 'end', place.up && 'up'].filter(Boolean).join(' ')}
-          style={fit ?? undefined} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }}>
+          onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }}>
+          {panel && <PanelHead title={menuLabel} onCancel={close} />}
           {children(close)}
         </span>
       )}

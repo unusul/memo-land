@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { buildAgenda, needsAttention, outOfCalendar } from '@attivita/core';
+import { buildAgenda, can, needsAttention, outOfCalendar } from '@attivita/core';
 import { nextTime, shortDay } from './when.js';
-import { RepeatHere } from './RepeatHere.js';
+import { RepeatHere, daysOf } from './RepeatHere.js';
+import { copyToDay } from './copyToDay.js';
 import { highlightsOf, rowSizeOf, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
 import { setAgendaMode, setShownMonth, useAgendaMode, useShownMonth } from './agendaMode.js';
 import type { Activity, AgendaItem, Group, GroupKind, LocalDate } from '@attivita/core';
-import { addDays, dayParts, today } from '../dates.js';
+import { addDays, dayParts, instantNow, today } from '../dates.js';
+import { errorText } from '../labels.js';
+import { useToast } from '../shell/toast.js';
 import { shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
@@ -26,6 +29,9 @@ export interface OpenTarget {
   /** A form to open ready: the date, after the swipe «Sposta la data». */
   form?: 'due' | 'schedule';
 }
+
+/** How long the line after a copy stays over the month. */
+const NOTICE_MS = 4000;
 
 /** What «Mostra altre due settimane» adds at each tap (user's choice, 2026-11-16). */
 const MORE_DAYS = 14;
@@ -53,15 +59,49 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   useBackLayer(mode === 'month', () => setAgendaMode('list'));
   const month = useShownMonth() || from.slice(0, 7);
   const [openDay, setOpenDay] = useState<LocalDate | null>(null);
+  // «Copia su un altro giorno» (user's choices, 2026-11-17): the activity waiting for the day a tap on the month gives
+  // it, one day at a time, and then a line saying what was done for a few seconds. The phone's back gives up the copy.
+  const [copying, setCopying] = useState<{ id: string; title: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  useBackLayer(copying !== null, () => setCopying(null));
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  const toast = useToast();
   const grid = monthDays(month);
   // The Calendar leaves out the informations and what is switched off there (user's choices, 2026-11-17).
   const inCalendar = sources.map(s => ({ ...s, activities: s.activities.filter(a => !outOfCalendar(a)) }));
   const monthAgenda = mode === 'month' ? buildAgenda(inCalendar, `${grid[0]!}T00:00`, `${grid.at(-1)!}T23:59`) : null;
   const infoIds = new Set(ws.activities.filter(a => a.info).map(a => a.id));
-  const rows = (day: LocalDate, items: AgendaItem[]) => items.map(it => (
+  const meIn = (groupId: string) => ws.engineOf(groupId)?.account ?? account;
+  /** Only who edits the activity's group copies it; it needs a day to copy from. */
+  const copyable = (id: string) => {
+    const a = ws.activities.find(x => x.id === id);
+    const group = a?.groupId ? groupOf(a.groupId) : undefined;
+    return a !== undefined && group !== undefined && !group.archived && a.status === 'open' && can(group, meIn(group.id), 'editActivity') && daysOf(a).length > 0;
+  };
+  // `copy`: the rows of a day of the Calendar, the only ones with «Copia su un altro giorno».
+  const rows = (day: LocalDate, items: AgendaItem[], copy = false) => items.map(it => (
     <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} shared={sharedGroup(groupOf(it.groupId))} info={infoIds.has(it.activityId)} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
-      high={ws.activities.find(a => a.id === it.activityId)?.props.priority === 'high'} /></SwipeRow></li>
+      high={ws.activities.find(a => a.id === it.activityId)?.props.priority === 'high'}
+      onCopy={copy && copyable(it.activityId) ? () => { setOpenDay(null); setNotice(null); setCopying({ id: it.activityId, title: it.title }); } : undefined} /></SwipeRow></li>
   ));
+  /** The day tapped while copying: added to the same activity, or a new one for a series by a rule; then the month again. */
+  async function copyOn(day: LocalDate) {
+    const a = ws.activities.find(x => x.id === copying?.id);
+    setCopying(null);
+    if (!a) return;
+    const result = copyToDay(a, day, meIn(a.groupId!), instantNow());
+    if (result.kind === 'there') { setNotice(`C'è già ${onDay(day)}`); return; }
+    try {
+      await ws.save(result.activity);
+      setNotice(result.kind === 'added' ? `Aggiunta ${onDay(day)}` : `Copia creata ${onDay(day)}`);
+    } catch (e) {
+      toast({ text: errorText(e) });
+    }
+  }
 
   if (!ws.loaded) return <p className="muted">Carico l'agenda…</p>;
   return (
@@ -81,14 +121,21 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
         <AttentionList label="Proposte a te" rows={attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}`, when: nextTime(p.activity) }))}
           kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} me={account} onOpen={onOpen} quick={quick} />
       )}
+      {monthAgenda && copying && (
+        <div className="copy-band" role="status">
+          <span>Tocca il giorno per «{copying.title}»</span>
+          <button type="button" className="link" onClick={() => setCopying(null)}>Annulla</button>
+        </div>
+      )}
+      {monthAgenda && !copying && notice && <div className="copy-band" role="status"><span>{notice}</span></div>}
       {monthAgenda && (
-        <MonthView month={month} setMonth={setShownMonth} days={monthAgenda.days} onDay={setOpenDay} struck={struck}
+        <MonthView month={month} setMonth={setShownMonth} days={monthAgenda.days} onDay={day => (copying ? void copyOn(day) : setOpenDay(day))} struck={struck}
           kindOf={it => KIND_COLOR[groupOf(it.groupId)?.kind ?? 'personal']} />
       )}
       {monthAgenda && openDay && (
         <DaySheet day={openDay} onClose={() => setOpenDay(null)}>
           {(monthAgenda.days[openDay] ?? []).length === 0 ? <p className="muted">Niente in questo giorno.</p>
-            : <ul className="items">{rows(openDay, monthAgenda.days[openDay]!)}</ul>}
+            : <ul className="items">{rows(openDay, monthAgenda.days[openDay]!, true)}</ul>}
           <div className="btns">
             {onAddOn && <button type="button" className="btn" onClick={() => onAddOn(openDay)}><Icon name="plus" size={18} /> Aggiungi {onDayLabel(openDay)}</button>}
             <RepeatHere key={openDay} day={openDay} />
@@ -160,7 +207,7 @@ const folds = new Map<string, boolean>();
 export const clearFolds = (): void => folds.clear();
 const foldKey = (it: AgendaItem) => `${it.activityId}|${it.start}`;
 
-function Item({ it, shared, info, kind, group, me, high, onOpen }: { it: AgendaItem; shared: boolean; info: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void }) {
+function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy }: { it: AgendaItem; shared: boolean; info: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void; onCopy?: (() => void) | undefined }) {
   useBarPrefs();
   const [, redraw] = useState(0);
   const who = it.assignee ? (it.assignee === me ? 'tu' : shortName(it.assignee)) : 'libera';
@@ -192,6 +239,7 @@ function Item({ it, shared, info, kind, group, me, high, onOpen }: { it: AgendaI
       <span className={it.start.length > 10 ? 'time' : 'time allday'}>{it.start.length > 10 ? `${it.start.slice(11)}${it.end ? `–${it.end.slice(11)}` : ''}` : 'giorno'}</span>
       <Icon name="chevron" size={16} />
     </button>
+    {onCopy && <button type="button" className="icon-choice small copy-day" aria-label={`Copia ${it.title} su un altro giorno`} title="Copia su un altro giorno" onClick={onCopy}><Icon name="copy" size={18} /></button>}
     </div>
   );
 }

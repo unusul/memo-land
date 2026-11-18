@@ -4,19 +4,24 @@ import { localNow } from '../dates.js';
 import { noteChoice, topChoices } from '../usage/choicesStore.js';
 import { DateTimePicker } from './DatePicker.js';
 import { MenuSelect } from '../shell/PopMenu.js';
-import { Icon } from '../shell/icons.js';
+import { PanelActions } from '../shell/PanelActions.js';
 import { UNIT_NAMES, describeSnooze, snoozeUntil } from './timing.js';
 import type { SnoozeUnit } from './timing.js';
 
 const UNITS = Object.keys(UNIT_NAMES) as SnoozeUnit[];
 
-/** "Tra N unità" or a chosen day and time; the relative choices a person uses come back as shortcuts. */
+/**
+ * The shortcuts a person uses snooze at once, as a menu's choices; then «tra N unità» or «oppure il» a day and time, and
+ * one Applica (user's choice, 2026-11-18): it takes the line touched last, lit so it shows which one counts; «tra» at
+ * first. Before, each line had a button of its own, «Rimanda» and «Rimanda al giorno scelto».
+ */
 export function SnoozeForm({ me, onSnooze, onCancel }: { me: AccountId; onSnooze(until: LocalDateTime): void; onCancel(): void }) {
   const [count, setCount] = useState('1');
   const [unit, setUnit] = useState<SnoozeUnit>('day');
   const [at, setAt] = useState('');
+  const [way, setWay] = useState<'relative' | 'day'>('relative');
   const n = Number(count);
-  const valid = Number.isInteger(n) && n > 0;
+  const valid = way === 'day' ? at !== '' : Number.isInteger(n) && n > 0;
 
   function relative(c: number, u: SnoozeUnit) {
     noteChoice(me, 'snooze', `${c} ${u}`);
@@ -31,21 +36,18 @@ export function SnoozeForm({ me, onSnooze, onCancel }: { me: AccountId; onSnooze
           return <button key={choice} type="button" className="chip" onClick={() => relative(Number(c), u)}>{describeSnooze(Number(c), u)}</button>;
         })}
       </div>
-      <form className="form" onSubmit={e => { e.preventDefault(); if (valid) relative(n, unit); }}>
-        <span>tra</span>
-        <input aria-label="Quanti" type="number" min="1" step="1" className="num" value={count} onChange={e => setCount(e.target.value)} />
-        <MenuSelect<SnoozeUnit> label="Unità" value={unit} options={UNITS.map(u => [u, UNIT_NAMES[u][n === 1 ? 0 : 1]] as const)} onChange={setUnit} />
-        <button className="btn primary" type="submit" disabled={!valid}>Rimanda</button>
+      <form className="form snooze" onSubmit={e => { e.preventDefault(); if (!valid) return; if (way === 'day') onSnooze(at as LocalDateTime); else relative(n, unit); }}>
+        <span className={`snooze-way${way === 'relative' ? ' chosen' : ''}`} onFocusCapture={() => setWay('relative')} onPointerDownCapture={() => setWay('relative')}>
+          <span>tra</span>
+          <input aria-label="Quanti" type="number" min="1" step="1" className="num" value={count} onChange={e => { setWay('relative'); setCount(e.target.value); }} />
+          <MenuSelect<SnoozeUnit> label="Unità" value={unit} options={UNITS.map(u => [u, UNIT_NAMES[u][n === 1 ? 0 : 1]] as const)} onChange={u => { setWay('relative'); setUnit(u); }} />
+        </span>
+        <span className={`snooze-way${way === 'day' ? ' chosen' : ''}`}>
+          <span>oppure il</span>
+          <DateTimePicker label="Il giorno" value={at} onChange={v => { setWay('day'); setAt(v); }} />
+        </span>
+        <PanelActions disabled={!valid} applyLabel="Rimanda" onCancel={onCancel} />
       </form>
-      <form className="form" onSubmit={e => { e.preventDefault(); if (at) onSnooze(at); }}>
-        <span>oppure il</span>
-        <DateTimePicker label="Il giorno" value={at} onChange={setAt} />
-        <button className="btn" type="submit" disabled={!at}>Rimanda al giorno scelto</button>
-      </form>
-      {/* Annulla at the bottom right as in the other panels (2026-11-17); its two Rimanda stay until a single Applica is chosen. */}
-      <div className="panel-actions">
-        <button type="button" className="icon-choice small" aria-label="Annulla" title="Annulla" onClick={onCancel}><Icon name="close" size={18} /></button>
-      </div>
     </div>
   );
 }

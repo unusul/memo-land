@@ -92,6 +92,32 @@ test('testAPanelClosesOnlyWithItsIcons', async () => {
   expect((await s.primary.getActivity('doc')).activity.props.schedule?.start).toBe('2026-12-04T18:10');
 });
 
+/**
+ * A panel says its name at the top, with a small x at the top right as Annulla below (user's choice, 2026-11-18), and
+ * Esc cancels it wherever the focus is, on a computer; the same for the panels of the buttons, as Rifiuta.
+ */
+test('testAPanelHasItsNameAnXAndEsc', async () => {
+  const s = await openDoc();
+  userClick('+ Data e ora');
+  const panel = screen.getByRole('dialog', { name: 'Data e ora' });
+  expect(panel.querySelector('.panel-head h3')?.textContent).toBe('Data e ora');
+  pickDateTime('Data e ora', '2026-12-04T18:10');
+  fireEvent.click(within(panel).getByRole('button', { name: 'Chiudi' }));
+  expect(screen.queryByRole('dialog', { name: 'Data e ora' })).toBeNull();
+  userClick('+ Data e ora');
+  fireEvent.keyDown(document.body, { key: 'Escape' });
+  expect(screen.queryByRole('dialog', { name: 'Data e ora' })).toBeNull();
+  expect((await s.primary.getActivity('doc')).activity.props.schedule).toBeUndefined();
+});
+
+test('testAButtonPanelClosesWithEsc', async () => {
+  renderWithSession(<ActivityDetail activityId="costi" onClose={() => undefined} />, memorySession(PLUTO));
+  fireEvent.click(await screen.findByRole('button', { name: 'Rifiuta…' }));
+  expect(menu('Rifiuta').querySelector('.panel-head h3')?.textContent).toBe('Rifiuta');
+  fireEvent.keyDown(document.body, { key: 'Escape' });
+  expect(screen.queryByRole('menu', { name: 'Rifiuta' })).toBeNull();
+});
+
 /** Rifiuta… asks the reason in a panel under it; a press outside does nothing, Annulla closes it keeping what was typed. */
 test('testRejectReasonInAPanelKeptOnAnnulla', async () => {
   const s = memorySession(PLUTO);

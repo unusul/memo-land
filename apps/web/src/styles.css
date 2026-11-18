@@ -227,8 +227,36 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 /* A date in a menu: the shortcuts and the month, as in the forms. */
 /* Never wider than the panel holding it (2026-11-17: 320px stuck out of a 306px panel on a phone). */
 .attach .menu .cal { width: min(320px, calc(100vw - 48px), 100%) }
-.attach .menu.panel { padding: 12px }
+/* A panel with fields (user's choice, 2026-11-18): a sheet from the bottom on a phone, a window in the middle of the page
+   on a wide screen (right of the 220px menu, or it looked off the page; and below the 70px header, with as much room above as below; 2026-11-18). Was: in the middle on a wide
+   screen; before, under what was tapped. Fixed to the screen, over the dimmed page (.panel-backdrop, z-index 19). */
+/* The most a panel takes, as a sheet or as a window (user's choice, 2026-11-18): on a tablet the sheet ran across it all. */
+:root { --panel-max-w: 560px; --panel-max-h: 720px }
+.attach .menu.panel, .attach .menu.panel.up, .attach .menu.panel.end { position: fixed; top: auto; right: auto; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: min(100%, var(--panel-max-w)); max-height: min(85vh, var(--panel-max-h));
+  overflow-y: auto; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0 }
+/* Wider than the panel, without the side menu (600–899px): a window too, between the 70px header and the 62px bottom
+   bar, as much room above as below (user's choice, 2026-11-18): the sheet, narrower than the screen, looked cut off. */
+@media (min-width: 600px) and (max-width: 899.98px) {
+  .attach .menu.panel, .attach .menu.panel.up, .attach .menu.panel.end { top: calc(50% + 4px); bottom: auto; transform: translate(-50%, -50%);
+    width: min(var(--panel-max-w), calc(100vw - 48px)); max-height: min(calc(100vh - 180px), var(--panel-max-h)); padding: 16px; border-radius: 14px }
+}
+@media (min-width: 900px) {
+  .attach .menu.panel, .attach .menu.panel.up, .attach .menu.panel.end { top: calc(50% + 35px); right: auto; bottom: auto; left: calc(50% + 110px); max-height: min(calc(100vh - 118px), var(--panel-max-h)); transform: translate(-50%, -50%);
+    width: min(var(--panel-max-w), calc(100vw - 268px)); padding: 16px; border-radius: 14px }
+}
+/* In a panel the month takes the panel's width (2026-11-18): in the 560px window it stayed 340px, with room left over. */
+.attach .menu.panel .cal, .attach .menu.panel .cal-time { width: 100%; max-width: none }
+.attach .menu.panel .cal-grid button { justify-self: center; width: min(44px, 100%) }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px }
+.panel-head h3 { margin: 0; font-size: 1rem }
+/* The small x at the top (user's choice, 2026-11-18): a bare icon, unlike Annulla's boxed one at the bottom. */
+.panel-head .icon-choice.panel-close { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--muted) }
+.panel-head .icon-choice.panel-close:hover { background: var(--surface-2); color: var(--fg) }
 /* Annulla and Applica at the bottom right of a panel, on a row of their own (2026-11-17): they no longer move sideways. */
+/* Rimanda (2026-11-18): two ways, one Applica; the way that counts is lit on its left. */
+.snooze-way { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0 6px 10px; border-left: 3px solid transparent }
+.snooze-way.chosen { border-left-color: var(--accent) }
 .panel-actions { flex: 1 1 100%; display: flex; justify-content: flex-end; gap: 8px }
 .icon-choice.apply { color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
 .icon-choice.apply:disabled { color: var(--muted); border-color: var(--line); background: var(--surface) }
@@ -456,6 +484,9 @@ textarea { width: 100%; resize: vertical }
 .repeat-here .pick:hover { background: var(--surface-2) }
 .repeat-here .pick .t { font-weight: 600 }
 .repeat-here .pick .meta { font-size: .8rem; color: var(--muted) }
+/* «Copia su un altro giorno»: the icon after a day's row, and the line over the month while it waits for the day. */
+.item-row .copy-day { flex: none; margin-left: 12px }
+.copy-band { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-weight: 600 }
 
 /* A new version waiting for Aggiorna (user's choice, 2026-11-17), as the demo's band. */
 .update-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 14px; margin-bottom: 12px; border-radius: 12px; background: var(--accent-soft); color: var(--fg); font-size: .9rem }

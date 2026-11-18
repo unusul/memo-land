@@ -71,8 +71,27 @@ test('testSnoozeAtAChosenDateAndTime', async () => {
   await screen.findByRole('heading', { name: 'app gestione core' });
   userClick('Rimanda…');
   pickDateTime('Il giorno', '2026-12-24T18:00');
-  userClick('Rimanda al giorno scelto');
+  userClick('Rimanda');
   await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props.resumeAt).toBe('2026-12-24T18:00'));
+});
+
+/**
+ * Rimanda has one Applica (user's choice, 2026-11-18): it takes the line touched last, lit on its left, «tra» at first;
+ * touching «tra» again after a day was chosen brings it back. Before, «Rimanda» and «Rimanda al giorno scelto».
+ */
+test('testRimandaAppliesTheLineTouchedLast', async () => {
+  const s = memorySession();
+  renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);
+  await screen.findByRole('heading', { name: 'app gestione core' });
+  userClick('Rimanda…');
+  const lit = () => document.querySelector('.snooze-way.chosen')?.textContent ?? '';
+  expect(lit()).toMatch(/^tra/);
+  pickDateTime('Il giorno', '2026-12-24T18:00');
+  expect(lit()).toMatch(/^oppure il/);
+  userType(screen.getByLabelText('Quanti'), '2');
+  expect(lit()).toMatch(/^tra/);
+  userClick('Rimanda');
+  await waitFor(async () => expect((await s.primary.getActivity('idea')).activity.props.resumeAt).toBe('2026-11-06T23:30'));
 });
 
 test('testUsedSnoozeBecomesAShortcut', async () => {
@@ -159,9 +178,9 @@ test('testRepeatSaysWhatItsModesMean', async () => {
   userClick(/^\+ Ripeti/);
   chooseIn('Modo', 'calendar'); // a new Ripeti opens on «seleziona date» (2026-11-17)
   fireEvent.click(screen.getByRole('button', { name: 'Modo' }));
-  expect(within(screen.getByRole('menu', { name: 'Modo' })).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['seleziona date', 'a date fisse', 'da quando la completi']);
+  expect(within(screen.getByRole('menu', { name: 'Modo' })).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['seleziona date', 'ogni…', 'dopo…']);
   fireEvent.click(screen.getByRole('button', { name: 'Modo' }));
-  expect(document.querySelector('.repeat-example')?.textContent).toMatch(/riunione, .*, a date fisse: torna alle sue date anche se la volta prima non l'hai fatta/);
+  expect(document.querySelector('.repeat-example')?.textContent).toMatch(/riunione, .*: torna alle sue date anche se la volta prima non l'hai fatta/);
   fireEvent.change(screen.getByLabelText('Ogni'), { target: { value: '4' } });
   chooseIn('Unità di ripetizione', 'day');
   chooseIn('Modo', 'fromCompletion');

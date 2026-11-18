@@ -58,7 +58,7 @@ export const GLOSSARY: Topic[] = [
   { topic: 'Proprietà', groups: [{ terms: [
     t('Scadenza', 'entro quando va fatta.'),
     t('Data e ora', 'quando succede.'),
-    t('Ripeti', "ogni quanto si ripete: a date fisse, oppure da quando la completi, cioè contando dal giorno in cui l'hai fatta l'ultima volta."),
+    t('Ripeti', "come si ripete: seleziona date, giorno per giorno; ogni…, con una regola, come ogni martedì; oppure dopo…, contando dal giorno in cui l'hai fatta l'ultima volta."),
     t('Assegna', "chi la deve fare; la persona l'accetta o la rifiuta con un motivo."),
     t('In attesa di…', 'cosa si aspetta; chiunque nel gruppo può segnarla come avverata.'),
     t('Riprendi il…', 'la data in cui una rimandata torna.'),
