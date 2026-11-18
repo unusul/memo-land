@@ -278,9 +278,15 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .panel-backdrop { position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / .35) }
 .attach .menu.panel .form { flex-wrap: wrap }
 .attach .menu .menu-note { padding: 8px 12px; color: var(--muted) }
-/* The bell's menu (2026-11-18): a line before the choices, and a label between its two groups of them. */
-.menu .menu-note { margin: 0; padding: 8px 12px; color: var(--muted) }
-.menu .menu-label { margin: 0; padding: 10px 12px 4px }
+/* The bell's panel (user's choices, 2026-11-18): the three modes, then a row for each alert: start or end, how much,
+   the unit, «prima», the x. */
+.alert-form { display: grid; gap: 10px }
+.alert-modes { flex-wrap: wrap; gap: 6px }
+.alert-modes .chip[aria-checked="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent) }
+.alert-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px }
+.alert-rows li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line) }
+.alert-rows li .link { margin-left: auto }
+.alert-n { width: 4.5em; text-align: center }
 .chip[aria-pressed="true"] { border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft) }
 [role="group"] .chip[aria-pressed="true"] { background: var(--accent); color: var(--surface) }
 .chip .n { font-size: .7rem; color: var(--muted); margin-left: 4px }

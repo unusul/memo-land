@@ -123,24 +123,56 @@ test('testAnActivitysOwnAlerts', () => {
   ]);
 });
 
-/** The bell of a timed activity's detail: «30 minuti prima» is kept for the person, the bell lit; not in the demo. */
-test('testTheBellOfADetail', async () => {
+/**
+ * The user's example (2026-11-18): start 20 minutes before and end 15 minutes before, chosen in the bell's panel.
+ * And a choice saved by 0.16.0 ({ when, before }) still read.
+ */
+test('testAListOfAlertsBeforeStartAndEnd', () => {
+  const now = new Date('2026-11-18T10:00');
+  const sources = [{ group: casa, activities: [at('riunione', 'Riunione', { schedule: { start: '2026-11-18T18:00', end: '2026-11-18T19:00' } })] }];
+  const own = () => ({ mode: 'here' as const, list: [{ of: 'start' as const, before: 20 }, { of: 'end' as const, before: 15 }, { of: 'start' as const, before: 1440 }] });
+  expect(alertsFor(sources, () => PIPPO, { start: true, end: false }, now, own)).toEqual<Alert[]>([
+    { at: local('2026-11-18T17:40'), text: 'Tra 20 minuti, 18:00: Riunione · Casa' },
+    { at: local('2026-11-18T18:45'), text: 'Finisce tra 15 minuti, 19:00: Riunione · Casa' },
+  ]);
+  const tomorrow = [{ group: casa, activities: [at('domani', 'Domani', { schedule: { start: '2026-11-19T18:00' } })] }];
+  expect(alertsFor(tomorrow, () => PIPPO, { start: false, end: false }, now, () => ({ mode: 'here' as const, list: [{ of: 'start' as const, before: 1440 }, { of: 'start' as const, before: 120 }] })).map(a => a.text))
+    .toEqual(['Domani, 18:00: Domani · Casa', 'Tra 2 ore, 18:00: Domani · Casa']);
+});
+
+/**
+ * The bell opens a panel as Ripeti's (user's choice, 2026-11-18; before, a small menu of fixed choices): «Scelti qui»,
+ * the rows, «+ Aggiungi avviso», ✓; kept for the person, the bell lit, its hint saying what is set. Not in the demo.
+ */
+test('testTheBellOpensAPanelOfAlerts', async () => {
   localStorage.clear();
   const backend = benchBackend();
-  backend.activities.set('riunione', { ...at('riunione', 'Riunione', { schedule: { start: '2999-01-01T18:00' } }), groupId: 'inv:developers' });
+  backend.activities.set('riunione', { ...at('riunione', 'Riunione', { schedule: { start: '2999-01-01T18:00', end: '2999-01-01T19:00' } }), groupId: 'inv:developers' });
   const store = fakeTelegram();
   await refreshTelegram(store);
   const { unmount } = renderWithSession(<ActivityDetail activityId="riunione" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
   await screen.findByRole('heading', { name: 'Riunione' });
+  fireEvent.click(screen.getByRole('button', { name: 'Avvisi su Telegram' }));
+  const panel = screen.getByRole('dialog', { name: 'Avvisi su Telegram' });
+  fireEvent.click(within(panel).getByRole('radio', { name: 'Scelti qui' }));
+  fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanto prima, avviso 1' }), { target: { value: '20' } });
+  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi avviso' }));
+  chooseIn('Quando, avviso 2', 'end');
+  fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanto prima, avviso 2' }), { target: { value: '15' } });
+  fireEvent.click(within(panel).getByRole('button', { name: 'Applica' }));
+  expect(alertsOf(PIPPO)['riunione']).toEqual({ mode: 'here', list: [{ of: 'start', before: 20 }, { of: 'end', before: 15 }] });
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi su Telegram' })).toBeNull());
   const bell = screen.getByRole('button', { name: 'Avvisi su Telegram' });
-  expect(bell.className).not.toContain(' on');
-  chooseIn('Avvisi su Telegram', '30');
-  expect(alertsOf(PIPPO)['riunione']).toEqual({ before: 30 });
-  // The hint says what is set (user's choice, 2026-11-18).
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Avvisi su Telegram' }).getAttribute('title')).toBe("Avvisi: come in Impostazioni (all'inizio), 30 minuti prima"));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Avvisi su Telegram' }).className).toContain(' on'));
-  chooseIn('Avvisi su Telegram', 'none');
-  expect(alertsOf(PIPPO)['riunione']).toEqual({ before: 30, when: 'none' });
+  expect(bell.className).toContain(' on');
+  expect(bell.getAttribute('title')).toBe('Avvisi: inizio −20 min, fine −15 min');
+  // Esc gives up; «Come in Impostazioni» gives the activity back.
+  fireEvent.click(bell);
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByRole('dialog', { name: 'Avvisi su Telegram' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Avvisi su Telegram' }));
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Avvisi su Telegram' })).getByRole('radio', { name: 'Come in Impostazioni' }));
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Avvisi su Telegram' })).getByRole('button', { name: 'Applica' }));
+  expect(alertsOf(PIPPO)['riunione']).toBeUndefined();
   unmount();
   renderWithSession(<ActivityDetail activityId="riunione" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
   await screen.findByRole('heading', { name: 'Riunione' });

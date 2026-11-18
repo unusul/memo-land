@@ -141,20 +141,36 @@ export function setName(account: AccountId, who: AccountId, name: string): void 
 }
 
 /**
- * The person's own alerts for an activity (2026-11-18, decided while the user was away, to discuss): when, in place of
- * the choice in Impostazioni, and one more some minutes before the start. Theirs only, as «In evidenza».
+ * The person's own alerts for an activity, from the bell's panel (user's choices, 2026-11-18): `none`, or a list, each
+ * at the start or at the end and some minutes before (0: at the time), at most five. Theirs only, as «In evidenza»;
+ * absent, the activity follows Impostazioni. Saved by 0.16.0 as { when, before }: read through `alertListOf`.
  */
-export type AlertWhen = 'start' | 'both' | 'end' | 'none';
-export const ALERT_BEFORE = [10, 30, 60, 1440] as const;
-export type AlertBefore = typeof ALERT_BEFORE[number];
-export interface ActivityAlert { when?: AlertWhen; before?: AlertBefore }
+export interface AlertAt { of: 'start' | 'end'; before: number }
+export interface ActivityAlert { mode?: 'here' | 'none'; list?: AlertAt[]; when?: 'start' | 'both' | 'end' | 'none'; before?: number }
+export const MAX_ACTIVITY_ALERTS = 5;
 const alertsKey = (account: AccountId) => `attivita:alerts:${account}`;
 export const alertsOf = (account: AccountId): Record<ActivityId, ActivityAlert> => read<Record<string, ActivityAlert>>(alertsKey(account), {});
 export const setAlerts = (account: AccountId, alerts: Record<ActivityId, ActivityAlert>): void => write(alertsKey(account), alerts);
-/** An empty choice (no when, no before) gives the activity back to Impostazioni. */
-export function setActivityAlert(account: AccountId, id: ActivityId, alert: ActivityAlert): void {
+/** Undefined gives the activity back to Impostazioni. */
+export function setActivityAlert(account: AccountId, id: ActivityId, alert: ActivityAlert | undefined): void {
   const { [id]: _old, ...rest } = alertsOf(account);
-  setAlerts(account, alert.when || alert.before ? { ...rest, [id]: alert } : rest);
+  setAlerts(account, alert ? { ...rest, [id]: alert } : rest);
+}
+/**
+ * The alerts an activity's own choice asks for: null when it follows Impostazioni (`general`, at the time of the start
+ * and of the end), [] for none. A choice saved by 0.16.0 without `when` kept Impostazioni and added `before`.
+ */
+export function alertListOf(a: ActivityAlert | undefined, general: { start: boolean; end: boolean }): AlertAt[] | null {
+  if (!a) return null;
+  if (a.mode === 'none' || a.when === 'none') return [];
+  if (a.mode === 'here') return (a.list ?? []).slice(0, MAX_ACTIVITY_ALERTS);
+  const start = a.when ? a.when === 'start' || a.when === 'both' : general.start;
+  const end = a.when ? a.when === 'end' || a.when === 'both' : general.end;
+  const list: AlertAt[] = [];
+  if (start) list.push({ of: 'start', before: 0 });
+  if (end) list.push({ of: 'end', before: 0 });
+  if (a.before) list.push({ of: 'start', before: a.before });
+  return list;
 }
 
 /** Whose names the labels use: the signed-in account, set when the app opens. */

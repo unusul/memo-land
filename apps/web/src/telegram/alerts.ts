@@ -1,7 +1,8 @@
 import { buildAgenda } from '@attivita/core';
 import type { AccountId, AgendaSource, GroupId } from '@attivita/core';
 import { localNow } from '../dates.js';
-import type { ActivityAlert } from '../groups/barPrefs.js';
+import { alertListOf } from '../groups/barPrefs.js';
+import type { ActivityAlert, AlertAt } from '../groups/barPrefs.js';
 
 /** One message for Telegram: when (an instant) and what it says. */
 export interface Alert { at: string; text: string }
@@ -15,16 +16,15 @@ export const ALERT_DAYS = 7;
 export const MAX_ALERTS = 300;
 
 const hhmm = (t: string) => t.slice(11, 16);
-/** A local date-time of this device as an instant, as the rest of the app reads its times. */
-const instantOf = (t: string) => new Date(t).toISOString();
 
 /**
  * The alerts of the next days (user's choices, 2026-11-18, lite version): at the start of what has a time, and at the
  * end of what has an end, for what is the person's or nobody's; not for someone else's, nor for a time done, skipped or
  * moved away. Those already past are left out.
  * «Ora, 18:00: Riunione · esempio.it», «Scade ora, 18:00: …» for a due time, «Finisce ora, 19:00: …».
- * An activity's own choice (`own`, from its detail) takes the place of `choice`, adds «Tra 30 minuti, 18:00: …» before
- * the start, and counts for someone else's activity too: the person asked for it.
+ * An activity's own choice (`own`, from the bell's panel) takes the place of `choice`: a list of alerts, each at the
+ * start or at the end and some minutes before («Tra 20 minuti, 18:00: …», «Finisce tra 15 minuti, 19:00: …»); it
+ * counts for someone else's activity too: the person asked for it.
  */
 export function alertsFor(sources: AgendaSource[], meIn: (groupId: GroupId) => AccountId, choice: AlertChoice, now = new Date(),
   own: (activityId: string) => ActivityAlert | undefined = () => undefined): Alert[] {
@@ -36,28 +36,39 @@ export function alertsFor(sources: AgendaSource[], meIn: (groupId: GroupId) => A
   for (const items of Object.values(buildAgenda(sources, from, to).days)) {
     for (const it of items) {
       if (it.start.length <= 10 || it.done || it.skipped || it.movedTo) continue;
-      const mine = own(it.activityId);
+      const mine = alertListOf(own(it.activityId), choice);
       if (!mine && it.assignee !== undefined && it.assignee !== meIn(it.groupId)) continue;
-      const when = mine?.when;
-      const start = when ? when === 'start' || when === 'both' : choice.start;
-      const end = when ? when === 'end' || when === 'both' : choice.end;
+      const list: AlertAt[] = mine ?? [
+        ...(choice.start ? [{ of: 'start' as const, before: 0 }] : []),
+        ...(choice.end ? [{ of: 'end' as const, before: 0 }] : []),
+      ];
       const where = groupName.get(it.groupId);
       const what = `${it.title}${where ? ` · ${where}` : ''}`;
       const due = byId.get(it.activityId)?.props.schedule === undefined;
-      if (start && it.start > from) alerts.push({ at: instantOf(it.start), text: `${due ? 'Scade ora' : 'Ora'}, ${hhmm(it.start)}: ${what}` });
-      if (end && it.end && it.end > from) alerts.push({ at: instantOf(it.end), text: `Finisce ora, ${hhmm(it.end)}: ${what}` });
-      if (mine?.before && when !== 'none') {
-        const at = new Date(new Date(it.start).getTime() - mine.before * 60_000);
-        if (at > now) alerts.push({ at: at.toISOString(), text: `${beforeText(mine.before)}, ${hhmm(it.start)}: ${what}` });
+      for (const { of, before } of list) {
+        const time = of === 'start' ? it.start : it.end;
+        if (!time) continue;
+        // A local date-time of this device read as the rest of the app reads its times.
+        const at = new Date(new Date(time).getTime() - before * 60_000);
+        if (at <= now) continue;
+        alerts.push({ at: at.toISOString(), text: `${alertLead(of, before, due)}, ${hhmm(time)}: ${what}` });
       }
     }
   }
   return alerts.sort((x, y) => x.at.localeCompare(y.at)).slice(0, MAX_ALERTS);
 }
 
-/** «Tra 10 minuti», «Tra 1 ora», «Domani»: how far the start is when the alert before it goes. */
+/** «tra 20 minuti», «tra 1 ora», «tra 2 ore», «domani», «tra 3 giorni»: how far the time is when the alert goes. */
 export function beforeText(minutes: number): string {
-  if (minutes >= 1440) return 'Domani';
-  if (minutes >= 60) return minutes === 60 ? 'Tra 1 ora' : `Tra ${minutes / 60} ore`;
-  return `Tra ${minutes} minuti`;
+  if (minutes % 1440 === 0) return minutes === 1440 ? 'domani' : `tra ${minutes / 1440} giorni`;
+  if (minutes % 60 === 0) return minutes === 60 ? 'tra 1 ora' : `tra ${minutes / 60} ore`;
+  return minutes === 1 ? 'tra 1 minuto' : `tra ${minutes} minuti`;
+}
+
+/** How a message starts: «Ora», «Scade ora», «Finisce ora», «Tra 20 minuti», «Scade domani», «Finisce tra 15 minuti». */
+function alertLead(of: 'start' | 'end', before: number, due: boolean): string {
+  const when = before === 0 ? 'ora' : beforeText(before);
+  if (of === 'end') return `Finisce ${when}`;
+  if (due) return `Scade ${when}`;
+  return before === 0 ? 'Ora' : when.charAt(0).toUpperCase() + when.slice(1);
 }
