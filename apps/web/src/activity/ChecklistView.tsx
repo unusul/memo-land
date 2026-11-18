@@ -8,7 +8,7 @@ import type { SwipeAction } from '../shell/SwipeRow.js';
 import { useToast } from '../shell/toast.js';
 import { Icon } from '../shell/icons.js';
 import { instantNow } from '../dates.js';
-import { shortName } from '../labels.js';
+import { shortName, youName } from '../labels.js';
 import { MenuChoice, PopMenu } from '../shell/PopMenu.js';
 import { iconOr } from '../groups/IconGrid.js';
 import { useWs } from '../workspace/useWorkspace.js';
@@ -37,7 +37,7 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
   const shared = members !== undefined && members.length > 1;
   const canAssign = editable && shared && a.checklist?.assignable === true;
   // A member is an account, shown by its short name; anyone else is the name typed for them.
-  const nameOf = (who: string) => (who === me ? 'tu' : members?.includes(who) ? shortName(who) : who);
+  const nameOf = (who: string) => (who === me ? youName(me) : members?.includes(who) ? shortName(who) : who);
   // Names typed before in this list come back as choices, after the members.
   const typed = [...new Set(items.map(i => i.assignee).filter((w): w is string => w !== undefined && !members?.includes(w)))];
   const choices = [...(members ?? []), ...typed];
@@ -46,6 +46,7 @@ export function ChecklistView({ activity: a, me, editable, change, copy, members
   const resolve = (typedName: string): string | null => {
     const t = typedName.trim().toLocaleLowerCase('it');
     if (t === '' || t === 'nessuno') return null;
+    if (t === 'tu') return me;
     return choices.find(w => nameOf(w).toLocaleLowerCase('it') === t || w.toLocaleLowerCase('it') === t) ?? typedName.trim();
   };
   // Ticked items go under a row that opens and closes, as in a notes app: closed each time the list is shown.

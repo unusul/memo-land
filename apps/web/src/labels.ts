@@ -1,3 +1,4 @@
+import { chosenName } from './groups/barPrefs.js';
 import { DomainError } from '@attivita/core';
 import type { DomainErrorCode, GroupKind, HistoryEntry, Priority, PropKey, Role, Shape } from '@attivita/core';
 import { shortDay } from './activity/DatePicker.js';
@@ -38,7 +39,8 @@ export function errorText(e: unknown): string {
   return 'Qualcosa non ha funzionato: controlla la connessione e riprova.';
 }
 
-const short = (who: string) => who.split('@')[0] ?? who;
+/** A person as the viewer named them in Impostazioni → Persone, else their email before the @. */
+const short = (who: string) => chosenName(who) ?? who.split('@')[0] ?? who;
 
 export function historyText(h: HistoryEntry): string {
   const who = short(h.by);
@@ -75,3 +77,8 @@ export function historyText(h: HistoryEntry): string {
 }
 
 export { short as shortName };
+/**
+ * The person themselves where a row names who has it: «tu», or the name they gave themselves in Impostazioni → Persone
+ * (user's bug, 2026-11-18: «Casa · tu» did not change after naming themselves).
+ */
+export const youName = (me: string): string => chosenName(me) ?? 'tu';

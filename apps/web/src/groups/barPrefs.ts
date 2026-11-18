@@ -127,6 +127,30 @@ export function addClip(account: AccountId, clip: Clip): void {
 }
 export const removeClip = (account: AccountId, id: string): void => setClips(account, clipsOf(account).filter(c => c.id !== id));
 
+/**
+ * The names the person gives to the people of their groups, by account: seen only by them, everywhere in the app
+ * (user's choice, 2026-11-18). Without one, a person reads as their email before the @.
+ */
+const namesKey = (account: AccountId) => `attivita:names:${account}`;
+export const namesOf = (account: AccountId): Record<AccountId, string> => read<Record<string, string>>(namesKey(account), {});
+export const setNames = (account: AccountId, names: Record<AccountId, string>): void => write(namesKey(account), names);
+/** An empty name takes the given one away. */
+export function setName(account: AccountId, who: AccountId, name: string): void {
+  const { [who]: _old, ...rest } = namesOf(account);
+  setNames(account, name.trim() ? { ...rest, [who]: name.trim() } : rest);
+}
+
+/** Whose names the labels use: the signed-in account, set when the app opens. */
+let viewer: AccountId | null = null;
+let cached: { account: AccountId; version: number; names: Record<AccountId, string> } | null = null;
+export const setNamesViewer = (account: AccountId | null): void => { viewer = account; };
+/** The name the viewer gave `who`, if any; read again only after a change. */
+export function chosenName(who: AccountId): string | undefined {
+  if (viewer === null) return undefined;
+  if (!cached || cached.account !== viewer || cached.version !== version) cached = { account: viewer, version, names: namesOf(viewer) };
+  return cached.names[who];
+}
+
 /** Calls `listener` when pins, icons or highlights change, in this tab; returns the way to stop. */
 export function onBarPrefsChange(listener: () => void): () => void {
   listeners.add(listener);

@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import type { AccountId } from '@attivita/core';
+import { chosenName, setName, useBarPrefs } from '../groups/barPrefs.js';
+import { shortName } from '../labels.js';
+import { useWs } from '../workspace/useWorkspace.js';
 import { startDemo } from '../demo/demo.js';
 import { retryPrefsSync, useSyncStatus } from './prefsSync.js';
 import { useSession } from '../session/SessionContext.js';
@@ -27,6 +31,7 @@ export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
           ))}
         </div>
       </div>
+      <People account={account} />
       <SyncLine kept={prefs !== undefined} />
       {onHelp &&<button className="btn" onClick={onHelp}>Aiuto e glossario</button>}
       {/* In the demo there is no account to leave: only the demo, and nothing to lose by it. */}
@@ -48,7 +53,7 @@ export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
 /** Where the sync of the bar, the icons and the theme stands; Riprova after a failure. */
 function SyncLine({ kept }: { kept: boolean }) {
   const s = useSyncStatus();
-  const what = 'Barra, icone e tema';
+  const what = 'Barra, icone, tema e nomi';
   if (!kept) return <p className="muted small">{what}: restano in questo browser</p>;
   if (s.state === 'failed') {
     return (
@@ -58,4 +63,54 @@ function SyncLine({ kept }: { kept: boolean }) {
   }
   const said = s.state === 'pending' ? 'in attesa di salvare' : s.state === 'saved' ? `salvati sull'account${s.at ? ` alle ${s.at}` : ''}` : 'in attesa di salvare';
   return <p className="muted small">{what}: {said}</p>;
+}
+
+/**
+ * Persone: the person first («tu»; 2026-11-18, they missed themselves), then everyone in their groups by the name they see, each with their email and the groups
+ * in common; the pencil gives a name seen only by the person, everywhere in the app; an empty one gives the email's back
+ * (user's choice, 2026-11-18: one name per person, here and not in each group).
+ */
+function People({ account }: { account: AccountId }) {
+  const ws = useWs();
+  useBarPrefs();
+  const [editing, setEditing] = useState<AccountId | null>(null);
+  // On a Google group the person is that project's account: it is them too.
+  const mine = new Set([account, ...ws.groups.map(g => ws.engineOf(g.id)?.account).filter((a): a is AccountId => a !== undefined)]);
+  const shared = new Map<AccountId, string[]>();
+  for (const g of ws.groups) {
+    for (const m of Object.keys(g.members)) shared.set(m, [...(shared.get(m) ?? []), g.name]);
+  }
+  if (!shared.has(account)) shared.set(account, []);
+  const people = [...shared].sort(([x], [y]) => Number(mine.has(y)) - Number(mine.has(x)) || Number(y === account) - Number(x === account)
+    || shortName(x).localeCompare(shortName(y), 'it', { sensitivity: 'base' }));
+  return (
+    <div role="group" aria-label="Persone" className="people">
+      <p className="label">Persone · il nome che vedi tu</p>
+      <ul className="people-list">
+        {people.map(([who, groups]) => (
+          <li key={who}>
+            {editing === who
+              ? <NameEdit who={who} done={name => { if (name !== undefined) setName(account, who, name); setEditing(null); }} />
+              : <>
+                <span className="people-name">{shortName(who)}<span className="muted small">{[mine.has(who) ? 'tu' : '', who, groups.join(', ')].filter(Boolean).join(' · ')}</span></span>
+                <button type="button" className="icon-choice small" aria-label={`Dai un nome a ${who}`} title="Dai un nome" onClick={() => setEditing(who)}><Icon name="edit" size={16} /></button>
+              </>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The name's field: Enter, ✓ or leaving keep what is typed, Esc gives up; `done` gets undefined when given up. */
+function NameEdit({ who, done }: { who: AccountId; done(name: string | undefined): void }) {
+  const [text, setText] = useState(chosenName(who) ?? '');
+  return (
+    <form className="new-item-row" onSubmit={e => { e.preventDefault(); done(text); }}>
+      <input className="new-item" aria-label={`Nome di ${who}`} placeholder={who.split('@')[0]} autoFocus value={text}
+        onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); done(undefined); } }}
+        onBlur={e => { if (!(e.relatedTarget instanceof Element && e.relatedTarget.closest('.new-item-row'))) done(text); }} />
+      <button type="submit" className="icon-choice" aria-label="Salva il nome" title="Salva il nome" onPointerDown={e => e.preventDefault()}><Icon name="check" /></button>
+    </form>
+  );
 }

@@ -10,7 +10,7 @@ import type { Activity, AgendaItem, Group, GroupKind, LocalDate } from '@attivit
 import { addDays, dayParts, instantNow, today } from '../dates.js';
 import { errorText } from '../labels.js';
 import { useToast } from '../shell/toast.js';
-import { shortName } from '../labels.js';
+import { shortName, youName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { useAgendaSources } from './sources.js';
@@ -19,7 +19,7 @@ import { SwipeRow } from '../shell/SwipeRow.js';
 import { movedNote } from '../activity/occurrence.js';
 import { Icon } from '../shell/icons.js';
 import { useBackLayer } from '../shell/back.js';
-import { MonthView, dayLabel, monthDays, onDayLabel } from './MonthView.js';
+import { MonthView, dayLabel, monthDays } from './MonthView.js';
 
 export const KIND_COLOR: Record<GroupKind, string> = { domain: 'var(--acc-dom)', invite: 'var(--acc-inv)', personal: 'var(--acc-per)' };
 
@@ -38,7 +38,10 @@ const MORE_DAYS = 14;
 
 export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   from?: LocalDate; days?: number; onOpen(t: OpenTarget): void;
-  /** «+ Aggiungi il …» on a day of the month: a new activity that day. */
+  /**
+   * «+ Aggiungi» on a day of the month: a new activity that day. It said «Aggiungi il 18 novembre» until 2026-11-18;
+   * the day is already the panel's title (user's choice).
+   */
   onAddOn?(day: LocalDate): void;
 }) {
   const { account } = useSession();
@@ -137,7 +140,7 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
           {(monthAgenda.days[openDay] ?? []).length === 0 ? <p className="muted">Niente in questo giorno.</p>
             : <ul className="items">{rows(openDay, monthAgenda.days[openDay]!, true)}</ul>}
           <div className="btns">
-            {onAddOn && <button type="button" className="btn" onClick={() => onAddOn(openDay)}><Icon name="plus" size={18} /> Aggiungi {onDayLabel(openDay)}</button>}
+            {onAddOn && <button type="button" className="btn" onClick={() => onAddOn(openDay)}><Icon name="plus" size={18} /> Aggiungi</button>}
             <RepeatHere key={openDay} day={openDay} />
           </div>
         </DaySheet>
@@ -210,7 +213,7 @@ const foldKey = (it: AgendaItem) => `${it.activityId}|${it.start}`;
 function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy }: { it: AgendaItem; shared: boolean; info: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void; onCopy?: (() => void) | undefined }) {
   useBarPrefs();
   const [, redraw] = useState(0);
-  const who = it.assignee ? (it.assignee === me ? 'tu' : shortName(it.assignee)) : 'libera';
+  const who = it.assignee ? (it.assignee === me ? youName(me) : shortName(it.assignee)) : 'libera';
   // Reduced: one lower line, the title on the left and the time on the right. In a group of two or more a row still to
   // do starts in full, so whether it is free or whose it is shows at once, on every day; in Personale, once done, and
   // for an information it starts reduced (user's choices, 2026-11-17; before: every row reduced, then today's in full).

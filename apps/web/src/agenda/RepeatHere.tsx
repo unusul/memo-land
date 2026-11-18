@@ -41,7 +41,7 @@ export function repeatableOn(day: LocalDate, activities: Activity[], groupOf: (i
 }
 
 /**
- * «Ripeti qui un evento», in a day of the Calendar beside «+ Aggiungi il …» (user's choices, 2026-11-17): the events to
+ * «Ripeti qui un evento», in a day of the Calendar beside «+ Aggiungi» (user's choices, 2026-11-17): the events to
  * repeat open under it, in the day's panel; one chosen gets the day among its dates and becomes «a date scelte», and
  * its row shows in the day at once. Before, another day of «andare a Roma» meant another activity.
  */

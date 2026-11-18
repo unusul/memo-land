@@ -8,7 +8,7 @@ import { repeatableOn } from '../src/agenda/RepeatHere.js';
 import { PIPPO, memorySession, renderWithSession } from './memory-session.js';
 
 /*
- * «Ripeti qui un evento» in a day of the Calendar (user's choices, 2026-11-17): beside «+ Aggiungi il …», the events a
+ * «Ripeti qui un evento» in a day of the Calendar (user's choices, 2026-11-17): beside «+ Aggiungi», the events a
  * day can be added to, the six nearest, a search when there are more; one chosen gets the day and becomes «a date
  * scelte». Series with a rule stay out. Before, another day of the same event meant another activity.
  */

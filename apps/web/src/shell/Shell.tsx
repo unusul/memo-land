@@ -14,7 +14,7 @@ import { setAgendaMode, useAgendaMode } from '../agenda/agendaMode.js';
 import { ViewStrip } from '../agenda/ViewStrip.js';
 import { useWideScreen } from './wideScreen.js';
 import { GroupPage } from '../groups/GroupPage.js';
-import { MAX_PINS, MENU_GROUPS, orderSharedGroups, useBarPrefs } from '../groups/barPrefs.js';
+import { MAX_PINS, MENU_GROUPS, orderSharedGroups, setNamesViewer, useBarPrefs } from '../groups/barPrefs.js';
 import { GroupIcon } from '../groups/GroupIcon.js';
 import { GroupsView } from '../groups/GroupsView.js';
 import { noteGroupOpened } from '../groups/order.js';
@@ -40,6 +40,8 @@ export function Shell() {
   const { primary: engine, outbox, account, demo, signOut, prefs, personalGroupId } = useSession();
   // The bar, the groups' icons and the theme follow the account across devices.
   useEffect(() => (prefs ? startPrefsSync(account, prefs) : undefined), [prefs, account]);
+  // The names the person gave to people, used by every label.
+  setNamesViewer(account);
   const ws = useWs();
   useBarPrefs();
   // What waits for an activity now done comes back by itself.

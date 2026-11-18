@@ -122,7 +122,8 @@ test('testTapOnADayOpensItsRows', async () => {
 });
 
 /**
- * «+ Aggiungi il 5 novembre» at the bottom of a day (user's choice, 2026-11-17) hands the day to the page of a new
+ * «+ Aggiungi» at the bottom of a day (user's choice, 2026-11-17; «Aggiungi il 5 novembre» until 2026-11-18, the day
+ * being the panel's title already) hands the day to the page of a new
  * activity: in Personale, changeable from Dove, with Data e ora that day at 9:00. Not a draft: drafts are not in the
  * Agenda, and it would have vanished from the day it was added to.
  */
@@ -131,7 +132,7 @@ test('testAddOnADayOpensANewActivityThatDayAtNine', async () => {
   setAgendaMode('month');
   renderWithSession(<AgendaView onOpen={() => undefined} onAddOn={day => added.push(day)} />, bench());
   fireEvent.click(cell(await screen.findByRole('grid'), '2026-11-05'));
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Aggiungi il 5 novembre' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Aggiungi' }));
   expect(added).toEqual(['2026-11-05']);
   const a = activityOnDay('2026-11-19', 'personal:p', 'p', '2026-11-05T08:00:00Z');
   expect([a.groupId, a.props.schedule, a.title, shapeOf(a, 'personal:p')]).toEqual(['personal:p', { start: '2026-11-19T09:00' }, '', 'event']);

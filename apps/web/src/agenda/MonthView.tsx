@@ -16,8 +16,6 @@ const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export const monthLabel = (month: string): string => capital(asDate(`${month}-01`).toLocaleDateString('it', { month: 'long', year: 'numeric' }));
 /** «Giovedì 5 novembre». */
 export const dayLabel = (day: LocalDate): string => capital(asDate(day).toLocaleDateString('it', { weekday: 'long', day: 'numeric', month: 'long' }));
-/** «il 19 novembre», for «+ Aggiungi il 19 novembre». */
-export const onDayLabel = (day: LocalDate): string => `il ${asDate(day).toLocaleDateString('it', { day: 'numeric', month: 'long' })}`;
 /** The hour a new activity added on a day of the month starts at (user's choice, 2026-11-17); Data e ora changes it. */
 const ADD_AT = '09:00';
 

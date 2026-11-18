@@ -42,7 +42,7 @@ test('testAnEmptyAccountGetsThisBrowsersPrefs', async () => {
   const s = store(null);
   const stop = startPrefsSync(ME, s, 10);
   await settle();
-  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'auto', highlights: [], expanded: [], reduced: [], clips: [] }]);
+  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'auto', highlights: [], expanded: [], reduced: [], clips: [], names: {} }]);
   stop();
 });
 
@@ -55,7 +55,7 @@ test('testChangesAreSentAMomentLater', async () => {
   setIcon(ME, 'inv:developers', 'music');
   saveTheme('light');
   await settle();
-  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'light', highlights: [], expanded: [], reduced: [], clips: [] }]);
+  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'light', highlights: [], expanded: [], reduced: [], clips: [], names: {} }]);
   stop();
   setPins(ME, []);
   await settle();

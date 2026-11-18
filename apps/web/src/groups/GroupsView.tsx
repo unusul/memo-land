@@ -15,7 +15,7 @@ import { Icon } from '../shell/icons.js';
 import { IconGrid } from './IconGrid.js';
 import { ModelPage, ModelRows } from './Models.js';
 import { instantNow, newId } from '../dates.js';
-import { KIND_LABEL, ROLE_LABEL, errorText, shortName } from '../labels.js';
+import { KIND_LABEL, ROLE_LABEL, errorText, shortName, youName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { configFromInvite, googleConfigOf, inviteLink } from '../session/google-config.js';
 import { useWs } from '../workspace/useWorkspace.js';
@@ -250,7 +250,7 @@ function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { gro
       </>}
       <p className="label">Persone</p>
       <ul className="people">
-        {Object.entries(g.members).map(([m, r]) => <li key={m}><span>{m === account ? 'tu' : shortName(m)}</span><span className="muted small">{ROLE_LABEL[r]}</span></li>)}
+        {Object.entries(g.members).map(([m, r]) => <li key={m}><span>{m === account ? youName(m) : shortName(m)}</span><span className="muted small">{ROLE_LABEL[r]}</span></li>)}
       </ul>
       {/* A panel under Invita, over the page (2026-11-16). Annulla closes it keeping what was typed, a press outside does
           nothing (2026-11-17): sending an invite stays a tap of its own. */}
@@ -315,7 +315,7 @@ function whoseText(a: Activity, shape: Shape, g: Group, me: string): string | un
   if (g.kind === 'personal' || a.info || (shape === 'idea' && !asg)) return undefined;
   if (!asg) return 'libera';
   if (asg.state === 'proposed') return asg.assignee === me ? `proposta a te da ${shortName(asg.assignedBy)}` : `proposta a ${shortName(asg.assignee)}`;
-  return asg.assignee === me ? 'tu' : shortName(asg.assignee);
+  return asg.assignee === me ? youName(me) : shortName(asg.assignee);
 }
 
 /**
