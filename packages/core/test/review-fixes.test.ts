@@ -75,3 +75,14 @@ test('testDomainGroupJoinRequiresMatchingEmail', () => {
   expect(joinDomainGroup(domainGroup, 'paperino', 'Paperino@Altereos.com').members['paperino']).toBe('member');
   expect(() => addMember(domainGroup, 'paperino', 'member', 'paperino')).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
 });
+
+/** Taking an attachment away (2026-11-18): the reference goes, with a history line; the file stays in the storage. */
+test('testRemoveAttachmentTakesTheReferenceAway', async () => {
+  const { removeAttachment } = await import('../src/index.js');
+  const { task, t1 } = await import('./fixtures.js');
+  const a = { ...task, attachments: [{ id: 'f1', name: 'foto.png', mimeType: 'image/png', size: 3 }] } as typeof task;
+  const next = removeAttachment(a, 'f1', 'u1', t1);
+  expect(next.attachments).toEqual([]);
+  expect(next.history.at(-1)).toMatchObject({ kind: 'attachmentRemoved', detail: { name: 'foto.png' } });
+  expect(() => removeAttachment(a, 'nope', 'u1', t1)).toThrow();
+});

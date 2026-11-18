@@ -34,7 +34,7 @@ test('testTheClipboardIsOfferedUnderAnEmptyField', async () => {
   const offer = await screen.findByRole('group', { name: 'Dagli appunti' });
   expect(offer.textContent).toContain('https://esempio.it/ricetta');
   expect((screen.getByLabelText('Idea') as HTMLTextAreaElement).value).toBe('');
-  fireEvent.click(within(offer).getByRole('button', { name: 'Usa' }));
+  fireEvent.click(within(offer).getByRole('button', { name: 'Usa qui' }));
   expect((screen.getByLabelText('Idea') as HTMLTextAreaElement).value).toBe('https://esempio.it/ricetta');
   expect(screen.queryByRole('group', { name: 'Dagli appunti' })).toBeNull();
 });
@@ -42,7 +42,7 @@ test('testTheClipboardIsOfferedUnderAnEmptyField', async () => {
 test('testDaAppuntiKeepsItAndItIsNotOfferedAgain', async () => {
   clipboard = 'codice del cancello 4521';
   const view = capture();
-  fireEvent.click(within(await screen.findByRole('group', { name: 'Dagli appunti' })).getByRole('button', { name: 'Da appunti' }));
+  fireEvent.click(within(await screen.findByRole('group', { name: 'Dagli appunti' })).getByRole('button', { name: 'Invia appunti' }));
   expect(clipsOf(PIPPO).map(c => c.text)).toEqual(['codice del cancello 4521']);
   expect(screen.getByRole('status').textContent).toMatch(/Salvato in Appunti/);
   view.unmount();
@@ -68,12 +68,31 @@ test('testClipsInIoNewestFirstAndATapCopies', async () => {
   expect(await screen.findByText('Copiato')).toBeTruthy();
 });
 
+/** Two buttons under the field, in this order (user's choice, 2026-11-18): Invia appunti, Usa qui. */
+test('testTheOfferHasTwoButtonsInOrder', async () => {
+  clipboard = 'https://esempio.it/ricetta';
+  capture();
+  const offer = await screen.findByRole('group', { name: 'Dagli appunti' });
+  expect(within(offer).getAllByRole('button').map(b => b.textContent)).toEqual(['Invia appunti', 'Usa qui']);
+});
+
+/** A clip that is a link reads as its site and path and opens at once from its icon; the row still copies. */
+test('testALinkClipOpensFromItsIcon', () => {
+  addClip(PIPPO, { id: 'l', text: 'https://www.esempio.it/ricetta-tiramisu?utm=x', at: new Date().toISOString(), from: 'telefono' });
+  addClip(PIPPO, { id: 't', text: 'codice 4521', at: new Date(Date.now() - 1000).toISOString(), from: 'telefono' });
+  renderWithSession(<ToastHost><ClipsSection /></ToastHost>, memorySession(PIPPO));
+  const rows = [...screen.getByRole('list', { name: 'Appunti' }).querySelectorAll('li')];
+  expect(rows[0]!.querySelector('.t')?.textContent).toBe('esempio.it/ricetta-tiramisu');
+  expect(within(rows[0]!).getByRole('link', { name: 'Apri il link' }).getAttribute('href')).toBe('https://www.esempio.it/ricetta-tiramisu?utm=x');
+  expect(within(rows[1]!).queryByRole('link', { name: 'Apri il link' })).toBeNull();
+});
+
 test('testWhatIsSharedComesInTheField', () => {
   expect(sharedText(new URLSearchParams('title=Ricetta&text=https%3A%2F%2Fx.it&url=https%3A%2F%2Fx.it'))).toBe('Ricetta\nhttps://x.it');
   expect(sharedText(new URLSearchParams('capture=1'))).toBeUndefined();
   renderWithSession(<CaptureSheet onSaved={vi.fn()} onClose={vi.fn()} shared={'Ricetta\nhttps://x.it'} />, memorySession(PIPPO));
   expect((screen.getByLabelText('Idea') as HTMLTextAreaElement).value).toBe('Ricetta\nhttps://x.it');
-  expect(screen.getByRole('button', { name: 'Da appunti' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Invia appunti' })).toBeTruthy();
 });
 
 test('testTheDeviceIsNamedFromItsBrowser', () => {

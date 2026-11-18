@@ -8,6 +8,7 @@ import { SwipeRow } from '../shell/SwipeRow.js';
 import { useToast } from '../shell/toast.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { noteLastClip } from './device.js';
+import { Icon } from '../shell/icons.js';
 
 const DAY_MS = 86_400_000;
 const localDay = (at: string) => { const d = new Date(at); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -21,6 +22,16 @@ function whenSaved(at: string): string {
   if (day === yesterday) return `ieri ${hhmm(at)}`;
   const p = dayParts(day);
   return `${p.weekday.slice(0, 3)} ${p.day} ${p.month} ${hhmm(at)}`;
+}
+
+/** The first link in a clip, to open it at once (user's choice, 2026-11-18). */
+export const firstLink = (text: string): string | undefined => text.match(/https?:\/\/[^\s<>"]+/)?.[0];
+
+/** A clip that is only a link reads as its site and path, «esempio.it/ricetta», without https:// and the query. */
+export function clipTitle(text: string): string {
+  const t = text.trim();
+  if (firstLink(t) !== t) return text;
+  try { const u = new URL(t); return `${u.host.replace(/^www\./, '')}${u.pathname === '/' ? '' : u.pathname}`; } catch { return text; }
 }
 
 /** «sparisce domani», «sparisce tra 2 giorni», when few days are left (user's choice, 2026-11-17). */
@@ -73,10 +84,14 @@ export function ClipsSection() {
           <li key={c.id}>
             <SwipeRow left={{ label: 'Togli', icon: 'close', tone: 'remove', run: () => removeClip(account, c.id) }}
               right={{ label: 'Bozza', icon: 'edit', tone: 'go', run: () => void toDraft(c) }}>
-              <button type="button" className="item" style={{ '--grp': 'var(--muted)' } as React.CSSProperties} aria-label={`Copia ${c.text.slice(0, 40)}`} onClick={() => void copy(c)}>
-                <span className="bar" /><span><span className="t clip-t">{c.text}</span>
-                  <span className="meta">{[whenSaved(c.at), c.from, goesIn(c.at)].filter(Boolean).join(' · ')}</span></span>
-              </button>
+              <div className="item-row">
+                <button type="button" className="item" style={{ '--grp': 'var(--muted)' } as React.CSSProperties} aria-label={`Copia ${c.text.slice(0, 40)}`} onClick={() => void copy(c)}>
+                  <span className="bar" /><span><span className="t clip-t">{clipTitle(c.text)}</span>
+                    <span className="meta">{[whenSaved(c.at), c.from, goesIn(c.at)].filter(Boolean).join(' · ')}</span></span>
+                </button>
+                {/* A link opens at once, in the browser (user's choice, 2026-11-18); the tap on the row still copies. */}
+                {firstLink(c.text) && <a className="icon-choice small clip-open" href={firstLink(c.text)} target="_blank" rel="noreferrer" aria-label="Apri il link" title="Apri il link"><Icon name="external" size={17} /></a>}
+              </div>
             </SwipeRow>
           </li>
         ))}

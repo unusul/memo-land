@@ -41,7 +41,7 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage, shared }:
     void readClipboard().then(t => { if (!gone && t && t !== lastClip()) setClip(t.slice(0, MAX_CLIP_CHARS)); });
     return () => { gone = true; };
   }, [shared]);
-  /** «Da appunti»: the text into the person's Appunti, on every device, for 7 days. */
+  /** «Invia appunti»: the text into the person's Appunti, on every device, for 7 days. */
   function keepClip(t: string) {
     addClip(account, { id: newId(), text: t.slice(0, MAX_CLIP_CHARS), at: instantNow(), from: deviceKind() });
     noteLastClip(t);
@@ -100,8 +100,9 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage, shared }:
           <div className="clip-preview" role="group" aria-label="Dagli appunti">
             <span className="clip-text">Dagli appunti: «{clip.length > 80 ? `${clip.slice(0, 80)}…` : clip}»</span>
             <span className="btns">
-              <button type="button" className="btn" onClick={() => { setText(clip); noteLastClip(clip); setClip(''); }}>Usa</button>
-              <button type="button" className="btn" onClick={() => { keepClip(clip); setClip(''); }}>Da appunti</button>
+              {/* Two, in this order (user's choice, 2026-11-18; before, «Usa» then «Da appunti»). */}
+              <button type="button" className="btn" onClick={() => { keepClip(clip); setClip(''); }}>Invia appunti</button>
+              <button type="button" className="btn" onClick={() => { setText(clip); noteLastClip(clip); setClip(''); }}>Usa qui</button>
             </span>
           </div>
         )}
@@ -114,7 +115,7 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage, shared }:
           <span className="btns end">
             <button type="button" className="btn" onClick={onClose}>Annulla</button>
             {/* Something shared from another app may be kept as a clip instead of a draft (user's choice, 2026-11-17). */}
-            {shared && <button type="button" className="btn" disabled={!text.trim()} onClick={() => { keepClip(text.trim()); onClose(); }}>Da appunti</button>}
+            {shared && <button type="button" className="btn" disabled={!text.trim()} onClick={() => { keepClip(text.trim()); onClose(); }}>Invia appunti</button>}
             <button type="button" className="btn" disabled={saving || (!text.trim() && files.length === 0)} onClick={e => void save(e, true)}>In evidenza</button>
             <button type="submit" className="btn primary" disabled={saving || (!text.trim() && files.length === 0)}>Salva</button>
           </span>

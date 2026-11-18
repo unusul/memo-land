@@ -24,6 +24,11 @@ export interface Agenda {
 }
 
 const HIDDEN: ReadonlySet<Shape> = new Set<Shape>(['archived', 'done', 'snoozed', 'draft']);
+/**
+ * Out of the days: a done activity stays on its day, struck through, as a done time of a series does (user's choice,
+ * 2026-11-18; before, it left the Agenda and the Calendar once done).
+ */
+const OFF_DAYS: ReadonlySet<Shape> = new Set<Shape>(['archived', 'snoozed', 'draft']);
 
 /** Merges several groups (possibly from different engines and accounts) into one agenda. */
 export function buildAgenda(sources: AgendaSource[], from: LocalDateTime, to: LocalDateTime): Agenda {
@@ -33,14 +38,16 @@ export function buildAgenda(sources: AgendaSource[], from: LocalDateTime, to: Lo
     for (const a of activities) {
       const shape = shapeOf(a, group.id);
       if (shape === 'waiting') waiting.push(a);
-      else if (!HIDDEN.has(shape)) items.push(...occurrencesBetween(a, from, to).map(o => toItem(o, a, group, shape)));
+      else if (!OFF_DAYS.has(shape)) items.push(...occurrencesBetween(a, from, to).map(o => toItem(o, a, group, shape)));
     }
   }
   return { days: groupByDay(items.sort(byStart)), waiting };
 }
 
 function toItem(o: Occurrence, a: Activity, group: Group, shape: Shape): AgendaItem {
-  return { ...o, groupId: group.id, accountId: a.accountId, title: a.title, shape };
+  // A one-off activity done has no time of its own marked done: the whole of it is.
+  const done = shape === 'done' && a.props.repeat === undefined ? { done: true as const } : {};
+  return { ...o, ...done, groupId: group.id, accountId: a.accountId, title: a.title, shape };
 }
 
 /** Date-only items sort before timed items of the same day. */

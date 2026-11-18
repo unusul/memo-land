@@ -73,7 +73,8 @@ export type HistoryKind =
   | 'created' | 'propSet' | 'propRemoved' | 'assigned' | 'accepted' | 'rejected' | 'released'
   | 'claimed' | 'conditionMet' | 'completed' | 'occurrenceTaken' | 'occurrenceLeft' | 'unassignedOnLeave'
   | 'occurrenceSkipped' | 'occurrenceMoved' | 'occurrenceRestored' | 'occurrenceReopened'
-  | 'snoozed' | 'resumed' | 'archived' | 'reopened' | 'movedToGroup' | 'movedToDrafts' | 'decomposed' | 'textEdited';
+  | 'snoozed' | 'resumed' | 'archived' | 'reopened' | 'movedToGroup' | 'movedToDrafts' | 'decomposed' | 'textEdited'
+  | 'attachmentRemoved';
 
 export interface HistoryEntry {
   at: Instant;

@@ -16,14 +16,22 @@ test('testDateOnlyItemsComeFirstInDay', () => {
   expect(r.days['2026-11-06']?.map(i => i.activityId)).toEqual([costTask.id, 'e1']);
 });
 
-test('testArchivedDoneAndSnoozedAreExcluded', () => {
+test('testArchivedAndSnoozedAreExcluded', () => {
   const r = buildAgenda([{ group: inviteGroup, activities: [
     archive(costTask, 'u1', t1),
-    { ...costTask, id: 'd', status: 'done' },
     snooze({ ...costTask, id: 's' }, '2026-12-01', 'u1', t1),
   ] }], '2026-11-01T00:00', '2026-11-30T23:59');
   expect(r.days).toEqual({});
   expect(r.waiting).toEqual([]);
+});
+
+/**
+ * A done activity stays on its day, marked done, as a done time of a series (user's choice, 2026-11-18). Before, it
+ * left the Agenda and the Calendar.
+ */
+test('testADoneActivityStaysOnItsDayDone', () => {
+  const r = buildAgenda([{ group: inviteGroup, activities: [{ ...costTask, id: 'd', status: 'done' }] }], '2026-11-01T00:00', '2026-11-30T23:59');
+  expect(r.days['2026-11-06']?.map(i => [i.activityId, i.done])).toEqual([['d', true]]);
 });
 
 test('testOverdueCountsOnlyWhatIsMineOrFree', () => {

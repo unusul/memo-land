@@ -22,6 +22,8 @@ export function useQuickActions(onOpen: (t: OpenTarget) => void) {
   return (activityId: string, key?: string): { right?: SwipeAction; left?: SwipeAction } => {
     const a = ws.activities.find(x => x.id === activityId);
     if (!a || a.groupId === null) return {};
+    // A done activity now stays on its day (2026-11-18): nothing to swipe, it is reopened from its detail.
+    if (a.status !== 'open') return {};
     const group = ws.groups.find(g => g.id === a.groupId) ?? null;
     if (group?.archived) return {};
     const me = ws.engineOf(a.groupId)?.account ?? account;

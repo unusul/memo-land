@@ -12,6 +12,7 @@ export * from './model.js';
 export * from './closes-itself.js';
 export * from './calendar-flags.js';
 export * from './rebase.js';
+export * from './attachments.js';
 export * from './public-domains.js';
 export * from './groups.js';
 export * from './limits.js';

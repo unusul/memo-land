@@ -104,3 +104,25 @@ test('testSyncStatusAndRetry', async () => {
   expect(saved).toHaveLength(1);
   stop();
 });
+
+/**
+ * The account's copy is read again when the app comes back in sight, and every minute while it is (user's bug,
+ * 2026-11-18: a clip saved on the phone showed on the computer only after a reload).
+ */
+test('testTheAccountsCopyIsReadAgainInSight', async () => {
+  const { clipsOf } = await import('../src/groups/barPrefs.js');
+  const onServer: Partial<SyncedPrefs> = { pins: [] };
+  const s = store(null);
+  s.load = vi.fn(async () => onServer);
+  const stop = startPrefsSync(ME, s, 10, 40);
+  await settle();
+  expect(clipsOf(ME)).toEqual([]);
+  onServer.clips = [{ id: 'c1', text: 'dal telefono', at: new Date().toISOString(), from: 'telefono' }];
+  document.dispatchEvent(new Event('visibilitychange'));
+  await settle();
+  expect(clipsOf(ME).map(c => c.text)).toEqual(['dal telefono']);
+  onServer.clips = [];
+  await settle(80);
+  expect(clipsOf(ME)).toEqual([]);
+  stop();
+});
