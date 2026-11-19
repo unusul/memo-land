@@ -8,6 +8,7 @@ import { alertsOf, setActivityAlert } from '../src/groups/barPrefs.js';
 import { SettingsView } from '../src/settings/SettingsView.js';
 import { Shell } from '../src/shell/Shell.js';
 import { NO_GENERAL, alertWords, alertsFor } from '../src/telegram/alerts.js';
+import { openedFrom } from '../src/shell/notificationTap.js';
 import type { Alert } from '../src/telegram/alerts.js';
 import { refreshTelegram, resetTelegram } from '../src/telegram/state.js';
 import type { TelegramStatus, TelegramStore } from '../src/telegram/store.js';
@@ -46,16 +47,19 @@ test('testAlertsOfTheNextDays', () => {
   expect(alertsFor(sources, () => PLUTO, { start: true, end: false }, now).map(a => a.text)).toContain('Ora, 15:00: Di Pluto · Casa');
 });
 
-/** A server in memory, as migration 0009 behaves. */
-function fakeTelegram(configured = true): TelegramStore & { state: TelegramStatus; queued: Alert[] } {
+/** A server in memory, as migrations 0009 and 0010 behave. */
+function fakeTelegram(configured = true): TelegramStore & { state: TelegramStatus; tests: number; devices: string[] } {
   const f = {
-    state: { configured, bot: configured ? 'memo_land_bot' : null, linked: false, start: true, end: false } as TelegramStatus,
-    queued: [] as Alert[],
+    state: { configured, bot: configured ? 'memo_land_bot' : null, linked: false, on: true } as TelegramStatus,
+    tests: 0,
+    devices: [] as string[],
     status: async () => ({ ...f.state }),
     linkCode: async () => (configured ? { code: 'abc123', bot: 'memo_land_bot' } : null),
-    setAlerts: async (c: { start: boolean; end: boolean }) => { f.state = { ...f.state, ...c }; },
-    unlink: async () => { f.state = { ...f.state, linked: false }; f.queued = []; },
-    replaceQueue: async (alerts: Alert[]) => { f.queued = alerts; return alerts.length; },
+    setOn: async (on: boolean) => { f.state = { ...f.state, on }; },
+    unlink: async () => { f.state = { ...f.state, linked: false }; },
+    test: async () => { f.tests++; return { telegram: f.state.linked && f.state.on !== false, devices: f.devices.length }; },
+    subscribePush: async (k: { endpoint: string }) => { f.devices.push(k.endpoint); },
+    unsubscribePush: async (endpoint: string) => { f.devices = f.devices.filter(d => d !== endpoint); },
   };
   return f;
 }
@@ -63,13 +67,13 @@ function fakeTelegram(configured = true): TelegramStore & { state: TelegramStatu
 async function openSettings(store: TelegramStore, backend = benchBackend()) {
   await refreshTelegram(store);
   renderWithSession(<SettingsView />, { ...memorySession(PIPPO, {}, backend), telegram: store });
-  return screen.findByRole('group', { name: 'Avvisi su Telegram' });
+  return screen.findByRole('group', { name: 'Avvisi' });
 }
 
 /**
- * Collega Telegram gives the bot's link with a code; once the bot has tied the chat, Manda una prova, Prossime
- * notifiche and Scollega. No switches for alerts of every activity (user's choice, 2026-11-19): before, «All'inizio»
- * and «Alla fine» made everything with a time alert; now only the bell does.
+ * Collega Telegram gives the bot's link with a code; once the bot has tied the chat, its switch, Manda una prova (sent
+ * by the server since 2026-11-19), Prossime notifiche and Scollega. The switch off, no channel is on: no test and no
+ * list. Before, the section was «Avvisi su Telegram» and the test went through the queue the app filled.
  */
 test('testLinkTestAndUnlinkTelegram', async () => {
   const store = fakeTelegram();
@@ -79,13 +83,18 @@ test('testLinkTestAndUnlinkTelegram', async () => {
   expect(open.getAttribute('href')).toBe('https://t.me/memo_land_bot?start=abc123');
   store.state = { ...store.state, linked: true };
   await refreshTelegram(store);
-  expect(await within(box).findByText(/Collegato/)).toBeTruthy();
-  expect(within(box).queryByRole('checkbox')).toBeNull();
-  expect(within(within(box).getByRole('group', { name: 'Prossime notifiche' })).getByText(/Nessuna nei prossimi 7 giorni/)).toBeTruthy();
+  const telegram = await within(box).findByRole('checkbox', { name: /Telegram/ });
+  expect((telegram as HTMLInputElement).checked).toBe(true);
+  const upcoming = within(box).getByRole('group', { name: 'Prossime notifiche' });
+  expect(within(upcoming).getByText(/Nessuna nei prossimi 7 giorni/)).toBeTruthy();
+  expect(within(upcoming).getByText(/Partono dal server anche ad app chiusa, su Telegram/)).toBeTruthy();
   fireEvent.click(within(box).getByRole('button', { name: 'Manda una prova' }));
-  expect(await within(box).findByText('Inviata: arriva entro un minuto')).toBeTruthy();
-  expect(store.queued.map(a => a.text)).toEqual(['Prova da memo-land: gli avvisi arrivano qui.']);
-  expect(new Date(store.queued[0]!.at).getTime()).toBeGreaterThan(Date.now());
+  expect(await within(box).findByText('Inviata su Telegram')).toBeTruthy();
+  expect(store.tests).toBe(1);
+  fireEvent.click(telegram);
+  await waitFor(() => expect(within(box).queryByRole('group', { name: 'Prossime notifiche' })).toBeNull());
+  expect(store.state.on).toBe(false);
+  expect(within(box).queryByRole('button', { name: 'Manda una prova' })).toBeNull();
   fireEvent.click(within(box).getByRole('button', { name: 'Scollega Telegram' }));
   expect(await within(box).findByRole('button', { name: 'Collega Telegram' })).toBeTruthy();
 });
@@ -99,21 +108,20 @@ test('testTelegramWithoutBotOrServer', async () => {
 
 test('testNoTelegramSectionWithoutServer', () => {
   renderWithSession(<SettingsView />, memorySession(PIPPO));
-  expect(screen.queryByRole('group', { name: 'Avvisi su Telegram' })).toBeNull();
+  expect(screen.queryByRole('group', { name: 'Avvisi' })).toBeNull();
 });
 
-/** With a chat tied, the app hands the server the alerts of the next days a moment after it opens; not without one. */
-test('testTheAppHandsTheAlertsToTheServer', async () => {
+/**
+ * The server computes and sends the alerts (alerts-tick, 2026-11-19): the app only reads where Telegram stands when it
+ * opens. Before, a moment after it opened, it handed the server the alerts of the next days.
+ */
+test('testTheAppNoLongerHandsAlertsToTheServer', async () => {
   const store = fakeTelegram();
-  let calls = 0;
-  const counted = { ...store, replaceQueue: async (a: Alert[]) => { calls++; return store.replaceQueue(a); } };
-  store.state = { ...store.state, linked: true };
-  renderWithSession(<Shell />, { ...memorySession(PIPPO), telegram: counted });
-  await waitFor(() => expect(calls).toBe(1), { timeout: 6000 });
-  resetTelegram();
-  store.state = { ...store.state, linked: false };
-  calls = 0;
-}, 10_000);
+  let read = 0;
+  renderWithSession(<Shell />, { ...memorySession(PIPPO), telegram: { ...store, status: async () => { read++; return store.status(); } } });
+  await waitFor(() => expect(read).toBe(1));
+  expect('replaceQueue' in store).toBe(false);
+});
 
 /**
  * An activity's own alerts (2026-11-18, decided while the user was away): in place of Impostazioni's, one more before
@@ -164,8 +172,8 @@ test('testTheBellOpensAPanelOfAlerts', async () => {
   await refreshTelegram(store);
   const { unmount } = renderWithSession(<ActivityDetail activityId="riunione" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
   await screen.findByRole('heading', { name: 'Riunione' });
-  fireEvent.click(screen.getByRole('button', { name: 'Avvisi su Telegram' }));
-  const panel = screen.getByRole('dialog', { name: 'Avvisi su Telegram' });
+  fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
+  const panel = screen.getByRole('dialog', { name: 'Avvisi' });
   expect(within(panel).getByText('Nessun avviso')).toBeTruthy();
   expect(within(panel).queryByRole('textbox')).toBeNull();
   chooseIn('Quando', 'beforeStart');
@@ -177,24 +185,24 @@ test('testTheBellOpensAPanelOfAlerts', async () => {
   expect(alertsOf(PIPPO)['riunione']).toEqual({ mode: 'here', list: [{ of: 'start', before: 20 }, { of: 'end', before: 15 }] });
   expect(within(panel).getAllByRole('listitem').map(li => li.textContent)).toEqual(["20 minuti prima dell'inizio", '15 minuti prima della fine']);
   fireEvent.click(within(panel).getByRole('button', { name: 'Chiudi' }));
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi su Telegram' })).toBeNull());
-  const bell = screen.getByRole('button', { name: 'Avvisi su Telegram' });
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi' })).toBeNull());
+  const bell = screen.getByRole('button', { name: 'Avvisi' });
   expect(bell.className).toContain(' on');
   expect(bell.getAttribute('title')).toBe('Avvisi: inizio −20 min, fine −15 min');
   // Each × takes one away; with none left the activity has no alerts and the bell is no longer lit.
   fireEvent.click(bell);
-  const again = screen.getByRole('dialog', { name: 'Avvisi su Telegram' });
+  const again = screen.getByRole('dialog', { name: 'Avvisi' });
   fireEvent.click(within(again).getByRole('button', { name: "Togli 20 minuti prima dell'inizio" }));
   fireEvent.click(within(again).getByRole('button', { name: 'Togli 15 minuti prima della fine' }));
   expect(alertsOf(PIPPO)['riunione']).toBeUndefined();
   expect(within(again).getByText('Nessun avviso')).toBeTruthy();
   fireEvent.keyDown(document, { key: 'Escape' });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Avvisi su Telegram' }).className).not.toContain(' on'));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Avvisi' }).className).not.toContain(' on'));
   unmount();
   renderWithSession(<ActivityDetail activityId="riunione" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
   await screen.findByRole('heading', { name: 'Riunione' });
-  fireEvent.click(screen.getByRole('button', { name: 'Avvisi su Telegram' }));
-  expect(within(screen.getByRole('dialog', { name: 'Avvisi su Telegram' })).getByText(/non sono disponibili/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
+  expect(within(screen.getByRole('dialog', { name: 'Avvisi' })).getByText(/non sono disponibili/)).toBeTruthy();
 });
 
 /**
@@ -214,20 +222,20 @@ test('testTheAlertRowOfTheDetail', async () => {
   const row = screen.getByRole('button', { name: 'Modifica Avvisi' });
   expect(row.textContent).toBe('Imposta');
   fireEvent.click(row);
-  const panel = screen.getByRole('dialog', { name: 'Avvisi su Telegram' });
+  const panel = screen.getByRole('dialog', { name: 'Avvisi' });
   chooseIn('Quando', 'beforeStart');
   fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanto prima' }), { target: { value: '15' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
   chooseIn('Quando', 'end');
   fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
   fireEvent.click(within(panel).getByRole('button', { name: 'Chiudi' }));
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi su Telegram' })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi' })).toBeNull());
   expect(screen.getByRole('button', { name: 'Modifica Avvisi' }).textContent).toBe("15 minuti prima dell'inizio, alla fine");
   unmount();
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
   await screen.findByRole('heading', { name: 'Idea regalo' });
   expect(screen.queryByRole('button', { name: 'Modifica Avvisi' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'Avvisi su Telegram' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Avvisi' })).toBeTruthy();
 });
 
 /**
@@ -235,14 +243,18 @@ test('testTheAlertRowOfTheDetail', async () => {
  * of the list. Before, the bell was simply missing.
  */
 test('testTheBellSaysWhyItCannot', () => {
-  const linked: TelegramStatus = { configured: true, bot: 'b', linked: true, start: false, end: false };
+  const linked: TelegramStatus = { configured: true, bot: 'b', linked: true, on: true };
   expect(alertBlock(false, linked, true)).toMatch(/non sono disponibili/);
   expect(alertBlock(true, undefined, true)).toMatch(/Controllo/);
   expect(alertBlock(true, null, true)).toMatch(/non risponde/);
-  expect(alertBlock(true, { ...linked, configured: false }, true)).toMatch(/non è ancora configurato/);
-  expect(alertBlock(true, { ...linked, linked: false }, true)).toMatch(/Non hai collegato Telegram/);
+  expect(alertBlock(true, { ...linked, configured: false }, true)).toMatch(/Nessun canale acceso/);
+  expect(alertBlock(true, { ...linked, linked: false }, true)).toMatch(/Nessun canale acceso/);
+  expect(alertBlock(true, { ...linked, on: false }, true)).toMatch(/Nessun canale acceso/);
   expect(alertBlock(true, linked, false)).toMatch(/non ha una data/);
   expect(alertBlock(true, linked, true)).toBeNull();
+  // The notifications of this device are a channel too (2026-11-19): enough without Telegram.
+  expect(alertBlock(true, { ...linked, linked: false }, true, true)).toBeNull();
+  expect(alertBlock(true, null, true, true)).toBeNull();
 });
 
 /** Without a duration there is no end: only the two on the start. */
@@ -255,7 +267,7 @@ test('testNoAlertsOnTheEndWithoutADuration', async () => {
   await refreshTelegram(store);
   renderWithSession(<ActivityDetail activityId="call" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
   await screen.findByRole('heading', { name: 'Chiamata' });
-  fireEvent.click(screen.getByRole('button', { name: 'Avvisi su Telegram' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
   fireEvent.click(screen.getByRole('button', { name: 'Quando' }));
   expect(within(screen.getByRole('menu', { name: 'Quando' })).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(["all'inizio", "prima dell'inizio"]);
 });
@@ -282,7 +294,8 @@ test('testOnlyTheBellAlertsAndTheSettingsListThem', async () => {
   } finally {
     vi.useRealTimers();
   }
-});
+  // Impostazioni with the two channels, under the whole suite: up to 5 s on this PC (2026-11-19).
+}, 10_000);
 
 test('testWhichAlert', () => {
   expect(whichAlert({ of: 'start', before: 0 })).toBe("avviso all'inizio");
@@ -332,8 +345,8 @@ test('testTheBellOnADateWithoutAnHour', async () => {
   await refreshTelegram(store);
   renderWithSession(<ActivityDetail activityId="bolletta" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
   await screen.findByRole('heading', { name: 'Bolletta' });
-  fireEvent.click(screen.getByRole('button', { name: 'Avvisi su Telegram' }));
-  const panel = screen.getByRole('dialog', { name: 'Avvisi su Telegram' });
+  fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
+  const panel = screen.getByRole('dialog', { name: 'Avvisi' });
   fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
   chooseIn('Quando', 'before');
   fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanti giorni prima' }), { target: { value: '2' } });
@@ -342,4 +355,11 @@ test('testTheBellOnADateWithoutAnHour', async () => {
   fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
   expect(within(panel).getAllByRole('listitem').map(li => li.textContent)).toEqual(['2 giorni prima alle 18:30', 'il giorno stesso alle 9:00']);
   expect(alertsOf(PIPPO)['bolletta']).toEqual({ mode: 'here', list: [{ of: 'day', before: 2, at: '18:30' }, { of: 'day', before: 0, at: '09:00' }] });
+});
+
+/** A tap on a notification opens its activity (2026-11-19): the address the service worker opens says which. */
+test('testANotificationTapNamesTheActivity', () => {
+  expect(openedFrom('?activity=riunione&occurrence=2026-11-20T18%3A45')).toEqual({ activityId: 'riunione', occurrenceKey: '2026-11-20T18:45' });
+  expect(openedFrom('?activity=idea')).toEqual({ activityId: 'idea' });
+  expect(openedFrom('?capture=1')).toBeNull();
 });

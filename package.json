@@ -14,7 +14,8 @@
     "db": "bash scripts/vm-supabase.sh",
     "emu": "bash scripts/firebase-emu.sh start",
     "test:google": "bash scripts/firebase-emu.sh test",
-    "seed": "node scripts/seed-sample.mjs"
+    "seed": "node scripts/seed-sample.mjs",
+    "bundle:core": "node scripts/bundle-core.mjs"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

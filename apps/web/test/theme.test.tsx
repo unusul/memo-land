@@ -4,6 +4,7 @@ import { SettingsView } from '../src/settings/SettingsView.js';
 import { applyTheme, loadTheme, saveTheme } from '../src/settings/theme.js';
 import { startPrefsSync } from '../src/settings/prefsSync.js';
 import { PIPPO, memorySession, renderWithSession } from './memory-session.js';
+import { deviceZone } from '../src/telegram/alerts.js';
 
 const choose = (name: string) => fireEvent.click(screen.getByRole('radio', { name }));
 
@@ -58,7 +59,7 @@ test('testSettingsSaySyncState', async () => {
   const { unmount } = renderWithSession(<SettingsView />, memorySession(PIPPO));
   expect(screen.getByText('Barra, icone, tema e nomi: restano in questo browser')).toBeTruthy();
   unmount();
-  const s = { ...memorySession(PIPPO), prefs: { load: async () => ({ pins: [] }), save: async () => { throw new Error('offline'); } } };
+  const s = { ...memorySession(PIPPO), prefs: { load: async () => ({ pins: [], timeZone: deviceZone() }), save: async () => { throw new Error('offline'); } } };
   renderWithSession(<SettingsView />, s);
   const stop = startPrefsSync(PIPPO, s.prefs, 10);
   await waitFor(() => expect(screen.getByText(/Barra, icone, tema e nomi: salvati sull'account/)).toBeTruthy());

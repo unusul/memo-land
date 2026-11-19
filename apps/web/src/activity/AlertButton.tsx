@@ -8,7 +8,8 @@ import { Icon } from '../shell/icons.js';
 import { PanelBackdrop, PanelHead, useEscape } from '../shell/PanelActions.js';
 import { MenuSelect } from '../shell/PopMenu.js';
 import { DAY_HOUR, NO_GENERAL, alertWords } from '../telegram/alerts.js';
-import { useTelegramStatus } from '../telegram/state.js';
+import { usePushOn } from '../telegram/push.js';
+import { telegramOn, useTelegramStatus } from '../telegram/state.js';
 import type { TelegramStatus } from '../telegram/store.js';
 
 type Unit = 'min' | 'h' | 'd';
@@ -41,20 +42,22 @@ export function alertSummary(list: AlertAt[]): string {
 
 /**
  * Why the bell cannot set alerts here, or null when it can (user's request, 2026-11-19): the bell is on every activity,
- * and its panel says the reason instead of the bell missing without a word.
+ * and its panel says the reason instead of the bell missing without a word. Since the push (2026-11-19) a channel on
+ * is enough: Telegram, or the notifications of this device (`device`).
  */
-export function alertBlock(hasStore: boolean, status: TelegramStatus | null | undefined, dated: boolean): string | null {
-  if (!hasStore) return 'Gli avvisi su Telegram non sono disponibili con questo accesso.';
-  if (status === undefined) return 'Controllo Telegram…';
-  if (status === null) return 'Telegram non risponde ora: riprova tra poco.';
-  if (!status.configured) return 'Il bot di memo-land non è ancora configurato su questo server.';
-  if (!status.linked) return 'Non hai collegato Telegram: collegalo in Impostazioni → Avvisi su Telegram.';
+export function alertBlock(hasStore: boolean, status: TelegramStatus | null | undefined, dated: boolean, device = false): string | null {
+  if (!hasStore) return 'Gli avvisi non sono disponibili con questo accesso.';
+  if (!device) {
+    if (status === undefined) return 'Controllo i canali degli avvisi…';
+    if (status === null) return 'Il server non risponde ora: riprova tra poco.';
+    if (!telegramOn(status)) return 'Nessun canale acceso: collega Telegram o accendi le notifiche in Impostazioni → Avvisi.';
+  }
   if (!dated) return 'Questa attività non ha una data: aggiungi una scadenza o Data e ora.';
   return null;
 }
 
 /**
- * The bell, on every activity (user's choices, 2026-11-18/19): a panel with the activity's Telegram alerts, up to five,
+ * The bell, on every activity (user's choices, 2026-11-18/19): a panel with the activity's alerts, up to five,
  * or the reason they cannot be set. The person's only, as «In evidenza»; lit when it has alerts. Alerts are only those
  * set here (2026-11-19): «Come in Impostazioni / Scelti qui / Nessuno» went with the switches of Impostazioni. Before,
  * the bell showed only on an activity with a time and with Telegram's server. The panel is opened by the bell or by the
@@ -63,25 +66,26 @@ export function alertBlock(hasStore: boolean, status: TelegramStatus | null | un
 export function AlertButton({ activity: a, me, open, setOpen }: { activity: Activity; me: string; open: boolean; setOpen(open: boolean): void }) {
   const { telegram } = useSession();
   const status = useTelegramStatus();
+  const device = usePushOn();
   useBarPrefs();
   useBackLayer(open, () => setOpen(false));
   useEscape(open, () => setOpen(false));
   const when = a.props.schedule?.start ?? a.props.due;
-  const blocked = alertBlock(telegram !== undefined, status, when !== undefined);
+  const blocked = alertBlock(telegram !== undefined, status, when !== undefined, device === true);
   // A date without an hour: alerts on its day, at an hour chosen (2026-11-19).
   const dateOnly = (when?.length ?? 0) <= 10;
   const list = alertListOf(alertsOf(me)[a.id], NO_GENERAL) ?? [];
   const save = (next: AlertAt[]) => setActivityAlert(me, a.id, next.length > 0 ? { mode: 'here', list: [...next].sort(order) } : undefined);
   return (
     <span className="attach">
-      <button type="button" className={`icon-choice small${list.length > 0 ? ' on' : ''}`} aria-label="Avvisi su Telegram" aria-expanded={open}
+      <button type="button" className={`icon-choice small${list.length > 0 ? ' on' : ''}`} aria-label="Avvisi" aria-expanded={open}
         title={`Avvisi: ${alertSummary(list)}`} onClick={() => setOpen(true)}>
         <Icon name="bell" size={18} />
       </button>
       {open && <>
         <PanelBackdrop />
-        <div className="menu panel alert-panel" role="dialog" aria-label="Avvisi su Telegram">
-          <PanelHead title="Avvisi su Telegram" onCancel={() => setOpen(false)} />
+        <div className="menu panel alert-panel" role="dialog" aria-label="Avvisi">
+          <PanelHead title="Avvisi" onCancel={() => setOpen(false)} />
           {blocked ? <p className="alert-none"><Icon name="bellOff" size={18} /> {blocked}</p> : <>
           <AlertList list={list} onRemove={i => save(list.filter((_, k) => k !== i))} />
           {list.length < MAX_ACTIVITY_ALERTS && (dateOnly

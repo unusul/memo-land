@@ -3,6 +3,7 @@ import type { AccountId, ActivityId, GroupId } from '@attivita/core';
 import { alertsOf, clipsOf, expandedOf, highlightsOf, iconsOf, namesOf, onBarPrefsChange, pinsOf, reducedOf, setAlerts, setClips, setExpanded, setHighlights, setIcons, setNames, setPins, setReduced } from '../groups/barPrefs.js';
 import type { ActivityAlert, Clip } from '../groups/barPrefs.js';
 import type { GroupIconName } from '../shell/icons.js';
+import { deviceZone } from '../telegram/alerts.js';
 import { loadTheme, onThemeChange, saveTheme } from './theme.js';
 import type { Theme } from './theme.js';
 
@@ -19,6 +20,11 @@ export interface SyncedPrefs {
   names?: Record<AccountId, string>;
   /** The person's own alerts for some activities (2026-11-18); absent in prefs saved before them. */
   alerts?: Record<ActivityId, ActivityAlert>;
+  /**
+   * The time zone of the device that opened the app last, «Europe/Rome» (2026-11-19): the server computes the alerts
+   * in it. Only sent, never applied; absent in prefs saved before it.
+   */
+  timeZone?: string;
 }
 /** Where the account keeps them (on the central engine, the account's metadata). */
 export interface PrefsStore { load(): Promise<Partial<SyncedPrefs> | null>; save(p: SyncedPrefs): Promise<void> }
@@ -38,7 +44,7 @@ const watch = (w: () => void) => { watchers.add(w); return () => { watchers.dele
 /** Re-renders the caller when the sync status changes. */
 export const useSyncStatus = (): SyncStatus => useSyncExternalStore(watch, () => status);
 
-const collect = (account: AccountId): SyncedPrefs => ({ pins: pinsOf(account), icons: iconsOf(account), theme: loadTheme(), highlights: highlightsOf(account), expanded: expandedOf(account), reduced: reducedOf(account), clips: clipsOf(account), names: namesOf(account), alerts: alertsOf(account) });
+const collect = (account: AccountId): SyncedPrefs => ({ pins: pinsOf(account), icons: iconsOf(account), theme: loadTheme(), highlights: highlightsOf(account), expanded: expandedOf(account), reduced: reducedOf(account), clips: clipsOf(account), names: namesOf(account), alerts: alertsOf(account), timeZone: deviceZone() });
 const hhmm = (d = new Date()) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const failed = () => setStatus({ state: 'failed', offline: !navigator.onLine });
 /** How often the account's copy is read again while the app is in sight. */
@@ -88,6 +94,8 @@ export function startPrefsSync(account: AccountId, store: PrefsStore, delayMs = 
     if (!remote) { send(); return; }
     apply(remote);
     setStatus({ state: 'saved' });
+    // The zone of where the person is now: a device opened in another zone, or prefs saved before the zone, send it.
+    if (remote.timeZone !== deviceZone()) send();
   }, () => { if (!stopped) failed(); });
   // The account's copy again when the app comes back in sight, and every minute while it is (user's bug, 2026-11-18: a
   // clip saved on the phone showed on the computer only after a reload). Not while this device's own change waits to

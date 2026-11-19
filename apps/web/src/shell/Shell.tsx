@@ -34,27 +34,32 @@ import { Icon } from './icons.js';
 import { TodayTitle } from './TodayTitle.js';
 import { useLinkedWaits } from '../workspace/linkedWaits.js';
 import { useClosesItself } from '../workspace/closesItself.js';
-import { useTelegramQueue } from '../telegram/useTelegramQueue.js';
+import { refreshTelegram } from '../telegram/state.js';
+import { onNotificationTap, openedFrom } from './notificationTap.js';
 
 export type Tab = 'agenda' | 'groups' | 'me' | 'settings' | 'help';
 
 export function Shell() {
-  const { primary: engine, outbox, account, demo, signOut, prefs, personalGroupId } = useSession();
+  const { primary: engine, outbox, account, demo, signOut, prefs, personalGroupId, telegram } = useSession();
   // The bar, the groups' icons and the theme follow the account across devices.
   useEffect(() => (prefs ? startPrefsSync(account, prefs) : undefined), [prefs, account]);
   // The names the person gave to people, used by every label.
   setNamesViewer(account);
   const ws = useWs();
   useBarPrefs();
-  // The alerts of the next days, handed to the server that sends them on Telegram.
-  useTelegramQueue();
+  // Where the person stands with Telegram, for the bell and Impostazioni; the server computes and sends the alerts
+  // itself since 2026-11-19 (before, the app handed it the alerts of the next days).
+  useEffect(() => { if (telegram) void refreshTelegram(telegram); }, [telegram]);
   // What waits for an activity now done comes back by itself.
   useLinkedWaits();
   // What «Si chiude da sola» closes at the end of its time, when the app is opened after it.
   useClosesItself();
   // An invite link to a Google group opens the Groups tab, where the wizard waits.
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).has('firebase') ? 'groups' : 'agenda'));
-  const [open, setOpen] = useState<OpenTarget | null>(null);
+  // A tap on a notification (2026-11-19) opens its activity: in the address when the app starts from it, by a message
+  // of the service worker when the app was already open.
+  const [open, setOpen] = useState<OpenTarget | null>(() => openedFrom(window.location.search));
+  useEffect(() => onNotificationTap(setOpen), []);
   // The group whose page is shown, opened from the menu or the Gruppi page.
   const [groupId, setGroupId] = useState<string | null>(null);
   // One line after Chiudi saved a form left open, e.g. "Ripeti salvato".

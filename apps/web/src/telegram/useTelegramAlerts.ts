@@ -5,27 +5,30 @@ import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { NO_GENERAL, alertEntries } from './alerts.js';
 import type { AlertEntry } from './alerts.js';
-import { useTelegramStatus } from './state.js';
+import { usePushOn } from './push.js';
+import { telegramOn, useTelegramStatus } from './state.js';
 
 /** The week ahead moves on: the alerts are computed again this often even without a change. */
 const AGAIN_MS = 30 * 60_000;
 
 /**
- * The person's alerts of the next days, while a chat is tied: those set by hand with the bell, nothing else (user's
- * choice, 2026-11-19). What the server is handed and what Impostazioni lists, so the two are always the same.
+ * The person's alerts of the next days, while a channel is on (Telegram, or the push on this device): those set by hand
+ * with the bell, nothing else (user's choice, 2026-11-19). Computed with the server's own code (packages/core) for
+ * Prossime notifiche; the server sends them by itself (alerts-tick).
  */
 export function useTelegramAlerts(): AlertEntry[] {
   const { account } = useSession();
   const ws = useWs();
   const sources = useAgendaSources();
   const status = useTelegramStatus();
+  const device = usePushOn();
   const prefsVersion = useBarPrefs();
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), AGAIN_MS);
     return () => clearInterval(t);
   }, []);
-  const linked = status?.linked === true;
+  const linked = telegramOn(status) || device === true;
   return useMemo(
     () => {
       if (!linked) return [];

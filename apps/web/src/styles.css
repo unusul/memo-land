@@ -545,6 +545,10 @@ textarea { width: 100%; resize: vertical }
 .month-grid .strip.done { color: var(--muted); text-decoration: line-through }
 .month-grid .more { padding-left: 4px; font-size: .72rem; color: var(--muted) }
 /* Impostazioni → Avvisi su Telegram: Manda una prova and the next alerts, as they will arrive (2026-11-19). */
+/* One switch per channel (2026-11-19): «Telegram», «Notifiche su questo dispositivo». */
+.telegram .channel { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer }
+.telegram .channel input { width: 20px; height: 20px; margin: 0; accent-color: var(--marker) }
+.telegram > button.link { justify-self: start }
 .telegram .test-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 }
 .telegram .upcoming ul { list-style: none; margin: 0; padding: 0 }
 .telegram .upcoming li { display: grid; gap: 2px; padding: 7px 0; border-top: 1px solid var(--line); font-size: .9rem }

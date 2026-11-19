@@ -19,4 +19,5 @@ export * from './limits.js';
 export * from './engine.js';
 export * from './memory-engine.js';
 export * from './agenda.js';
+export * from './alerts.js';
 export * from './usage.js';

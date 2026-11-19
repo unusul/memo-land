@@ -61,9 +61,13 @@ export default defineConfig({
         share_target: { action: base, method: 'GET', params: { title: 'title', text: 'text', url: 'url' } },
         shortcuts: [{ name: 'Nuova bozza', short_name: 'Bozza', url: `${base}?capture=1`, icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }] }],
       },
-      // The runtime inside sw.js (2026-11-19): loaded apart with importScripts, a copy installed without it failed at
-      // every start, before listening for Aggiorna, so the band stayed and the tap did nothing.
-      workbox: { navigateFallback: `${base}index.html`, globPatterns: ['**/*.{js,css,html,svg}'], inlineWorkboxRuntime: true },
+      // Our own service worker (sw/sw.ts, 2026-11-19), for the push of the alerts; Workbox is bundled inside it. Before,
+      // the plugin generated it, with the runtime inlined: loaded apart with importScripts, a copy installed without it
+      // failed at every start, before listening for Aggiorna (0.18.0).
+      strategies: 'injectManifest',
+      srcDir: 'sw',
+      filename: 'sw.ts',
+      injectManifest: { globPatterns: ['**/*.{js,css,html,svg}'] },
     }),
   ],
   test: {

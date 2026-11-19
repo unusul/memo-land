@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { AccountId, ActivityId, Group, GroupId } from '@attivita/core';
+import type { AccountId, ActivityAlert, ActivityId, Group, GroupId } from '@attivita/core';
 import { topChoices } from '../usage/choicesStore.js';
 import type { GroupIconName } from '../shell/icons.js';
 
@@ -140,18 +140,9 @@ export function setName(account: AccountId, who: AccountId, name: string): void 
   setNames(account, name.trim() ? { ...rest, [who]: name.trim() } : rest);
 }
 
-/**
- * The person's own alerts for an activity, from the bell's panel (user's choices, 2026-11-18): `none`, or a list, each
- * at the start or at the end and some minutes before (0: at the time), at most five. Theirs only, as «In evidenza»;
- * absent, the activity follows Impostazioni. Saved by 0.16.0 as { when, before }: read through `alertListOf`.
- */
-/**
- * `day` (2026-11-19), for what has a date without an hour too: `before` days before its day, at the hour `at`
- * («HH:MM»); the others count `before` in minutes.
- */
-export interface AlertAt { of: 'start' | 'end' | 'day'; before: number; at?: string }
-export interface ActivityAlert { mode?: 'here' | 'none'; list?: AlertAt[]; when?: 'start' | 'both' | 'end' | 'none'; before?: number }
-export const MAX_ACTIVITY_ALERTS = 5;
+/** The person's own alerts for an activity, from the bell's panel: the types live in the core since 2026-11-19. */
+export { MAX_ACTIVITY_ALERTS, alertListOf } from '@attivita/core';
+export type { ActivityAlert, AlertAt } from '@attivita/core';
 const alertsKey = (account: AccountId) => `attivita:alerts:${account}`;
 export const alertsOf = (account: AccountId): Record<ActivityId, ActivityAlert> => read<Record<string, ActivityAlert>>(alertsKey(account), {});
 export const setAlerts = (account: AccountId, alerts: Record<ActivityId, ActivityAlert>): void => write(alertsKey(account), alerts);
@@ -160,23 +151,6 @@ export function setActivityAlert(account: AccountId, id: ActivityId, alert: Acti
   const { [id]: _old, ...rest } = alertsOf(account);
   setAlerts(account, alert ? { ...rest, [id]: alert } : rest);
 }
-/**
- * The alerts an activity's own choice asks for: null when it follows Impostazioni (`general`, at the time of the start
- * and of the end), [] for none. A choice saved by 0.16.0 without `when` kept Impostazioni and added `before`.
- */
-export function alertListOf(a: ActivityAlert | undefined, general: { start: boolean; end: boolean }): AlertAt[] | null {
-  if (!a) return null;
-  if (a.mode === 'none' || a.when === 'none') return [];
-  if (a.mode === 'here') return (a.list ?? []).slice(0, MAX_ACTIVITY_ALERTS);
-  const start = a.when ? a.when === 'start' || a.when === 'both' : general.start;
-  const end = a.when ? a.when === 'end' || a.when === 'both' : general.end;
-  const list: AlertAt[] = [];
-  if (start) list.push({ of: 'start', before: 0 });
-  if (end) list.push({ of: 'end', before: 0 });
-  if (a.before) list.push({ of: 'start', before: a.before });
-  return list;
-}
-
 /** Whose names the labels use: the signed-in account, set when the app opens. */
 let viewer: AccountId | null = null;
 let cached: { account: AccountId; version: number; names: Record<AccountId, string> } | null = null;

@@ -4,9 +4,12 @@ import { supabasePrefs } from '../src/session/central.js';
 import { retryPrefsSync, startPrefsSync, syncStatus } from '../src/settings/prefsSync.js';
 import type { PrefsStore, SyncedPrefs } from '../src/settings/prefsSync.js';
 import { loadTheme, saveTheme } from '../src/settings/theme.js';
+import { deviceZone } from '../src/telegram/alerts.js';
 
 const ME = 'pippo@altereos.com';
 const settle = (ms = 30) => new Promise(r => setTimeout(r, ms));
+/** This device's zone: prefs on the server with it are not sent back when the app opens. */
+const ZONE = deviceZone();
 
 function store(onServer: Partial<SyncedPrefs> | null): PrefsStore & { saved: SyncedPrefs[] } {
   const saved: SyncedPrefs[] = [];
@@ -24,7 +27,7 @@ beforeEach(() => {
  */
 test('testTheAccountsPrefsWinWhenTheAppOpens', async () => {
   setPins(ME, ['domain:altereos.com']);
-  const s = store({ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'dark' });
+  const s = store({ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'dark', timeZone: ZONE });
   const stop = startPrefsSync(ME, s, 10);
   await settle();
   expect(pinsOf(ME)).toEqual(['inv:developers']);
@@ -42,20 +45,20 @@ test('testAnEmptyAccountGetsThisBrowsersPrefs', async () => {
   const s = store(null);
   const stop = startPrefsSync(ME, s, 10);
   await settle();
-  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'auto', highlights: [], expanded: [], reduced: [], clips: [], names: {}, alerts: {} }]);
+  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'auto', highlights: [], expanded: [], reduced: [], clips: [], names: {}, alerts: {}, timeZone: ZONE }]);
   stop();
 });
 
 /** A change is sent a moment later, once for a burst of changes; after stop nothing more is sent. */
 test('testChangesAreSentAMomentLater', async () => {
-  const s = store({ pins: [] });
+  const s = store({ pins: [], timeZone: ZONE });
   const stop = startPrefsSync(ME, s, 10);
   await settle();
   setPins(ME, ['inv:developers']);
   setIcon(ME, 'inv:developers', 'music');
   saveTheme('light');
   await settle();
-  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'light', highlights: [], expanded: [], reduced: [], clips: [], names: {}, alerts: {} }]);
+  expect(s.saved).toEqual([{ pins: ['inv:developers'], icons: { 'inv:developers': 'music' }, theme: 'light', highlights: [], expanded: [], reduced: [], clips: [], names: {}, alerts: {}, timeZone: ZONE }]);
   stop();
   setPins(ME, []);
   await settle();
@@ -88,7 +91,7 @@ test('testSupabasePrefsUseTheUsersMetadata', async () => {
 test('testSyncStatusAndRetry', async () => {
   let fail = true;
   const saved: SyncedPrefs[] = [];
-  const s: PrefsStore = { load: async () => ({ pins: [] }), save: async p => { if (fail) throw new Error('offline'); saved.push(p); } };
+  const s: PrefsStore = { load: async () => ({ pins: [], timeZone: ZONE }), save: async p => { if (fail) throw new Error('offline'); saved.push(p); } };
   const stop = startPrefsSync(ME, s, 10);
   await settle();
   expect(syncStatus().state).toBe('saved');
@@ -111,7 +114,7 @@ test('testSyncStatusAndRetry', async () => {
  */
 test('testTheAccountsCopyIsReadAgainInSight', async () => {
   const { clipsOf } = await import('../src/groups/barPrefs.js');
-  const onServer: Partial<SyncedPrefs> = { pins: [] };
+  const onServer: Partial<SyncedPrefs> = { pins: [], timeZone: ZONE };
   const s = store(null);
   s.load = vi.fn(async () => onServer);
   const stop = startPrefsSync(ME, s, 10, 40);
@@ -125,4 +128,23 @@ test('testTheAccountsCopyIsReadAgainInSight', async () => {
   await settle(80);
   expect(clipsOf(ME)).toEqual([]);
   stop();
+});
+
+/**
+ * The server computes the alerts in the person's zone (2026-11-19): the app sends its own when the account's copy has
+ * another one, or none (prefs saved before the zone), so the zone is that of the device opened last. Only sent, never
+ * applied: a device in Rome does not take New York's zone from the server.
+ */
+test('testTheDevicesZoneGoesToTheAccount', async () => {
+  const s = store({ pins: ['inv:developers'], timeZone: ZONE === 'UTC' ? 'Europe/Rome' : 'UTC' });
+  const stop = startPrefsSync(ME, s, 10);
+  await settle();
+  expect(pinsOf(ME)).toEqual(['inv:developers']);
+  expect(s.saved.map(p => p.timeZone)).toEqual([ZONE]);
+  stop();
+  const before = store({ pins: [] });
+  const again = startPrefsSync(ME, before, 10);
+  await settle();
+  expect(before.saved.map(p => p.timeZone)).toEqual([ZONE]);
+  again();
 });

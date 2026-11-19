@@ -169,5 +169,5 @@ test('testDetailTopRowBackLeftMoreRight', async () => {
   await screen.findByRole('heading', { name: 'app gestione core' });
   expect(screen.queryByRole('button', { name: 'Chiudi' })).toBeNull();
   const buttons = within(document.querySelector('.detail > header') as HTMLElement).getAllByRole('button').map(b => b.getAttribute('aria-label'));
-  expect(buttons).toEqual(['Indietro', 'Avvisi su Telegram', 'Altro', 'In evidenza']);
+  expect(buttons).toEqual(['Indietro', 'Avvisi', 'Altro', 'In evidenza']);
 });
