@@ -8,63 +8,75 @@ import { startDemo } from '../demo/demo.js';
 import { retryPrefsSync, useSyncStatus } from './prefsSync.js';
 import { useSession } from '../session/SessionContext.js';
 import { Icon } from '../shell/icons.js';
+import { SettingRow, SettingsCard } from './Card.js';
 import { loadTheme, saveTheme } from './theme.js';
 import type { Theme } from './theme.js';
 import { APP_DATE, APP_VERSION, versionLine } from './version.js';
 
 const THEMES: Array<[Theme, string, 'auto' | 'sun' | 'moon']> = [['auto', 'Automatico', 'auto'], ['light', 'Chiaro', 'sun'], ['dark', 'Scuro', 'moon']];
 
-/** The person's settings, opened from the gear in the header: account and theme today, notifications and linked accounts later. */
+/**
+ * The person's settings, opened from the gear in the header, in cards (user's choice, 2026-11-19): Account, Aspetto,
+ * Avvisi, Persone, Altro, each with rows, the label on the left and its control on the right.
+ */
 export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
   const { account, signOut, demo, prefs } = useSession();
   const [theme, setTheme] = useState(loadTheme);
   const choose = (t: Theme) => { saveTheme(t); setTheme(t); };
   const [leaving, setLeaving] = useState(false);
   return (
-    <section aria-labelledby="settings-h" className="stack">
+    <section aria-labelledby="settings-h" className="stack settings">
       <h2 id="settings-h">Impostazioni</h2>
-      <dl className="kv"><dt>Account</dt><dd>{account}</dd></dl>
-      <div className="kv-row">
-        <span className="muted">Tema</span>
-        <div className="icon-row" role="radiogroup" aria-label="Tema">
-          {THEMES.map(([t, label, icon]) => (
-            <button key={t} role="radio" aria-checked={theme === t} className="icon-choice" aria-label={label} title={label} onClick={() => choose(t)}><Icon name={icon} /></button>
-          ))}
-        </div>
-      </div>
-      <People account={account} />
+      <SettingsCard title="Account">
+        <SettingRow label="Account"><span className="muted">{account}</span></SettingRow>
+        <SyncRow kept={prefs !== undefined} />
+        {/* In the demo there is no account to leave: only the demo, and nothing to lose by it. */}
+        {demo ? <SettingRow label="Demo"><button className="btn" onClick={() => void signOut()}>Esci dalla demo</button></SettingRow>
+          // Asked first, as leaving a group: a stray tap would mean waiting for a new link by email to get back in.
+          : leaving ? (
+            <SettingRow label="Uscire dall'account?">
+              <button className="btn primary" onClick={() => { void signOut().then(() => window.location.reload()); }}>Conferma uscita</button>
+              <button className="btn" onClick={() => setLeaving(false)}>Annulla</button>
+            </SettingRow>
+          ) : <SettingRow label="Uscita"><button className="btn" onClick={() => setLeaving(true)}>Esci dall'account</button></SettingRow>}
+      </SettingsCard>
+      <SettingsCard title="Aspetto">
+        <SettingRow label="Tema">
+          <span className="icon-row" role="radiogroup" aria-label="Tema">
+            {THEMES.map(([t, label, icon]) => (
+              <button key={t} role="radio" aria-checked={theme === t} className="icon-choice" aria-label={label} title={label} onClick={() => choose(t)}><Icon name={icon} /></button>
+            ))}
+          </span>
+        </SettingRow>
+      </SettingsCard>
       <TelegramSection />
-      <SyncLine kept={prefs !== undefined} />
-      {onHelp &&<button className="btn" onClick={onHelp}>Aiuto e glossario</button>}
-      {/* In the demo there is no account to leave: only the demo, and nothing to lose by it. */}
-      {demo ? <button className="btn" onClick={() => void signOut()}>Esci dalla demo</button> : <>
-      <button className="btn" onClick={startDemo}>Prova con dati di esempio</button>
-      {/* Asked first, as leaving a group: a stray tap would mean waiting for a new link by email to get back in. */}
-      {leaving ? (
-        <div className="btns">
-          <button className="btn primary" onClick={() => { void signOut().then(() => window.location.reload()); }}>Conferma uscita</button>
-          <button className="btn" onClick={() => setLeaving(false)}>Annulla</button>
-        </div>
-      ) : <button className="btn" onClick={() => setLeaving(true)}>Esci dall'account</button>}
-      </>}
-      <p className="muted small">{versionLine(APP_VERSION, APP_DATE)}</p>
+      <SettingsCard title="Persone">
+        <People account={account} />
+      </SettingsCard>
+      <SettingsCard title="Altro">
+        {onHelp && <SettingRow label="Aiuto e glossario"><button className="btn" aria-label="Aiuto e glossario" onClick={onHelp}>Apri</button></SettingRow>}
+        {!demo && <SettingRow label="Dati di esempio" hint="Una demo che non tocca i tuoi dati"><button className="btn" onClick={startDemo}>Prova con dati di esempio</button></SettingRow>}
+        <SettingRow label="Versione"><span className="muted small">{versionLine(APP_VERSION, APP_DATE)}</span></SettingRow>
+      </SettingsCard>
     </section>
   );
 }
 
-/** Where the sync of the bar, the icons and the theme stands; Riprova after a failure. */
-function SyncLine({ kept }: { kept: boolean }) {
+/** Where the sync of the bar, the icons, the theme and the names stands; Riprova after a failure. */
+function SyncRow({ kept }: { kept: boolean }) {
   const s = useSyncStatus();
-  const what = 'Barra, icone, tema e nomi';
-  if (!kept) return <p className="muted small">{what}: restano in questo browser</p>;
+  const label = 'Barra, icone, tema e nomi';
+  if (!kept) return <SettingRow label={label}><span className="muted small">restano in questo browser</span></SettingRow>;
   if (s.state === 'failed') {
     return (
-      <p className="small sync-line">{what}: non salvati{s.offline ? ': senza rete' : ''}
-        <button className="link" onClick={retryPrefsSync}>Riprova</button></p>
+      <SettingRow label={label}>
+        <span className="small">non salvati{s.offline ? ': senza rete' : ''}</span>
+        <button className="link" onClick={retryPrefsSync}>Riprova</button>
+      </SettingRow>
     );
   }
-  const said = s.state === 'pending' ? 'in attesa di salvare' : s.state === 'saved' ? `salvati sull'account${s.at ? ` alle ${s.at}` : ''}` : 'in attesa di salvare';
-  return <p className="muted small">{what}: {said}</p>;
+  const said = s.state === 'saved' ? `salvati sull'account${s.at ? ` alle ${s.at}` : ''}` : 'in attesa di salvare';
+  return <SettingRow label={label}><span className="muted small">{said}</span></SettingRow>;
 }
 
 /**
@@ -86,8 +98,8 @@ function People({ account }: { account: AccountId }) {
   const people = [...shared].sort(([x], [y]) => Number(mine.has(y)) - Number(mine.has(x)) || Number(y === account) - Number(x === account)
     || shortName(x).localeCompare(shortName(y), 'it', { sensitivity: 'base' }));
   return (
-    <div role="group" aria-label="Persone" className="people">
-      <p className="label">Persone · il nome che vedi tu</p>
+    <div className="people">
+      <p className="muted small">Il nome che vedi tu, ovunque nell'app; lo vedi solo tu.</p>
       <ul className="people-list">
         {people.map(([who, groups]) => (
           <li key={who}>

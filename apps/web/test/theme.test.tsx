@@ -57,14 +57,14 @@ test('testSignOutAsksFirst', async () => {
 /** The settings say where the sync of the bar, icons, theme and names stands; in the demo they stay in the browser. */
 test('testSettingsSaySyncState', async () => {
   const { unmount } = renderWithSession(<SettingsView />, memorySession(PIPPO));
-  expect(screen.getByText('Barra, icone, tema e nomi: restano in questo browser')).toBeTruthy();
+  expect(screen.getByText('restano in questo browser')).toBeTruthy();
   unmount();
   const s = { ...memorySession(PIPPO), prefs: { load: async () => ({ pins: [], timeZone: deviceZone() }), save: async () => { throw new Error('offline'); } } };
   renderWithSession(<SettingsView />, s);
   const stop = startPrefsSync(PIPPO, s.prefs, 10);
-  await waitFor(() => expect(screen.getByText(/Barra, icone, tema e nomi: salvati sull'account/)).toBeTruthy());
+  await waitFor(() => expect(screen.getByText(/^salvati sull'account/)).toBeTruthy());
   saveTheme('dark');
-  expect(await screen.findByText(/Barra, icone, tema e nomi: non salvati/)).toBeTruthy();
+  expect(await screen.findByText(/^non salvati/)).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Riprova' })).toBeTruthy();
   stop();
 });

@@ -13,7 +13,7 @@ import type { Alert } from '../src/telegram/alerts.js';
 import { refreshTelegram, resetTelegram } from '../src/telegram/state.js';
 import type { TelegramStatus, TelegramStore } from '../src/telegram/store.js';
 import { whenLabel, whichAlert } from '../src/telegram/TelegramSection.js';
-import { PIPPO, PLUTO, benchBackend, chooseIn, memorySession, renderWithSession } from './memory-session.js';
+import { PIPPO, PLUTO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
 
 afterEach(() => resetTelegram());
 
@@ -64,6 +64,11 @@ function fakeTelegram(configured = true): TelegramStore & { state: TelegramStatu
   return f;
 }
 
+/** The alerts set in the bell's panel, in words (the add rows left out). */
+const set = (panel: HTMLElement) => within(panel).getAllByRole('listitem').filter(li => !li.classList.contains('alert-new') && !li.classList.contains('alert-none')).map(li => li.textContent);
+/** The + of the add rows, by name. */
+const adds = (panel: HTMLElement) => within(panel).getAllByRole('button', { name: /^Aggiungi / }).map(b => b.getAttribute('aria-label'));
+
 async function openSettings(store: TelegramStore, backend = benchBackend()) {
   await refreshTelegram(store);
   renderWithSession(<SettingsView />, { ...memorySession(PIPPO, {}, backend), telegram: store });
@@ -83,8 +88,8 @@ test('testLinkTestAndUnlinkTelegram', async () => {
   expect(open.getAttribute('href')).toBe('https://t.me/memo_land_bot?start=abc123');
   store.state = { ...store.state, linked: true };
   await refreshTelegram(store);
-  const telegram = await within(box).findByRole('checkbox', { name: /Telegram/ });
-  expect((telegram as HTMLInputElement).checked).toBe(true);
+  const telegram = await within(box).findByRole('switch', { name: 'Telegram' });
+  expect(telegram.getAttribute('aria-checked')).toBe('true');
   const upcoming = within(box).getByRole('group', { name: 'Prossime notifiche' });
   expect(within(upcoming).getByText(/Nessuna nei prossimi 7 giorni/)).toBeTruthy();
   expect(within(upcoming).getByText(/Partono dal server anche ad app chiusa, su Telegram/)).toBeTruthy();
@@ -95,7 +100,8 @@ test('testLinkTestAndUnlinkTelegram', async () => {
   await waitFor(() => expect(within(box).queryByRole('group', { name: 'Prossime notifiche' })).toBeNull());
   expect(store.state.on).toBe(false);
   expect(within(box).queryByRole('button', { name: 'Manda una prova' })).toBeNull();
-  fireEvent.click(within(box).getByRole('button', { name: 'Scollega Telegram' }));
+  fireEvent.click(within(box).getByRole('button', { name: 'Altro su Telegram' }));
+  fireEvent.click(within(box).getByRole('menuitem', { name: 'Scollega Telegram' }));
   expect(await within(box).findByRole('button', { name: 'Collega Telegram' })).toBeTruthy();
 });
 
@@ -159,8 +165,9 @@ test('testAListOfAlertsBeforeStartAndEnd', () => {
 
 /**
  * The bell opens a panel (user's choices, 2026-11-18/19): the alerts in words, each with its ×, and a dashed row that
- * adds one: «all'inizio», «prima dell'inizio» with how long, «alla fine», «prima della fine». Each change is kept at
- * once for the person; the bell lit, its hint saying what is set. Before, rows of fields with «0 minuti all'ora esatta»
+ * adds one: «all'inizio», «prima dell'inizio» with how long, «alla fine», «prima della fine». The changes go all
+ * together with ✓, and Esc drops them (user's request, 2026-11-19; before, each one was kept at once); the bell lit, its
+ * hint saying what is set. Before, rows of fields with «0 minuti all'ora esatta»
  * and ✓, under «Come in Impostazioni / Scelti qui / Nessuno». Not without a Telegram store.
  */
 test('testTheBellOpensAPanelOfAlerts', async () => {
@@ -175,16 +182,15 @@ test('testTheBellOpensAPanelOfAlerts', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
   const panel = screen.getByRole('dialog', { name: 'Avvisi' });
   expect(within(panel).getByText('Nessun avviso')).toBeTruthy();
-  expect(within(panel).queryByRole('textbox')).toBeNull();
-  chooseIn('Quando', 'beforeStart');
-  fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanto prima' }), { target: { value: '20' } });
-  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
-  chooseIn('Quando', 'beforeEnd');
-  fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanto prima' }), { target: { value: '15' } });
-  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
+  fireEvent.change(within(panel).getByRole('textbox', { name: "Quanto prima dell'inizio" }), { target: { value: '20' } });
+  fireEvent.click(within(panel).getByRole('button', { name: "Aggiungi prima dell'inizio" }));
+  fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanto prima della fine' }), { target: { value: '15' } });
+  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi prima della fine' }));
+  // Nothing kept until ✓ (user's request, 2026-11-19): the changes go all together.
+  expect(alertsOf(PIPPO)['riunione']).toBeUndefined();
+  expect(set(panel)).toEqual(["20 minuti prima dell'inizio", '15 minuti prima della fine']);
+  fireEvent.click(within(panel).getByRole('button', { name: 'Applica' }));
   expect(alertsOf(PIPPO)['riunione']).toEqual({ mode: 'here', list: [{ of: 'start', before: 20 }, { of: 'end', before: 15 }] });
-  expect(within(panel).getAllByRole('listitem').map(li => li.textContent)).toEqual(["20 minuti prima dell'inizio", '15 minuti prima della fine']);
-  fireEvent.click(within(panel).getByRole('button', { name: 'Chiudi' }));
   await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi' })).toBeNull());
   const bell = screen.getByRole('button', { name: 'Avvisi' });
   expect(bell.className).toContain(' on');
@@ -194,9 +200,17 @@ test('testTheBellOpensAPanelOfAlerts', async () => {
   const again = screen.getByRole('dialog', { name: 'Avvisi' });
   fireEvent.click(within(again).getByRole('button', { name: "Togli 20 minuti prima dell'inizio" }));
   fireEvent.click(within(again).getByRole('button', { name: 'Togli 15 minuti prima della fine' }));
-  expect(alertsOf(PIPPO)['riunione']).toBeUndefined();
   expect(within(again).getByText('Nessun avviso')).toBeTruthy();
+  // Esc drops what was changed: the two alerts are still there.
   fireEvent.keyDown(document, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi' })).toBeNull());
+  expect(alertsOf(PIPPO)['riunione']?.list).toHaveLength(2);
+  fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
+  const third = screen.getByRole('dialog', { name: 'Avvisi' });
+  fireEvent.click(within(third).getByRole('button', { name: "Togli 20 minuti prima dell'inizio" }));
+  fireEvent.click(within(third).getByRole('button', { name: 'Togli 15 minuti prima della fine' }));
+  fireEvent.click(within(third).getByRole('button', { name: 'Applica' }));
+  expect(alertsOf(PIPPO)['riunione']).toBeUndefined();
   await waitFor(() => expect(screen.getByRole('button', { name: 'Avvisi' }).className).not.toContain(' on'));
   unmount();
   renderWithSession(<ActivityDetail activityId="riunione" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
@@ -223,12 +237,10 @@ test('testTheAlertRowOfTheDetail', async () => {
   expect(row.textContent).toBe('Imposta');
   fireEvent.click(row);
   const panel = screen.getByRole('dialog', { name: 'Avvisi' });
-  chooseIn('Quando', 'beforeStart');
-  fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanto prima' }), { target: { value: '15' } });
-  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
-  chooseIn('Quando', 'end');
-  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
-  fireEvent.click(within(panel).getByRole('button', { name: 'Chiudi' }));
+  fireEvent.change(within(panel).getByRole('textbox', { name: "Quanto prima dell'inizio" }), { target: { value: '15' } });
+  fireEvent.click(within(panel).getByRole('button', { name: "Aggiungi prima dell'inizio" }));
+  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi alla fine' }));
+  fireEvent.click(within(panel).getByRole('button', { name: 'Applica' }));
   await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi' })).toBeNull());
   expect(screen.getByRole('button', { name: 'Modifica Avvisi' }).textContent).toBe("15 minuti prima dell'inizio, alla fine");
   unmount();
@@ -255,6 +267,8 @@ test('testTheBellSaysWhyItCannot', () => {
   // The notifications of this device are a channel too (2026-11-19): enough without Telegram.
   expect(alertBlock(true, { ...linked, linked: false }, true, true)).toBeNull();
   expect(alertBlock(true, null, true, true)).toBeNull();
+  // A draft is in no group: no alerts there (user's choice, 2026-11-19; before, the bell set alerts that never went).
+  expect(alertBlock(true, linked, true, true, true)).toMatch(/Le bozze non hanno avvisi/);
 });
 
 /** Without a duration there is no end: only the two on the start. */
@@ -268,8 +282,7 @@ test('testNoAlertsOnTheEndWithoutADuration', async () => {
   renderWithSession(<ActivityDetail activityId="call" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
   await screen.findByRole('heading', { name: 'Chiamata' });
   fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Quando' }));
-  expect(within(screen.getByRole('menu', { name: 'Quando' })).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(["all'inizio", "prima dell'inizio"]);
+  expect(adds(screen.getByRole('dialog', { name: 'Avvisi' }))).toEqual(["Aggiungi all'inizio", "Aggiungi prima dell'inizio"]);
 });
 
 /**
@@ -347,13 +360,13 @@ test('testTheBellOnADateWithoutAnHour', async () => {
   await screen.findByRole('heading', { name: 'Bolletta' });
   fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
   const panel = screen.getByRole('dialog', { name: 'Avvisi' });
-  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
-  chooseIn('Quando', 'before');
+  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi il giorno stesso' }));
   fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanti giorni prima' }), { target: { value: '2' } });
-  fireEvent.click(within(panel).getByRole('button', { name: 'Ora' }));
+  fireEvent.click(within(panel).getByRole('button', { name: 'Ora giorni prima' }));
   fireEvent.click(within(within(panel).getByRole('listbox', { name: 'Ore' })).getByRole('option', { name: '18:30' }));
-  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
-  expect(within(panel).getAllByRole('listitem').map(li => li.textContent)).toEqual(['2 giorni prima alle 18:30', 'il giorno stesso alle 9:00']);
+  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi giorni prima' }));
+  expect(set(panel)).toEqual(['2 giorni prima alle 18:30', 'il giorno stesso alle 9:00']);
+  fireEvent.click(within(panel).getByRole('button', { name: 'Applica' }));
   expect(alertsOf(PIPPO)['bolletta']).toEqual({ mode: 'here', list: [{ of: 'day', before: 2, at: '18:30' }, { of: 'day', before: 0, at: '09:00' }] });
 });
 
@@ -362,4 +375,45 @@ test('testANotificationTapNamesTheActivity', () => {
   expect(openedFrom('?activity=riunione&occurrence=2026-11-20T18%3A45')).toEqual({ activityId: 'riunione', occurrenceKey: '2026-11-20T18:45' });
   expect(openedFrom('?activity=idea')).toEqual({ activityId: 'idea' });
   expect(openedFrom('?capture=1')).toBeNull();
+});
+
+/**
+ * A draft has no alerts (user's choice, 2026-11-19): the bell says to move it into a group and the detail has no
+ * «Avvisi» row. Before, the bell set alerts on a draft that never went, as the alerts are computed from the groups.
+ */
+test('testADraftHasNoAlerts', async () => {
+  localStorage.clear();
+  const backend = benchBackend();
+  backend.activities.set('bozza', { ...at('bozza', 'Test', { schedule: { start: '2999-01-01T16:35' } }), groupId: null });
+  const store = fakeTelegram();
+  store.state = { ...store.state, linked: true };
+  await refreshTelegram(store);
+  renderWithSession(<ActivityDetail activityId="bozza" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
+  await screen.findByRole('heading', { name: 'Test' });
+  expect(screen.queryByRole('button', { name: 'Modifica Avvisi' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
+  expect(within(screen.getByRole('dialog', { name: 'Avvisi' })).getByText(/Le bozze non hanno avvisi/)).toBeTruthy();
+});
+
+/**
+ * One open row per kind, each with its + (user's choice, 2026-11-19, «metti tutto aperto»); «all'inizio» and «alla
+ * fine», once in the list, have no row any more; the «prima…» rows stay, as another amount is another alert. Before, a
+ * «Quando» menu, which offered them again, and one «+ Aggiungi».
+ */
+test('testTheBellOffersStartAndEndOnce', async () => {
+  localStorage.clear();
+  const backend = benchBackend();
+  backend.activities.set('riunione', { ...at('riunione', 'Riunione', { schedule: { start: '2999-01-01T18:00', end: '2999-01-01T19:00' } }), groupId: 'inv:developers' });
+  const store = fakeTelegram();
+  store.state = { ...store.state, linked: true };
+  await refreshTelegram(store);
+  renderWithSession(<ActivityDetail activityId="riunione" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
+  await screen.findByRole('heading', { name: 'Riunione' });
+  fireEvent.click(screen.getByRole('button', { name: 'Avvisi' }));
+  const panel = screen.getByRole('dialog', { name: 'Avvisi' });
+  fireEvent.click(within(panel).getByRole('button', { name: "Aggiungi all'inizio" }));
+  expect(adds(panel)).toEqual(["Aggiungi prima dell'inizio", 'Aggiungi alla fine', 'Aggiungi prima della fine']);
+  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi alla fine' }));
+  expect(adds(panel)).toEqual(["Aggiungi prima dell'inizio", 'Aggiungi prima della fine']);
+  expect(set(panel)).toEqual(["all'inizio", 'alla fine']);
 });

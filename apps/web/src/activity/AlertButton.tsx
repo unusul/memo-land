@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import type { Activity } from '@attivita/core';
 import { MAX_ACTIVITY_ALERTS, alertListOf, alertsOf, setActivityAlert, useBarPrefs } from '../groups/barPrefs.js';
 import type { AlertAt } from '../groups/barPrefs.js';
 import { useSession } from '../session/SessionContext.js';
 import { useBackLayer } from '../shell/back.js';
 import { Icon } from '../shell/icons.js';
-import { PanelBackdrop, PanelHead, useEscape } from '../shell/PanelActions.js';
+import { PanelActions, PanelBackdrop, PanelHead, useEscape } from '../shell/PanelActions.js';
 import { MenuSelect } from '../shell/PopMenu.js';
 import { DAY_HOUR, NO_GENERAL, alertWords } from '../telegram/alerts.js';
 import { usePushOn } from '../telegram/push.js';
@@ -13,18 +14,14 @@ import { telegramOn, useTelegramStatus } from '../telegram/state.js';
 import type { TelegramStatus } from '../telegram/store.js';
 
 type Unit = 'min' | 'h' | 'd';
-/** At the start, some time before it, at the end, some time before it: the four kinds of an alert. */
-type Kind = 'start' | 'beforeStart' | 'end' | 'beforeEnd';
 const MINUTES: Record<Unit, number> = { min: 1, h: 60, d: 1440 };
 const UNITS: ReadonlyArray<readonly [Unit, string]> = [['min', 'minuti'], ['h', 'ore'], ['d', 'giorni']];
-const KINDS: ReadonlyArray<readonly [Kind, string]> = [['start', "all'inizio"], ['beforeStart', "prima dell'inizio"], ['end', 'alla fine'], ['beforeEnd', 'prima della fine']];
 
 /** The hours of a `day` alert, every half hour from 6:00 to 23:30 (user's choice, 2026-11-19). */
 const HALF_HOURS: ReadonlyArray<readonly [string, string]> = Array.from({ length: 36 }, (_, i) => {
   const t = `${String(6 + Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`;
   return [t, t.replace(/^0/, '')] as const;
 });
-const DAY_KINDS: ReadonlyArray<readonly ['same' | 'before', string]> = [['same', 'il giorno stesso'], ['before', 'giorni prima']];
 
 const shortBefore = (m: number) => (m % 1440 === 0 ? `${m / 1440} g` : m % 60 === 0 ? `${m / 60} h` : `${m} min`);
 const RANK = { day: 0, start: 1, end: 2 } as const;
@@ -45,8 +42,11 @@ export function alertSummary(list: AlertAt[]): string {
  * and its panel says the reason instead of the bell missing without a word. Since the push (2026-11-19) a channel on
  * is enough: Telegram, or the notifications of this device (`device`).
  */
-export function alertBlock(hasStore: boolean, status: TelegramStatus | null | undefined, dated: boolean, device = false): string | null {
+export function alertBlock(hasStore: boolean, status: TelegramStatus | null | undefined, dated: boolean, device = false, draft = false): string | null {
   if (!hasStore) return 'Gli avvisi non sono disponibili con questo accesso.';
+  // A draft is in no group, so the alerts (computed from the groups, on the server too) never reach it (user's choice,
+  // 2026-11-19: no alerts on drafts, rather than computing them for drafts as well).
+  if (draft) return 'Le bozze non hanno avvisi: spostala in un gruppo, anche Personale.';
   if (!device) {
     if (status === undefined) return 'Controllo i canali degli avvisi…';
     if (status === null) return 'Il server non risponde ora: riprova tra poco.';
@@ -68,14 +68,22 @@ export function AlertButton({ activity: a, me, open, setOpen }: { activity: Acti
   const status = useTelegramStatus();
   const device = usePushOn();
   useBarPrefs();
-  useBackLayer(open, () => setOpen(false));
-  useEscape(open, () => setOpen(false));
+  useBackLayer(open, () => close());
+  useEscape(open, () => close());
   const when = a.props.schedule?.start ?? a.props.due;
-  const blocked = alertBlock(telegram !== undefined, status, when !== undefined, device === true);
+  const blocked = alertBlock(telegram !== undefined, status, when !== undefined, device === true, a.groupId === null);
   // A date without an hour: alerts on its day, at an hour chosen (2026-11-19).
   const dateOnly = (when?.length ?? 0) <= 10;
   const list = alertListOf(alertsOf(me)[a.id], NO_GENERAL) ?? [];
   const save = (next: AlertAt[]) => setActivityAlert(me, a.id, next.length > 0 ? { mode: 'here', list: [...next].sort(order) } : undefined);
+  // The changes wait in the panel and go all together with ✓ (user's request, 2026-11-19), as in the other panels with
+  // fields; × , Esc and the phone's back drop them. Before, each Aggiungi and each × was kept at once.
+  const [draft, setDraft] = useState<AlertAt[] | null>(null);
+  const shown = draft ?? list;
+  const change = (next: AlertAt[]) => setDraft([...next].sort(order));
+  const add = (x: AlertAt) => { if (!shown.some(y => same(x, y))) change([...shown, x]); };
+  const close = () => { setDraft(null); setOpen(false); };
+  const apply = (e: React.FormEvent) => { e.preventDefault(); if (draft) save(draft); close(); };
   return (
     <span className="attach">
       <button type="button" className={`icon-choice small${list.length > 0 ? ' on' : ''}`} aria-label="Avvisi" aria-expanded={open}
@@ -84,15 +92,17 @@ export function AlertButton({ activity: a, me, open, setOpen }: { activity: Acti
       </button>
       {open && <>
         <PanelBackdrop />
-        <div className="menu panel alert-panel" role="dialog" aria-label="Avvisi">
-          <PanelHead title="Avvisi" onCancel={() => setOpen(false)} />
+        <form className="menu panel alert-panel" role="dialog" aria-label="Avvisi" onSubmit={apply}>
+          <PanelHead title="Avvisi" onCancel={close} />
           {blocked ? <p className="alert-none"><Icon name="bellOff" size={18} /> {blocked}</p> : <>
-          <AlertList list={list} onRemove={i => save(list.filter((_, k) => k !== i))} />
-          {list.length < MAX_ACTIVITY_ALERTS && (dateOnly
-            ? <AddDayAlert onAdd={x => { if (!list.some(y => same(x, y))) save([...list, x]); }} />
-            : <AddAlert hasEnd={a.props.schedule?.end !== undefined} onAdd={x => { if (!list.some(y => same(x, y))) save([...list, x]); }} />)}
+          <AlertList list={shown} onRemove={i => change(shown.filter((_, k) => k !== i))}>
+            {dateOnly
+              ? <AddDayRows full={shown.length >= MAX_ACTIVITY_ALERTS} onAdd={add} />
+              : <AddRows hasEnd={a.props.schedule?.end !== undefined} taken={shown} full={shown.length >= MAX_ACTIVITY_ALERTS} onAdd={add} />}
+          </AlertList>
+          <PanelActions disabled={draft === null} onCancel={close} />
           </>}
-        </div>
+        </form>
       </>}
     </span>
   );
@@ -106,7 +116,8 @@ export function AlertButton({ activity: a, me, open, setOpen }: { activity: Acti
  */
 export function AlertRow({ activity: a, me, onOpen }: { activity: Activity; me: string; onOpen(): void }) {
   useBarPrefs();
-  if ((a.props.schedule?.start ?? a.props.due) === undefined) return null;
+  // Not on a draft either: it has no alerts (2026-11-19).
+  if ((a.props.schedule?.start ?? a.props.due) === undefined || a.groupId === null) return null;
   const list = alertListOf(alertsOf(me)[a.id], NO_GENERAL) ?? [];
   return (
     <>
@@ -120,78 +131,120 @@ export function AlertRow({ activity: a, me, onOpen }: { activity: Activity; me: 
 
 /**
  * The alerts set, in words, «15 minuti prima dell'inizio», each with its × (user's choice, 2026-11-19): before, rows of
- * fields, one per alert, that on a computer fell apart into three lines. Each change is kept at once.
+ * fields, one per alert, that on a computer fell apart into three lines. Each change waits for ✓ (2026-11-19).
  */
-function AlertList({ list, onRemove }: { list: AlertAt[]; onRemove(i: number): void }) {
-  if (list.length === 0) return <p className="alert-none"><Icon name="bellOff" size={18} /> Nessun avviso</p>;
+function AlertList({ list, onRemove, children }: { list: AlertAt[]; onRemove(i: number): void; children: ReactNode }) {
   return (
     <ul className="alert-list">
+      {list.length === 0 && <li className="alert-none"><Icon name="bellOff" size={18} /> Nessun avviso</li>}
       {list.map((x, i) => (
-        <li key={`${x.of}${x.before}`}>
+        <li key={`${x.of}${x.before}${x.at ?? ''}`}>
           <Icon name="bell" size={18} />
           <span>{alertWords(x)}</span>
           <button type="button" className="link" aria-label={`Togli ${alertWords(x)}`} title="Togli" onClick={() => onRemove(i)}><Icon name="trash" size={16} /></button>
         </li>
       ))}
+      {children}
     </ul>
   );
 }
 
 /**
- * One more alert: «all'inizio», «prima dell'inizio», «alla fine», «prima della fine» (user's choice, 2026-11-19: no
- * «0 minuti all'ora esatta»); how long before only for the two «prima». Without an end, no alerts on the end.
+ * One open row per kind of alert, each with its + where the alerts have their bin (user's choice, 2026-11-19, «metti
+ * tutto aperto»): «all'inizio», «… prima dell'inizio», «alla fine», «… prima della fine»; the end ones only with an end.
+ * «all'inizio» and «alla fine» leave once in the list. Before, one dashed row with a «Quando» menu, the amount, the unit
+ * and «+ Aggiungi»: its menu opened inside the panel, which grew a scroll bar.
  */
-function AddAlert({ hasEnd, onAdd }: { hasEnd: boolean; onAdd(x: AlertAt): void }) {
-  const [kind, setKind] = useState<Kind>('start');
+function AddRows({ hasEnd, taken, full, onAdd }: { hasEnd: boolean; taken: AlertAt[]; full: boolean; onAdd(x: AlertAt): void }) {
+  const has = (of: 'start' | 'end') => taken.some(x => x.of === of && x.before === 0);
+  return (
+    <>
+      {!has('start') && <AtRow words="all'inizio" full={full} onAdd={() => onAdd({ of: 'start', before: 0 })} />}
+      <BeforeRow of="start" full={full} onAdd={onAdd} />
+      {hasEnd && !has('end') && <AtRow words="alla fine" full={full} onAdd={() => onAdd({ of: 'end', before: 0 })} />}
+      {hasEnd && <BeforeRow of="end" full={full} onAdd={onAdd} />}
+    </>
+  );
+}
+
+/** The + of an add row, where an alert has its bin; off once the five are set. */
+function PlusButton({ words, disabled, full, onAdd }: { words: string; disabled?: boolean; full: boolean; onAdd(): void }) {
+  return (
+    <button type="button" className="link plus" aria-label={`Aggiungi ${words}`} title={full ? `Al massimo ${MAX_ACTIVITY_ALERTS} avvisi` : 'Aggiungi'}
+      disabled={full || disabled} onClick={onAdd}><Icon name="plus" size={16} /></button>
+  );
+}
+
+function AtRow({ words, full, onAdd }: { words: string; full: boolean; onAdd(): void }) {
+  return (
+    <li className="alert-new">
+      <Icon name="bell" size={18} />
+      <span>{words}</span>
+      <PlusButton words={words} full={full} onAdd={onAdd} />
+    </li>
+  );
+}
+
+/** «[10] [minuti ▾] prima dell'inizio» and its +. */
+function BeforeRow({ of, full, onAdd }: { of: 'start' | 'end'; full: boolean; onAdd(x: AlertAt): void }) {
   const [n, setN] = useState('10');
   const [unit, setUnit] = useState<Unit>('min');
-  const ahead = kind === 'beforeStart' || kind === 'beforeEnd';
-  const valid = !ahead || /^[1-9]\d{0,2}$/.test(n);
-  const kinds = hasEnd ? KINDS : KINDS.filter(([k]) => k === 'start' || k === 'beforeStart');
-  const add = () => onAdd({ of: kind === 'start' || kind === 'beforeStart' ? 'start' : 'end', before: ahead ? Number(n) * MINUTES[unit] : 0 });
+  const words = of === 'start' ? "prima dell'inizio" : 'prima della fine';
+  const valid = /^[1-9]\d{0,2}$/.test(n);
   return (
-    <div className="alert-add" role="group" aria-label="Aggiungi un avviso">
-      <MenuSelect<Kind> label="Quando" value={kind} options={kinds} onChange={setKind} />
-      {ahead && <>
-        <input type="text" inputMode="numeric" className="alert-n" aria-label="Quanto prima" value={n}
+    <li className="alert-new">
+      <Icon name="bell" size={18} />
+      <span className="alert-fields">
+        <input type="text" inputMode="numeric" className="alert-n" aria-label={`Quanto ${words}`} value={n}
           onChange={e => setN(e.target.value.replace(/\D/g, '').slice(0, 3))} />
-        <MenuSelect<Unit> label="Unità" value={unit} options={UNITS} onChange={setUnit} />
-      </>}
-      <button type="button" className="btn alert-plus" disabled={!valid} onClick={add}><Icon name="plus" size={16} /> Aggiungi</button>
-    </div>
+        <MenuSelect<Unit> label={`Unità ${words}`} value={unit} options={UNITS} onChange={setUnit} />
+        <span>{words}</span>
+      </span>
+      <PlusButton words={words} disabled={!valid} full={full} onAdd={() => onAdd({ of, before: Number(n) * MINUTES[unit] })} />
+    </li>
   );
 }
 
 /**
- * One more alert for a date without an hour (user's choice, 2026-11-19): «il giorno stesso» or some «giorni prima», at an
- * hour of a menu every half hour. Before, the bell could not be used there: «Questa attività non ha un'ora».
+ * The open rows of a date without an hour (user's choices, 2026-11-19): «il giorno stesso alle [9:00]» and «[1] giorni
+ * prima alle [9:00]», each with its +. Before, a «Quando» menu between the two.
  */
-function AddDayAlert({ onAdd }: { onAdd(x: AlertAt): void }) {
-  const [kind, setKind] = useState<'same' | 'before'>('same');
+function AddDayRows({ full, onAdd }: { full: boolean; onAdd(x: AlertAt): void }) {
+  return (
+    <>
+      <DayRow before={false} full={full} onAdd={onAdd} />
+      <DayRow before full={full} onAdd={onAdd} />
+    </>
+  );
+}
+
+function DayRow({ before, full, onAdd }: { before: boolean; full: boolean; onAdd(x: AlertAt): void }) {
   const [n, setN] = useState('1');
   const [at, setAt] = useState(DAY_HOUR);
   // The hours open right under their button, as wide as it, a short list that scrolls inside and pushes the panel down
   // (user's choices, 2026-11-19): a menu of 36 over the page overflowed the panel, which then scrolled; a grid of 36
   // buttons was «bruttino»; a list as wide as the panel, «così grande».
   const [picking, setPicking] = useState(false);
-  const valid = kind === 'same' || /^[1-9]\d?$/.test(n);
+  const words = before ? 'giorni prima' : 'il giorno stesso';
+  const valid = !before || /^[1-9]\d?$/.test(n);
   return (
-    <div className="alert-add" role="group" aria-label="Aggiungi un avviso">
-      <MenuSelect<'same' | 'before'> label="Quando" value={kind} options={DAY_KINDS} onChange={setKind} />
-      {kind === 'before' && <input type="text" inputMode="numeric" className="alert-n" aria-label="Quanti giorni prima" value={n}
-        onChange={e => setN(e.target.value.replace(/\D/g, '').slice(0, 2))} />}
-      <span className="small">alle</span>
-      <span className="hour-pick">
-        <button type="button" className="btn select" aria-label="Ora" aria-expanded={picking} onClick={() => setPicking(p => !p)}>{at.replace(/^0/, '')} ▾</button>
-        {picking && (
-          <span className="hour-list" role="listbox" aria-label="Ore"
-            ref={el => el?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'center' })}>
-            {HALF_HOURS.map(([v, t]) => <button key={v} type="button" role="option" aria-selected={v === at} onClick={() => { setAt(v); setPicking(false); }}>{t}</button>)}
-          </span>
-        )}
+    <li className="alert-new">
+      <Icon name="bell" size={18} />
+      <span className="alert-fields">
+        {before && <input type="text" inputMode="numeric" className="alert-n" aria-label="Quanti giorni prima" value={n}
+          onChange={e => setN(e.target.value.replace(/\D/g, '').slice(0, 2))} />}
+        <span>{words} alle</span>
+        <span className="hour-pick">
+          <button type="button" className="btn select" aria-label={`Ora ${words}`} aria-expanded={picking} onClick={() => setPicking(p => !p)}>{at.replace(/^0/, '')} ▾</button>
+          {picking && (
+            <span className="hour-list" role="listbox" aria-label="Ore"
+              ref={el => el?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'center' })}>
+              {HALF_HOURS.map(([v, t]) => <button key={v} type="button" role="option" aria-selected={v === at} onClick={() => { setAt(v); setPicking(false); }}>{t}</button>)}
+            </span>
+          )}
+        </span>
       </span>
-      <button type="button" className="btn alert-plus" disabled={!valid}
-        onClick={() => onAdd({ of: 'day', before: kind === 'same' ? 0 : Number(n), at })}><Icon name="plus" size={16} /> Aggiungi</button>
-    </div>
+      <PlusButton words={words} disabled={!valid} full={full} onAdd={() => onAdd({ of: 'day', before: before ? Number(n) : 0, at })} />
+    </li>
   );
 }

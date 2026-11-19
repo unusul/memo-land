@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { useBackLayer } from './back.js';
 import { PanelBackdrop, PanelHead, useEscape } from './PanelActions.js';
@@ -27,24 +28,51 @@ export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chi
 }) {
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState({ end: false, up: false });
+  // A menu of choices inside a panel floats over the screen at its button (user's remark, 2026-11-19, «brutto brutto»):
+  // inside the panel, which scrolls, it made the panel longer and a scroll bar came up beside it.
+  const [floating, setFloating] = useState<React.CSSProperties | null>(null);
   const box = useRef<HTMLSpanElement>(null);
+  const floated = useRef<HTMLSpanElement>(null);
   const close = () => setOpen(false);
   // The phone's back cancels an open panel, as its Annulla.
   useBackLayer(open && panel, close);
   useEscape(open && panel, close);
   useEffect(() => {
     if (!open) return;
-    // All of it in sight: a menu opened low on the page would end under the bottom bar.
-    box.current?.querySelector('.menu')?.scrollIntoView?.({ block: 'nearest' });
+    // All of it in sight: a menu opened low on the page would end under the bottom bar. Not a floating one: it is placed
+    // in sight already, and scrolling its panel would close it.
+    if (!floating) box.current?.querySelector('.menu')?.scrollIntoView?.({ block: 'nearest' });
     // A panel closes with its own Annulla or Applica: a press outside does nothing there (user's choice, 2026-11-17).
     if (panel) return;
-    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node) && !floated.current?.contains(e.target as Node)) setOpen(false); };
     document.addEventListener('pointerdown', away);
     return () => document.removeEventListener('pointerdown', away);
   }, [open]);
 
+  // A floating menu stays where its button was: the panel scrolling or the window changing size closes it.
+  useEffect(() => {
+    if (!open || !floating) return;
+    const shut = () => setOpen(false);
+    const scroller = box.current?.closest('.menu.panel');
+    scroller?.addEventListener('scroll', shut);
+    window.addEventListener('resize', shut);
+    return () => { scroller?.removeEventListener('scroll', shut); window.removeEventListener('resize', shut); };
+  }, [open, floating]);
+
   function toggle() {
     const at = box.current?.getBoundingClientRect();
+    if (!panel && at && box.current?.parentElement?.closest('.menu.panel')) {
+      const up = window.innerHeight - at.bottom < roomBelow && at.top >= roomBelow;
+      const end = at.left + ROOM_RIGHT > window.innerWidth - 8;
+      setFloating({
+        position: 'fixed', zIndex: 40,
+        ...(up ? { top: 'auto', bottom: window.innerHeight - at.top + 6 } : { top: at.bottom + 6, bottom: 'auto' }),
+        ...(end ? { left: 'auto', right: window.innerWidth - at.right } : { left: at.left, right: 'auto' }),
+      });
+      setOpen(o => !o);
+      return;
+    }
+    setFloating(null);
     // Upwards only when it fits there, below the page's own top (the header stays over it): otherwise downwards, and the
     // page scrolls to show it.
     const area = box.current?.closest('.content')?.getBoundingClientRect();
@@ -55,17 +83,20 @@ export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chi
     setOpen(o => !o);
   }
 
+  const menu = (
+    <span role="menu" aria-label={menuLabel} className={['menu', panel && 'panel', place.end && 'end', place.up && 'up'].filter(Boolean).join(' ')}
+      style={floating ?? undefined} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }}>
+      {panel && <PanelHead title={menuLabel} onCancel={close} />}
+      {children(close)}
+    </span>
+  );
   return (
     <span className="attach" ref={box}>
       <button type="button" className={className} aria-label={buttonLabel} title={title} aria-haspopup="menu" aria-expanded={open} onClick={toggle}>{label}</button>
       {open && panel && <PanelBackdrop />}
-      {open && (
-        <span role="menu" aria-label={menuLabel} className={['menu', panel && 'panel', place.end && 'end', place.up && 'up'].filter(Boolean).join(' ')}
-          onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }}>
-          {panel && <PanelHead title={menuLabel} onCancel={close} />}
-          {children(close)}
-        </span>
-      )}
+      {open && !floating && menu}
+      {/* On the page, not in the panel: a panel is moved with a transform, and inside it «fixed» would count from the panel. */}
+      {open && floating && createPortal(<span className="attach floated" ref={floated}>{menu}</span>, document.body)}
     </span>
   );
 }

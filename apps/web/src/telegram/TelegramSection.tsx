@@ -5,6 +5,9 @@ import { telegramLink } from './store.js';
 import type { TelegramStatus, TelegramStore } from './store.js';
 import { disablePush, enablePush, pushSupport, usePushOn } from './push.js';
 import { useTelegramAlerts } from './useTelegramAlerts.js';
+import { SettingRow, SettingsCard, Switch } from '../settings/Card.js';
+import { Icon } from '../shell/icons.js';
+import { PopMenu } from '../shell/PopMenu.js';
 import { alertWords } from './alerts.js';
 import type { AlertEntry } from './alerts.js';
 
@@ -18,17 +21,16 @@ const LINK_WAIT_MS = 15 * 60_000;
 /**
  * Impostazioni → Avvisi (user's choices, 2026-11-19): one switch per channel, «Telegram» and «Notifiche su questo
  * dispositivo»; every alert goes on all those on. The server computes and sends the alerts (alerts-tick), with the
- * app closed too. Before (2026-11-18) only «Avvisi su Telegram», with alerts the app handed to the server. Not shown
- * where there is no server.
+ * app closed too. A card of rows, as the rest of Impostazioni; Scollega Telegram under its ⋯. Before (2026-11-18) only
+ * «Avvisi su Telegram», with alerts the app handed to the server. Not shown where there is no server.
  */
 export function TelegramSection() {
   const { telegram } = useSession();
   if (!telegram) return null;
   return (
-    <div role="group" aria-label="Avvisi" className="telegram stack">
-      <p className="label">Avvisi</p>
+    <SettingsCard title="Avvisi" className="telegram">
       <AlertsBody store={telegram} />
-    </div>
+    </SettingsCard>
   );
 }
 
@@ -48,7 +50,7 @@ function AlertsBody({ store }: { store: TelegramStore }) {
   );
 }
 
-/** «Collega Telegram», then the channel's switch and «Scollega Telegram». */
+/** «Collega Telegram», then the channel's switch, with Scollega under ⋯. */
 function TelegramChannel({ store, status }: { store: TelegramStore; status: TelegramStatus | null | undefined }) {
   const [link, setLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -68,38 +70,40 @@ function TelegramChannel({ store, status }: { store: TelegramStore; status: Tele
     try { await what(); await refreshTelegram(store); } catch { setProblem('Non riesco a raggiungere il server: riprova tra poco.'); }
     setBusy(false);
   };
+  const error = problem && <p className="error small" role="alert">{problem}</p>;
 
-  if (status === undefined) return <p className="muted small">Telegram: controllo…</p>;
+  if (status === undefined) return <SettingRow label="Telegram"><span className="muted small">controllo…</span></SettingRow>;
   if (status === null) {
-    return <p className="small">Telegram non raggiungibile ora. <button type="button" className="link" onClick={() => void refreshTelegram(store)}>Riprova</button></p>;
+    return <SettingRow label="Telegram" hint="Non raggiungibile ora"><button type="button" className="link" onClick={() => void refreshTelegram(store)}>Riprova</button></SettingRow>;
   }
-  if (!status.configured) return <p className="muted small">Telegram: il bot di memo-land non è ancora configurato su questo server.</p>;
+  if (!status.configured) return <SettingRow label="Telegram" hint="Il bot di memo-land non è ancora configurato su questo server" />;
   if (!status.linked) {
     return (
       <>
-        <p className="muted small">Telegram: un messaggio per quello che scegli con la campanella dell'attività.</p>
-        {link ? <>
-          <a className="btn primary" href={link} target="_blank" rel="noreferrer">Apri Telegram</a>
-          <p className="muted small">Premi Avvia nella chat del bot e torna qui: si collega entro un minuto.</p>
-          <button type="button" className="link" onClick={() => setLink(null)}>Annulla</button>
-        </> : (
-          <button type="button" className="btn" disabled={busy} onClick={() => void act(async () => {
-            const got = await store.linkCode();
-            setLink(got ? telegramLink(got.bot, got.code) : null);
-          })}>Collega Telegram</button>
-        )}
-        {problem && <p className="error small" role="alert">{problem}</p>}
+        <SettingRow label="Telegram" hint={link ? 'Premi Avvia nella chat del bot e torna qui: si collega entro un minuto' : 'Un messaggio per quello che scegli con la campanella'}>
+          {link ? <>
+            <a className="btn primary" href={link} target="_blank" rel="noreferrer">Apri Telegram</a>
+            <button type="button" className="link" onClick={() => setLink(null)}>Annulla</button>
+          </> : (
+            <button type="button" className="btn" disabled={busy} onClick={() => void act(async () => {
+              const got = await store.linkCode();
+              setLink(got ? telegramLink(got.bot, got.code) : null);
+            })}>Collega Telegram</button>
+          )}
+        </SettingRow>
+        {error}
       </>
     );
   }
   return (
     <>
-      <label className="channel">
-        <input type="checkbox" checked={status.on !== false} disabled={busy} onChange={e => { const on = e.target.checked; void act(() => store.setOn(on)); }} />
-        <span>Telegram<span className="small muted">{status.bot ? <> · @{status.bot}</> : ''}</span></span>
-      </label>
-      <button type="button" className="link small" disabled={busy} onClick={() => void act(() => store.unlink())}>Scollega Telegram</button>
-      {problem && <p className="error small" role="alert">{problem}</p>}
+      <SettingRow label="Telegram" hint={status.bot ? `@${status.bot}` : undefined}>
+        <Switch label="Telegram" on={status.on !== false} disabled={busy} onChange={on => void act(() => store.setOn(on))} />
+        <PopMenu className="icon-choice small" buttonLabel="Altro su Telegram" title="Altro" label={<Icon name="more" size={18} />} menuLabel="Altro su Telegram" roomBelow={80}>
+          {close => <button type="button" role="menuitem" disabled={busy} onClick={() => { close(); void act(() => store.unlink()); }}>Scollega Telegram</button>}
+        </PopMenu>
+      </SettingRow>
+      {error}
     </>
   );
 }
@@ -112,9 +116,10 @@ function DeviceChannel({ store, on }: { store: TelegramStore; on: boolean | unde
   const support = pushSupport();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  if (support === 'no-key') return <p className="muted small">Le notifiche sul dispositivo non sono ancora configurate su questo server.</p>;
-  if (support === 'install') return <p className="muted small">Su iPhone le notifiche arrivano solo con memo-land nella schermata Home: Condividi → Aggiungi alla schermata Home, poi aprila da lì.</p>;
-  if (support === 'unsupported') return <p className="muted small">Questo browser non riceve notifiche.</p>;
+  const label = 'Notifiche su questo dispositivo';
+  if (support === 'no-key') return <SettingRow label={label} hint="Non ancora configurate su questo server" />;
+  if (support === 'install') return <SettingRow label={label} hint="Su iPhone solo con memo-land nella schermata Home: Condividi → Aggiungi alla schermata Home, poi aprila da lì" />;
+  if (support === 'unsupported') return <SettingRow label={label} hint="Questo browser non riceve notifiche" />;
   async function toggle(next: boolean) {
     setBusy(true); setProblem(null);
     try {
@@ -128,10 +133,9 @@ function DeviceChannel({ store, on }: { store: TelegramStore; on: boolean | unde
   }
   return (
     <>
-      <label className="channel">
-        <input type="checkbox" checked={on === true} disabled={busy || on === undefined} onChange={e => void toggle(e.target.checked)} />
-        <span>Notifiche su questo dispositivo</span>
-      </label>
+      <SettingRow label={label}>
+        <Switch label={label} on={on === true} disabled={busy || on === undefined} onChange={next => void toggle(next)} />
+      </SettingRow>
       {problem && <p className="error small" role="alert">{problem}</p>}
     </>
   );
@@ -158,10 +162,9 @@ function TestMessage({ store }: { store: TelegramStore }) {
     setBusy(false);
   }
   return (
-    <p className="test-row">
+    <SettingRow label="Prova" hint={said ? <span role="status">{said}</span> : 'Un messaggio su ogni canale acceso'}>
       <button type="button" className="btn" disabled={busy} onClick={() => void send()}>Manda una prova</button>
-      {said && <span role="status" className="small muted">{said}</span>}
-    </p>
+    </SettingRow>
   );
 }
 

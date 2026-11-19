@@ -227,6 +227,10 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .attach .menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 200px; display: grid; padding: 6px;
   background: var(--raised); border: 1.5px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18) }
 .attach .menu.end { left: auto; right: 0 }
+/* A menu of choices opened in a panel floats on the page (PopMenu, 2026-11-19): its holder takes no room, or the page
+   grew by a line and a scroll bar came up. */
+/* Over the panels (z-index 20): being fixed, the holder makes its own layer, and without a z-index the panel covered it. */
+.attach.floated { position: fixed; top: 0; left: 0; z-index: 40; width: 0; height: 0 }
 .attach .menu.up { top: auto; bottom: calc(100% + 6px) }
 .attach .menu > button { min-height: 44px; border: 0; background: none; color: var(--fg); text-align: left; padding: 8px 12px; border-radius: 8px; font: inherit; cursor: pointer }
 .attach .menu > button:hover, .attach .menu > button:focus-visible { background: var(--surface-2) }
@@ -240,7 +244,10 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .attach .menu > button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
 /* A date in a menu: the shortcuts and the month, as in the forms. */
 /* Never wider than the panel holding it (2026-11-17: 320px stuck out of a 306px panel on a phone). */
-.attach .menu .cal { width: min(320px, calc(100vw - 48px), 100%) }
+/* In a small menu (+ Scadenza) the month takes 320px or the screen less its margins: with «100%» too (2026-11-17) it
+   shrank to the menu's 200px minimum, as the menu takes the width of what it holds, and two-digit days broke onto two
+   lines (user's bug, 2026-11-19). A panel keeps its own rule below, as wide as the panel. */
+.attach .menu .cal { width: min(320px, calc(100vw - 48px)) }
 /* A panel with fields (user's choice, 2026-11-18): a sheet from the bottom on a phone, a window in the middle of the page
    on a wide screen (right of the 220px menu, or it looked off the page; and below the 70px header, with as much room above as below; 2026-11-18). Was: in the middle on a wide
    screen; before, under what was tapped. Fixed to the screen, over the dimmed page (.panel-backdrop, z-index 19). */
@@ -296,9 +303,8 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .attach .menu .menu-note { padding: 8px 12px; color: var(--muted) }
 /* The bell's panel (user's choices, 2026-11-18): the three modes, then a row for each alert: start or end, how much,
    the unit, «prima», the x. */
-/* The bell's panel (2026-11-19): the alerts in words, each with its ×, and one dashed row that adds one more. */
+/* The bell's panel (2026-11-19): the alerts in words, each with its bin, then one open row per kind with its +. */
 .alert-list { list-style: none; margin: 0; padding: 0 }
-.alert-add > .small { line-height: 36px }
 .hour-pick { display: inline-flex; flex-direction: column; gap: 4px }
 .hour-list { display: grid; max-height: 180px; overflow-y: auto; overscroll-behavior: contain; padding: 4px;
   border: 1px solid var(--line); border-radius: 10px; background: var(--surface) }
@@ -314,11 +320,16 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .alert-list li .link:hover { color: var(--bad); background: var(--bad-soft) }
 .alert-none { color: var(--muted); padding: 8px 2px }
 .alert-none > svg { flex: none }
-.alert-add { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; margin-top: 12px; padding: 10px; border: 1px dashed var(--line); border-radius: 12px }
-/* As tall as the icons at the top right (user's choice, 2026-11-19). */
-.alert-add .btn { min-height: 36px; padding: 0 10px; font-size: .9rem }
-.alert-add .alert-n { width: 3.5em; height: 36px; min-height: 36px; padding: 0 4px; text-align: center }
-.alert-add .alert-plus { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
+/* The add rows (2026-11-19, «metti tutto aperto»): in the same list as the alerts, a muted bell, the fields, and the +
+   where the alerts have their bin. */
+.alert-list li.alert-new > svg { color: var(--muted) }
+.alert-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 6px }
+.alert-fields .btn { min-height: 36px; padding: 0 10px; font-size: .9rem }
+.alert-fields .alert-n { width: 3.5em; height: 36px; min-height: 36px; padding: 0 4px; text-align: center }
+.alert-list li.alert-new { padding-top: 4px; padding-bottom: 4px }
+.alert-list li .link.plus { color: var(--accent) }
+.alert-list li .link.plus:hover { color: var(--accent); background: var(--accent-soft) }
+.alert-list li .link.plus:disabled { opacity: .4; cursor: default; background: none }
 .chip[aria-pressed="true"] { border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft) }
 [role="group"] .chip[aria-pressed="true"] { background: var(--accent); color: var(--surface) }
 .chip .n { font-size: .7rem; color: var(--muted); margin-left: 4px }
@@ -545,10 +556,21 @@ textarea { width: 100%; resize: vertical }
 .month-grid .strip.done { color: var(--muted); text-decoration: line-through }
 .month-grid .more { padding-left: 4px; font-size: .72rem; color: var(--muted) }
 /* Impostazioni → Avvisi su Telegram: Manda una prova and the next alerts, as they will arrive (2026-11-19). */
-/* One switch per channel (2026-11-19): «Telegram», «Notifiche su questo dispositivo». */
-.telegram .channel { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer }
-.telegram .channel input { width: 20px; height: 20px; margin: 0; accent-color: var(--marker) }
-.telegram > button.link { justify-self: start }
+/* Impostazioni in cards (2026-11-19): a title, then rows with the label on the left and the control on the right. */
+.settings-card { display: grid; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 14px 6px }
+.settings-card > h3 { margin: 10px 0 4px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted) }
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 6px 0; border-top: 1px solid var(--line) }
+.settings-card > h3 + .setting-row { border-top: 0 }
+.setting-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere }
+.setting-value { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 62%; text-align: right; overflow-wrap: anywhere }
+.settings-card .people-list li:last-child { border-bottom: 0 }
+.settings-card .upcoming { border-top: 1px solid var(--line); padding-top: 8px }
+.switch { position: relative; flex: none; width: 46px; height: 28px; padding: 0; border: 0; border-radius: 14px; background: var(--line); cursor: pointer; transition: background .15s }
+.switch[aria-checked=true] { background: var(--marker) }
+.switch .knob { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .3); transition: left .15s }
+.switch[aria-checked=true] .knob { left: 21px }
+.switch:disabled { opacity: .5; cursor: default }
+.switch:focus-visible { outline: 2px solid var(--marker); outline-offset: 2px }
 .telegram .test-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 }
 .telegram .upcoming ul { list-style: none; margin: 0; padding: 0 }
 .telegram .upcoming li { display: grid; gap: 2px; padding: 7px 0; border-top: 1px solid var(--line); font-size: .9rem }
