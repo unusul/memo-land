@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, test } from 'vitest';
 import { setClosesItself } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
@@ -15,23 +15,28 @@ import { benchBackend, memorySession, renderWithSession } from './memory-session
 
 beforeEach(() => localStorage.clear());
 
-/** The switch, before the star, on an activity with Data e ora; saved with the time it was switched on. */
+/**
+ * The switch, in ⋯ (2026-11-19), on an activity with Data e ora; saved with the time it was switched on. Once on, its
+ * icon shows lit in the top row too.
+ */
 test('testSwitchOnAnActivityWithATime', async () => {
   const s = memorySession();
   renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Controllo backup' });
-  const sw = screen.getByRole('button', { name: 'Si chiude da sola' });
+  expect(screen.queryByRole('button', { name: 'Si chiude da sola' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Altro' }));
+  const sw = within(screen.getByRole('menu', { name: 'Altro' })).getByRole('button', { name: 'Si chiude da sola' });
   expect(sw.getAttribute('aria-pressed')).toBe('false');
-  expect(sw.nextElementSibling?.querySelector('button')?.getAttribute('aria-label')).toBe("Riga nell'Agenda");
   fireEvent.click(sw);
   await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.closesItself?.since).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Si chiude da sola' }).getAttribute('aria-pressed')).toBe('true'));
+  await waitFor(() => expect(screen.getAllByRole('button', { name: 'Si chiude da sola' }).every(b => b.getAttribute('aria-pressed') === 'true')).toBe(true));
 });
 
 /** Without a time there is no moment to close at: no switch. */
 test('testNoSwitchWithoutATime', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
   await screen.findByDisplayValue('app gestione core');
+  fireEvent.click(screen.getByRole('button', { name: 'Altro' }));
   expect(screen.queryByRole('button', { name: 'Si chiude da sola' })).toBeNull();
 });
 

@@ -59,6 +59,17 @@ export function userClick(name: string | RegExp): void {
   fireEvent.click(screen.getByRole('button', { name }));
 }
 
+/** The strip of icons opened by ⋯ (Altro) in the detail's top row. */
+export function openMore(): HTMLElement {
+  fireEvent.click(screen.getByRole('button', { name: 'Altro' }));
+  return screen.getByRole('menu', { name: 'Altro' });
+}
+
+/** Opens ⋯ (Altro) in the detail's top row and taps the icon `name` there. */
+export function fromMore(name: string): void {
+  fireEvent.click(within(openMore()).getByRole('button', { name }));
+}
+
 export function userType(el: HTMLElement, text: string): void {
   fireEvent.change(el, { target: { value: text } });
 }

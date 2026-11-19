@@ -211,6 +211,11 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .cal-grid button[aria-current="date"] { color: var(--accent); font-weight: 700; box-shadow: inset 0 0 0 1px var(--accent) }
 .cal-grid button[aria-pressed="true"] { background: var(--accent); color: var(--surface) }
 .row-end { display: inline-flex; align-items: center; gap: 8px; margin-left: auto }
+/* With every switch on, the detail's icons go to a second line instead of past the screen's edge (2026-11-19). */
+.detail > header .row-end { flex-wrap: wrap; justify-content: flex-end; min-width: 0 }
+/* ⋯ of the detail: the same icons, in a row (2026-11-19). */
+.attach .menu:has(> .icon-strip) { min-width: 0 }
+.icon-strip { display: flex; gap: 6px }
 .highlight[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
 .highlight[aria-pressed="true"] svg { fill: currentColor }
 /* «Si chiude da sola», on: lit as the switches are. */
@@ -272,21 +277,45 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .attachments .attachment { display: flex; align-items: flex-start; gap: 8px }
 .attachments .attachment-remove { width: 30px; height: 30px; flex: none }
 .thumb-open { padding: 0; border: 0; background: none; cursor: zoom-in }
-.viewer { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 56px 16px 16px; pointer-events: none }
-.viewer img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; pointer-events: auto }
-.viewer .viewer-close { position: fixed; top: 12px; right: 12px; pointer-events: auto }
+/* The image as wide as the screen allows, and a tall one scrolls inside the viewer, wheel or finger (user's bug,
+   2026-11-19: it was shrunk to fit the screen and could not scroll). Centred when it fits; the auto margins drop to 0
+   when it does not, so its top stays reachable. A darker veil than the panels', so the image stands out. */
+.viewer { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; overflow: auto; overscroll-behavior: contain;
+  padding: 68px 16px 16px; background: rgb(0 0 0 / .6) }
+.viewer img { flex: none; max-width: 100%; height: auto; margin: auto 0; border-radius: 10px }
+/* Light on the dark veil, in both themes: the × was a dark button on a dark page and could hardly be seen. Clear of a
+   computer's scroll bar on the right. */
+.viewer .viewer-close { position: fixed; top: 12px; right: 24px; z-index: 1; width: 44px; height: 44px; border: 0; border-radius: 999px;
+  background: #fff; color: #111; box-shadow: 0 2px 10px rgb(0 0 0 / .4) }
+.viewer .viewer-close:hover { background: #e8e8ee; color: #111 }
 .panel-backdrop { position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / .35) }
 .attach .menu.panel .form { flex-wrap: wrap }
 .attach .menu .menu-note { padding: 8px 12px; color: var(--muted) }
 /* The bell's panel (user's choices, 2026-11-18): the three modes, then a row for each alert: start or end, how much,
    the unit, «prima», the x. */
-.alert-form { display: grid; gap: 10px }
-.alert-modes { flex-wrap: wrap; gap: 6px }
-.alert-modes .chip[aria-checked="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent) }
-.alert-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px }
-.alert-rows li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line) }
-.alert-rows li .link { margin-left: auto }
-.alert-n { width: 4.5em; text-align: center }
+/* The bell's panel (2026-11-19): the alerts in words, each with its ×, and one dashed row that adds one more. */
+.alert-list { list-style: none; margin: 0; padding: 0 }
+.alert-add > .small { line-height: 36px }
+.hour-pick { display: inline-flex; flex-direction: column; gap: 4px }
+.hour-list { display: grid; max-height: 180px; overflow-y: auto; overscroll-behavior: contain; padding: 4px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface) }
+.hour-list button { min-height: 32px; border: 0; border-radius: 8px; background: none; color: var(--fg); font: inherit; font-size: .9rem; text-align: left; padding: 0 8px; cursor: pointer }
+.hour-list button:hover { background: var(--surface-2) }
+.hour-list button[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
+.alert-list li, .alert-none { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; padding: 0 6px; border-bottom: 1px solid var(--line) }
+/* A row lights up under the pointer; its bin, not a ×, so it does not look like the panel's close (2026-11-19). */
+.alert-list li { border-radius: 8px }
+.alert-list li:hover { background: var(--surface-2) }
+.alert-list li > svg { color: var(--accent); flex: none }
+.alert-list li .link { margin-left: auto; display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; border-radius: 8px; color: var(--muted) }
+.alert-list li .link:hover { color: var(--bad); background: var(--bad-soft) }
+.alert-none { color: var(--muted); padding: 8px 2px }
+.alert-none > svg { flex: none }
+.alert-add { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; margin-top: 12px; padding: 10px; border: 1px dashed var(--line); border-radius: 12px }
+/* As tall as the icons at the top right (user's choice, 2026-11-19). */
+.alert-add .btn { min-height: 36px; padding: 0 10px; font-size: .9rem }
+.alert-add .alert-n { width: 3.5em; height: 36px; min-height: 36px; padding: 0 4px; text-align: center }
+.alert-add .alert-plus { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
 .chip[aria-pressed="true"] { border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft) }
 [role="group"] .chip[aria-pressed="true"] { background: var(--accent); color: var(--surface) }
 .chip .n { font-size: .7rem; color: var(--muted); margin-left: 4px }
@@ -492,22 +521,30 @@ textarea { width: 100%; resize: vertical }
 .group-name input { min-height: 40px; font: inherit; font-weight: 700 }
 .icon-choice:disabled { opacity: .35; cursor: default; background: var(--surface); color: var(--fg) }
 
-/* The month as Google's calendar (user's choice, 2026-11-17): rounded tiles apart, the titles cut in strips. */
-.month-name { font: 600 1.25rem/1.2 var(--display) }
+/* The month as Google's calendar (user's choice, 2026-11-17): a grid of lines, the titles cut at the cell's edge. Each
+   title in the text's own colour after a thin bar of its group's (2026-11-19, as the Agenda's rows): before, dark
+   10px titles on bands of colour, rounded tiles apart, «non si legge nulla». */
+.month-name { padding: 0; border: 0; background: none; color: var(--fg); font: 600 1.25rem/1.2 var(--display); cursor: pointer }
 .month-arrows { display: flex; gap: 6px }
 .month-title .prev svg { transform: rotate(180deg) }
-.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; touch-action: pan-y }
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0; touch-action: pan-y }
 .month-grid .wd { padding: 2px 0 4px; font-size: .78rem; color: var(--muted); text-align: center }
 .month-grid .wd.on { color: var(--accent); font-weight: 700 }
-.month-grid .cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 84px; padding: 5px 2px; border: 0; border-radius: 8px;
-  background: var(--surface); color: var(--fg); font: inherit; text-align: left; cursor: pointer; overflow: hidden }
-.month-grid .cell .n { align-self: center; min-width: 30px; margin-bottom: 3px; border-radius: 999px; font-size: .9rem; font-weight: 600; line-height: 20px; text-align: center }
+.month-grid .cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; min-height: 88px; padding: 3px 1px 4px; border: 0; border-top: 1px solid var(--line);
+  border-radius: 0; background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; overflow: hidden }
+.month-grid .cell:not(:nth-child(7n+8)) { border-left: 1px solid var(--line) }
+.month-grid .cell:hover { background: var(--surface) }
+.month-grid .cell .n { align-self: center; min-width: 24px; margin-bottom: 2px; border-radius: 999px; font-size: .78rem; font-weight: 600; line-height: 18px; text-align: center }
 .month-grid .cell[aria-current="date"] .n { background: var(--accent); color: var(--surface); font-weight: 700 }
 .month-grid .cell.other .n { color: var(--muted); opacity: .6 }
-.month-grid .strip { display: block; padding: 0 3px; border-radius: 4px; background: var(--grp); color: var(--surface); font-size: .66rem; font-weight: 600; line-height: 15px;
+.month-grid .strip { display: block; padding: 0 0 0 4px; border-left: 3px solid var(--grp); color: var(--fg); font-size: .75rem; font-weight: 500; line-height: 15px;
   white-space: nowrap; overflow: hidden; text-overflow: clip }
-.month-grid .strip.done { opacity: .45; text-decoration: line-through }
-.month-grid .more { padding-left: 3px; font-size: .66rem; color: var(--muted) }
+.month-grid .strip.done { color: var(--muted); text-decoration: line-through }
+.month-grid .more { padding-left: 4px; font-size: .72rem; color: var(--muted) }
+/* Impostazioni → Avvisi su Telegram: Manda una prova and the next alerts, as they will arrive (2026-11-19). */
+.telegram .test-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 }
+.telegram .upcoming ul { list-style: none; margin: 0; padding: 0 }
+.telegram .upcoming li { display: grid; gap: 2px; padding: 7px 0; border-top: 1px solid var(--line); font-size: .9rem }
 /* A day of the month over the page: its rows as in the list. */
 .day-sheet { max-height: 70vh; overflow-y: auto; padding: 24px 16px 16px; z-index: 30 }
 .day-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px }

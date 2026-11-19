@@ -145,7 +145,11 @@ export function setName(account: AccountId, who: AccountId, name: string): void 
  * at the start or at the end and some minutes before (0: at the time), at most five. Theirs only, as «In evidenza»;
  * absent, the activity follows Impostazioni. Saved by 0.16.0 as { when, before }: read through `alertListOf`.
  */
-export interface AlertAt { of: 'start' | 'end'; before: number }
+/**
+ * `day` (2026-11-19), for what has a date without an hour too: `before` days before its day, at the hour `at`
+ * («HH:MM»); the others count `before` in minutes.
+ */
+export interface AlertAt { of: 'start' | 'end' | 'day'; before: number; at?: string }
 export interface ActivityAlert { mode?: 'here' | 'none'; list?: AlertAt[]; when?: 'start' | 'both' | 'end' | 'none'; before?: number }
 export const MAX_ACTIVITY_ALERTS = 5;
 const alertsKey = (account: AccountId) => `attivita:alerts:${account}`;

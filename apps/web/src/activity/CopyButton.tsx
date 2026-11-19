@@ -27,10 +27,10 @@ function copyFromField(text: string): boolean {
 }
 
 /**
- * Copia, and Condividi where the system has a share menu (phones): both send the activity's content, and say for a
- * couple of seconds when something did not work. Closing the share menu without choosing is not a failure.
+ * Copia and Condividi of an activity: both send its content, and `said` tells for a couple of seconds what happened.
+ * Closing the share menu without choosing is not a failure. `canShare` only where the system has a share menu (phones).
  */
-export function CopyButton({ activity }: { activity: Activity }) {
+export function useCopyText(activity: Activity) {
   const [said, setSaid] = useState<string | null>(null);
   useEffect(() => {
     if (!said) return;
@@ -53,6 +53,12 @@ export function CopyButton({ activity }: { activity: Activity }) {
     }
   }
 
+  return { said, canShare, copy, share };
+}
+
+/** Copia, and Condividi where the system has a share menu, as two icons: the list group's page has them so. */
+export function CopyButton({ activity }: { activity: Activity }) {
+  const { said, canShare, copy, share } = useCopyText(activity);
   return (
     <span className="copy">
       <span role="status" className="small muted">{said}</span>

@@ -5,7 +5,7 @@ import type { Activity, Group } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { activityText } from '../src/activity/copyText.js';
 import { Shell } from '../src/shell/Shell.js';
-import { PIPPO, PLUTO, benchBackend, memorySession, renderWithSession, userClick } from './memory-session.js';
+import { PIPPO, PLUTO, benchBackend, fromMore, memorySession, openMore, renderWithSession } from './memory-session.js';
 
 const T = '2026-11-02T08:00:00Z';
 const writeText = vi.fn<(text: string) => Promise<void>>();
@@ -41,7 +41,7 @@ test('testActivityTextSkipsEmptyParts', () => {
 test('testCopyFromDetailWritesTheClipboardAndSaysSo', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
   await screen.findByRole('heading', { name: 'app gestione core' });
-  userClick('Copia il testo');
+  fromMore('Copia il testo');
   expect(await screen.findByText('Copiata')).toBeTruthy();
   expect(writeText).toHaveBeenCalledWith('app gestione core\nIdea avuta durante la corsa.');
 });
@@ -56,7 +56,7 @@ test('testCopyFallsBackWhenTheClipboardIsDenied', async () => {
   document.execCommand = vi.fn(() => { copied = (document.activeElement as HTMLTextAreaElement).value; return true; });
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
   await screen.findByRole('heading', { name: 'app gestione core' });
-  userClick('Copia il testo');
+  fromMore('Copia il testo');
   expect(await screen.findByText('Copiata')).toBeTruthy();
   expect(copied).toBe('app gestione core\nIdea avuta durante la corsa.');
   expect(document.querySelector('textarea[readonly]')).toBeNull();
@@ -67,7 +67,7 @@ test('testCopyFailureIsSaid', async () => {
   document.execCommand = vi.fn(() => false);
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
   await screen.findByRole('heading', { name: 'app gestione core' });
-  userClick('Copia il testo');
+  fromMore('Copia il testo');
   expect(await screen.findByText('Non sono riuscito a copiare')).toBeTruthy();
 });
 
@@ -79,7 +79,7 @@ test('testGuestCanCopy', async () => {
   backend.activities.set('riunione', { ...withList('Riunione', '', [], []), groupId: g.id, accountId: PLUTO });
   renderWithSession(<ActivityDetail activityId="riunione" onClose={() => undefined} />, memorySession(PIPPO, {}, backend));
   await screen.findByRole('heading', { name: 'Riunione' });
-  userClick('Copia il testo');
+  fromMore('Copia il testo');
   expect(await screen.findByText('Copiata')).toBeTruthy();
   expect(writeText).toHaveBeenCalledWith('Riunione');
 });
@@ -113,7 +113,7 @@ test('testListGroupCopiesFromTheListHeader', async () => {
 test('testCopiedNoticeFades', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
   await screen.findByRole('heading', { name: 'app gestione core' });
-  userClick('Copia il testo');
+  fromMore('Copia il testo');
   await screen.findByText('Copiata');
   await waitFor(() => expect(screen.queryByText('Copiata')).toBeNull(), { timeout: 3000 });
 });
@@ -125,7 +125,7 @@ test('testShareSendsTheSameText', async () => {
   try {
     renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
     await screen.findByRole('heading', { name: 'app gestione core' });
-    userClick('Condividi');
+    fromMore('Condividi');
     await waitFor(() => expect(share).toHaveBeenCalledWith({ title: 'app gestione core', text: 'app gestione core\nIdea avuta durante la corsa.' }));
     expect(screen.queryByText('Non sono riuscito a condividere')).toBeNull();
   } finally {
@@ -140,11 +140,11 @@ test('testShareCancelIsSilentOtherErrorsAreSaid', async () => {
   try {
     renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
     await screen.findByRole('heading', { name: 'app gestione core' });
-    userClick('Condividi');
+    fromMore('Condividi');
     await waitFor(() => expect(share).toHaveBeenCalled());
     expect(screen.queryByText('Non sono riuscito a condividere')).toBeNull();
     share.mockImplementation(async () => { throw new DOMException('no', 'NotAllowedError'); });
-    userClick('Condividi');
+    fromMore('Condividi');
     expect(await screen.findByText('Non sono riuscito a condividere')).toBeTruthy();
   } finally {
     delete (navigator as { share?: unknown }).share;
@@ -155,17 +155,19 @@ test('testShareCancelIsSilentOtherErrorsAreSaid', async () => {
 test('testNoShareWithoutTheSystemMenu', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
   await screen.findByRole('heading', { name: 'app gestione core' });
-  expect(screen.queryByRole('button', { name: 'Condividi' })).toBeNull();
+  expect(within(openMore()).queryByRole('button', { name: 'Condividi' })).toBeNull();
 });
 
 /**
- * The top row: the way out on the left (an arrow, «Indietro», which saves as Chiudi did), what to do with the text on
- * the right, after the star «In evidenza». Before, a text link Chiudi sat beside the copy icon.
+ * The top row: the way out on the left (an arrow, «Indietro», which saves as Chiudi did); on the right ⋯, with Copia
+ * and the switches that are off, and the star «In evidenza», the last (user's choice, 2026-11-19). Before, a text link
+ * Chiudi sat beside the copy icon; then every switch, Copia and Condividi were icons in one row, up to nine, that on a
+ * phone went past the screen's edge: not again.
  */
-test('testDetailTopRowBackLeftCopyRight', async () => {
+test('testDetailTopRowBackLeftMoreRight', async () => {
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, memorySession());
   await screen.findByRole('heading', { name: 'app gestione core' });
   expect(screen.queryByRole('button', { name: 'Chiudi' })).toBeNull();
   const buttons = within(document.querySelector('.detail > header') as HTMLElement).getAllByRole('button').map(b => b.getAttribute('aria-label'));
-  expect(buttons).toEqual(['Indietro', "Riga nell'Agenda", 'In evidenza', 'Copia il testo']);
+  expect(buttons).toEqual(['Indietro', 'Avvisi su Telegram', 'Altro', 'In evidenza']);
 });

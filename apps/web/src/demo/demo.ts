@@ -1,4 +1,5 @@
 import { InMemoryBackend, addItem, listActivityId, newActivity, toggleItem } from '@attivita/core';
+import { demoTelegram } from '../telegram/store.js';
 import type { Activity, Group, Props } from '@attivita/core';
 import { appHome } from '../appHome.js';
 import { setIcons } from '../groups/barPrefs.js';
@@ -80,6 +81,6 @@ export function openDemoSession(): OpenedSession {
   const engine = backend.session(DEMO_ACCOUNT);
   return {
     account: DEMO_ACCOUNT, primary: engine, engines: [engine], personalGroupId: PERSONAL.id, outbox: memoryOutboxStore(),
-    signOut: async () => leaveDemo(), demo: true,
+    signOut: async () => leaveDemo(), demo: true, telegram: demoTelegram(),
   };
 }

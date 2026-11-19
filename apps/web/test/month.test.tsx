@@ -111,6 +111,16 @@ test('testArrowsAndSwipeChangeMonth', async () => {
   expect(grid).toBeTruthy();
 });
 
+/** A tap on the month's name in the header goes back to the Agenda (user's choice, 2026-11-19): before, it did nothing. */
+test('testMonthNameGoesBackToTheAgenda', async () => {
+  setAgendaMode('month');
+  renderWithSession(<><TodayTitle current onClick={() => undefined} /><AgendaView onOpen={() => undefined} /></>, bench());
+  await screen.findByRole('grid', { name: 'Novembre 2026' });
+  fireEvent.click(screen.getByRole('button', { name: 'Novembre 2026' }));
+  expect(agendaMode()).toBe('list');
+  await waitFor(() => expect(screen.queryByRole('grid')).toBeNull());
+});
+
 /** A tap on a day opens its rows, as in the list; Chiudi closes them. */
 test('testTapOnADayOpensItsRows', async () => {
   const grid = await openMonth();

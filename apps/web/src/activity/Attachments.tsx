@@ -67,7 +67,7 @@ function ImageButton({ url, name }: { url: string; name: string }) {
       {open && createPortal(<>
         <PanelBackdrop />
         <div className="viewer" role="dialog" aria-modal="true" aria-label={name}>
-          <button type="button" className="icon-choice small viewer-close" aria-label="Chiudi" title="Chiudi (Esc)" onClick={close}><Icon name="close" size={18} /></button>
+          <button type="button" className="icon-choice viewer-close" aria-label="Chiudi" title="Chiudi (Esc)" onClick={close}><Icon name="close" size={22} /></button>
           <img src={url} alt={name} />
         </div>
       </>, document.body)}

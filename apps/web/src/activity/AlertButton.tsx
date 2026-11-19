@@ -5,41 +5,59 @@ import type { AlertAt } from '../groups/barPrefs.js';
 import { useSession } from '../session/SessionContext.js';
 import { useBackLayer } from '../shell/back.js';
 import { Icon } from '../shell/icons.js';
-import { PanelActions, PanelBackdrop, PanelHead, useEscape } from '../shell/PanelActions.js';
+import { PanelBackdrop, PanelHead, useEscape } from '../shell/PanelActions.js';
 import { MenuSelect } from '../shell/PopMenu.js';
+import { DAY_HOUR, NO_GENERAL, alertWords } from '../telegram/alerts.js';
 import { useTelegramStatus } from '../telegram/state.js';
+import type { TelegramStatus } from '../telegram/store.js';
 
-type Mode = 'settings' | 'here' | 'none';
 type Unit = 'min' | 'h' | 'd';
-interface Row { of: 'start' | 'end'; n: string; unit: Unit }
+/** At the start, some time before it, at the end, some time before it: the four kinds of an alert. */
+type Kind = 'start' | 'beforeStart' | 'end' | 'beforeEnd';
 const MINUTES: Record<Unit, number> = { min: 1, h: 60, d: 1440 };
 const UNITS: ReadonlyArray<readonly [Unit, string]> = [['min', 'minuti'], ['h', 'ore'], ['d', 'giorni']];
-const MODES: ReadonlyArray<readonly [Mode, string]> = [['settings', 'Come in Impostazioni'], ['here', 'Scelti qui'], ['none', 'Nessuno']];
+const KINDS: ReadonlyArray<readonly [Kind, string]> = [['start', "all'inizio"], ['beforeStart', "prima dell'inizio"], ['end', 'alla fine'], ['beforeEnd', 'prima della fine']];
 
-const rowOf = ({ of, before }: AlertAt): Row => {
-  const unit: Unit = before > 0 && before % 1440 === 0 ? 'd' : before > 0 && before % 60 === 0 ? 'h' : 'min';
-  return { of, n: String(before / MINUTES[unit]), unit };
-};
+/** The hours of a `day` alert, every half hour from 6:00 to 23:30 (user's choice, 2026-11-19). */
+const HALF_HOURS: ReadonlyArray<readonly [string, string]> = Array.from({ length: 36 }, (_, i) => {
+  const t = `${String(6 + Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`;
+  return [t, t.replace(/^0/, '')] as const;
+});
+const DAY_KINDS: ReadonlyArray<readonly ['same' | 'before', string]> = [['same', 'il giorno stesso'], ['before', 'giorni prima']];
+
 const shortBefore = (m: number) => (m % 1440 === 0 ? `${m / 1440} g` : m % 60 === 0 ? `${m / 60} h` : `${m} min`);
+const RANK = { day: 0, start: 1, end: 2 } as const;
+/** The days first, then the start and the end; the earliest first. */
+const order = (x: AlertAt, y: AlertAt) => RANK[x.of] - RANK[y.of] || y.before - x.before || (x.at ?? '').localeCompare(y.at ?? '');
+const same = (x: AlertAt, y: AlertAt) => x.of === y.of && x.before === y.before && (x.at ?? '') === (y.at ?? '');
 
-/**
- * What the bell's hint says is set (user's choice, 2026-11-18): «inizio −20 min, fine −15 min», «nessuno», «come in
- * Impostazioni (all'inizio)».
- */
-export function alertSummary(list: AlertAt[] | null, general: { start: boolean; end: boolean }): string {
-  if (list === null) {
-    const g = general.start && general.end ? "all'inizio e alla fine" : general.end ? 'alla fine' : general.start ? "all'inizio" : 'nessuno';
-    return `come in Impostazioni (${g})`;
-  }
+/** What the bell's hint says is set (user's choice, 2026-11-18): «inizio −20 min, fine −15 min», «nessuno». */
+export function alertSummary(list: AlertAt[]): string {
   if (list.length === 0) return 'nessuno';
-  return list.map(x => `${x.of === 'start' ? 'inizio' : 'fine'}${x.before ? ` −${shortBefore(x.before)}` : ''}`).join(', ');
+  return list.map(x => (x.of === 'day'
+    ? `${x.before ? `−${x.before} g` : 'giorno'} ${(x.at ?? DAY_HOUR).replace(/^0/, '')}`
+    : `${x.of === 'start' ? 'inizio' : 'fine'}${x.before ? ` −${shortBefore(x.before)}` : ''}`)).join(', ');
 }
 
 /**
- * The bell of an activity with a time (user's choices, 2026-11-18): a panel as Ripeti's with the activity's own Telegram
- * alerts: as in Impostazioni, none, or a list of up to five, each at the start or at the end and some minutes, hours or
- * days before («+ Aggiungi avviso»). The person's only, as «In evidenza»; lit when the activity has a choice of its own.
- * Before, a small menu of fixed choices. Not where there is no server (the demo).
+ * Why the bell cannot set alerts here, or null when it can (user's request, 2026-11-19): the bell is on every activity,
+ * and its panel says the reason instead of the bell missing without a word.
+ */
+export function alertBlock(hasStore: boolean, status: TelegramStatus | null | undefined, dated: boolean): string | null {
+  if (!hasStore) return 'Gli avvisi su Telegram non sono disponibili con questo accesso.';
+  if (status === undefined) return 'Controllo Telegram…';
+  if (status === null) return 'Telegram non risponde ora: riprova tra poco.';
+  if (!status.configured) return 'Il bot di memo-land non è ancora configurato su questo server.';
+  if (!status.linked) return 'Non hai collegato Telegram: collegalo in Impostazioni → Avvisi su Telegram.';
+  if (!dated) return 'Questa attività non ha una data: aggiungi una scadenza o Data e ora.';
+  return null;
+}
+
+/**
+ * The bell, on every activity (user's choices, 2026-11-18/19): a panel with the activity's Telegram alerts, up to five,
+ * or the reason they cannot be set. The person's only, as «In evidenza»; lit when it has alerts. Alerts are only those
+ * set here (2026-11-19): «Come in Impostazioni / Scelti qui / Nessuno» went with the switches of Impostazioni. Before,
+ * the bell showed only on an activity with a time and with Telegram's server.
  */
 export function AlertButton({ activity: a, me }: { activity: Activity; me: string }) {
   const { telegram } = useSession();
@@ -48,77 +66,108 @@ export function AlertButton({ activity: a, me }: { activity: Activity; me: strin
   const [open, setOpen] = useState(false);
   useBackLayer(open, () => setOpen(false));
   useEscape(open, () => setOpen(false));
-  const timed = a.props.schedule !== undefined || (a.props.due?.length ?? 0) > 10;
-  if (!telegram || !timed) return null;
-  const general = { start: status?.start ?? true, end: status?.end ?? false };
-  const saved = alertsOf(me)[a.id];
-  const list = alertListOf(saved, general);
+  const when = a.props.schedule?.start ?? a.props.due;
+  const blocked = alertBlock(telegram !== undefined, status, when !== undefined);
+  // A date without an hour: alerts on its day, at an hour chosen (2026-11-19).
+  const dateOnly = (when?.length ?? 0) <= 10;
+  const list = alertListOf(alertsOf(me)[a.id], NO_GENERAL) ?? [];
+  const save = (next: AlertAt[]) => setActivityAlert(me, a.id, next.length > 0 ? { mode: 'here', list: [...next].sort(order) } : undefined);
   return (
     <span className="attach">
-      <button type="button" className={`icon-choice small${saved ? ' on' : ''}`} aria-label="Avvisi su Telegram" aria-expanded={open}
-        title={`Avvisi: ${alertSummary(list, general)}`} onClick={() => setOpen(true)}>
+      <button type="button" className={`icon-choice small${list.length > 0 ? ' on' : ''}`} aria-label="Avvisi su Telegram" aria-expanded={open}
+        title={`Avvisi: ${alertSummary(list)}`} onClick={() => setOpen(true)}>
         <Icon name="bell" size={18} />
       </button>
       {open && <>
         <PanelBackdrop />
-        <div className="menu panel" role="dialog" aria-label="Avvisi su Telegram">
+        <div className="menu panel alert-panel" role="dialog" aria-label="Avvisi su Telegram">
           <PanelHead title="Avvisi su Telegram" onCancel={() => setOpen(false)} />
-          <AlertForm list={list} general={general} hasEnd={a.props.schedule?.end !== undefined} linked={status?.linked === true}
-            onCancel={() => setOpen(false)}
-            onSave={next => { setActivityAlert(me, a.id, next === 'settings' ? undefined : next === 'none' ? { mode: 'none' } : { mode: 'here', list: next }); setOpen(false); }} />
+          {blocked ? <p className="alert-none"><Icon name="bellOff" size={18} /> {blocked}</p> : <>
+          <AlertList list={list} onRemove={i => save(list.filter((_, k) => k !== i))} />
+          {list.length < MAX_ACTIVITY_ALERTS && (dateOnly
+            ? <AddDayAlert onAdd={x => { if (!list.some(y => same(x, y))) save([...list, x]); }} />
+            : <AddAlert hasEnd={a.props.schedule?.end !== undefined} onAdd={x => { if (!list.some(y => same(x, y))) save([...list, x]); }} />)}
+          </>}
         </div>
       </>}
     </span>
   );
 }
 
-function AlertForm({ list, general, hasEnd, linked, onCancel, onSave }: {
-  list: AlertAt[] | null; general: { start: boolean; end: boolean }; hasEnd: boolean; linked: boolean;
-  onCancel(): void; onSave(next: 'settings' | 'none' | AlertAt[]): void;
-}) {
-  const [mode, setMode] = useState<Mode>(list === null ? 'settings' : list.length === 0 ? 'none' : 'here');
-  const fromSettings: AlertAt[] = [...(general.start ? [{ of: 'start' as const, before: 0 }] : []), ...(general.end && hasEnd ? [{ of: 'end' as const, before: 0 }] : [])];
-  const first: AlertAt[] = list && list.length > 0 ? list : fromSettings.length > 0 ? fromSettings : [{ of: 'start', before: 0 }];
-  const [rows, setRows] = useState<Row[]>(() => first.map(rowOf));
-  const change = (i: number, r: Partial<Row>) => setRows(rs => rs.map((x, k) => (k === i ? { ...x, ...r } : x)));
-  const valid = rows.every(r => /^\d{1,3}$/.test(r.n));
-  const submit = () => {
-    if (mode !== 'here') return onSave(mode);
-    const seen = new Set<string>();
-    const next = rows.map((r): AlertAt => ({ of: hasEnd ? r.of : 'start', before: Number(r.n) * MINUTES[r.unit] }))
-      .filter(x => { const k = `${x.of}${x.before}`; if (seen.has(k)) return false; seen.add(k); return true; });
-    onSave(next.length > 0 ? next : 'none');
-  };
+/**
+ * The alerts set, in words, «15 minuti prima dell'inizio», each with its × (user's choice, 2026-11-19): before, rows of
+ * fields, one per alert, that on a computer fell apart into three lines. Each change is kept at once.
+ */
+function AlertList({ list, onRemove }: { list: AlertAt[]; onRemove(i: number): void }) {
+  if (list.length === 0) return <p className="alert-none"><Icon name="bellOff" size={18} /> Nessun avviso</p>;
   return (
-    <form className="alert-form" onSubmit={e => { e.preventDefault(); if (valid) submit(); }}>
-      {!linked && <p className="muted small">Collega Telegram in Impostazioni perché arrivino.</p>}
-      <div className="icon-row alert-modes" role="radiogroup" aria-label="Avvisi di questa attività">
-        {MODES.map(([m, t]) => <button key={m} type="button" role="radio" aria-checked={mode === m} className="chip" onClick={() => setMode(m)}>{t}</button>)}
-      </div>
-      {mode === 'settings' && <p className="muted small">Come in Impostazioni: {alertSummary(null, general).replace(/^come in Impostazioni \((.*)\)$/, '$1')}.</p>}
-      {mode === 'here' && <>
-        <ul className="alert-rows">
-          {rows.map((r, i) => (
-            <li key={i}>
-              <MenuSelect label={`Quando, avviso ${i + 1}`} value={hasEnd ? r.of : 'start'} options={hasEnd ? [['start', 'Inizio'], ['end', 'Fine']] as const : [['start', 'Inizio']] as const}
-                onChange={of => change(i, { of })} />
-              <input type="text" inputMode="numeric" className="alert-n" aria-label={`Quanto prima, avviso ${i + 1}`} value={r.n}
-                onChange={e => change(i, { n: e.target.value.replace(/\D/g, '').slice(0, 3) })} />
-              <MenuSelect label={`Unità, avviso ${i + 1}`} value={r.unit} options={UNITS} onChange={unit => change(i, { unit })} />
-              <span className="small">{Number(r.n) === 0 ? "all'ora esatta" : 'prima'}</span>
-              <button type="button" className="link" aria-label={`Togli l'avviso ${i + 1}`} title="Togli" onClick={() => setRows(rs => rs.filter((_, k) => k !== i))}>
-                <Icon name="close" size={16} />
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button type="button" className="add-row" disabled={rows.length >= MAX_ACTIVITY_ALERTS}
-          onClick={() => setRows(rs => [...rs, { of: 'start', n: '10', unit: 'min' }])}>
-          <Icon name="plus" size={16} /> Aggiungi avviso
-        </button>
-        {!hasEnd && <p className="muted small">Senza durata non ci sono avvisi sulla fine.</p>}
+    <ul className="alert-list">
+      {list.map((x, i) => (
+        <li key={`${x.of}${x.before}`}>
+          <Icon name="bell" size={18} />
+          <span>{alertWords(x)}</span>
+          <button type="button" className="link" aria-label={`Togli ${alertWords(x)}`} title="Togli" onClick={() => onRemove(i)}><Icon name="trash" size={16} /></button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * One more alert: «all'inizio», «prima dell'inizio», «alla fine», «prima della fine» (user's choice, 2026-11-19: no
+ * «0 minuti all'ora esatta»); how long before only for the two «prima». Without an end, no alerts on the end.
+ */
+function AddAlert({ hasEnd, onAdd }: { hasEnd: boolean; onAdd(x: AlertAt): void }) {
+  const [kind, setKind] = useState<Kind>('start');
+  const [n, setN] = useState('10');
+  const [unit, setUnit] = useState<Unit>('min');
+  const ahead = kind === 'beforeStart' || kind === 'beforeEnd';
+  const valid = !ahead || /^[1-9]\d{0,2}$/.test(n);
+  const kinds = hasEnd ? KINDS : KINDS.filter(([k]) => k === 'start' || k === 'beforeStart');
+  const add = () => onAdd({ of: kind === 'start' || kind === 'beforeStart' ? 'start' : 'end', before: ahead ? Number(n) * MINUTES[unit] : 0 });
+  return (
+    <div className="alert-add" role="group" aria-label="Aggiungi un avviso">
+      <MenuSelect<Kind> label="Quando" value={kind} options={kinds} onChange={setKind} />
+      {ahead && <>
+        <input type="text" inputMode="numeric" className="alert-n" aria-label="Quanto prima" value={n}
+          onChange={e => setN(e.target.value.replace(/\D/g, '').slice(0, 3))} />
+        <MenuSelect<Unit> label="Unità" value={unit} options={UNITS} onChange={setUnit} />
       </>}
-      <PanelActions disabled={!valid} onCancel={onCancel} />
-    </form>
+      <button type="button" className="btn alert-plus" disabled={!valid} onClick={add}><Icon name="plus" size={16} /> Aggiungi</button>
+    </div>
+  );
+}
+
+/**
+ * One more alert for a date without an hour (user's choice, 2026-11-19): «il giorno stesso» or some «giorni prima», at an
+ * hour of a menu every half hour. Before, the bell could not be used there: «Questa attività non ha un'ora».
+ */
+function AddDayAlert({ onAdd }: { onAdd(x: AlertAt): void }) {
+  const [kind, setKind] = useState<'same' | 'before'>('same');
+  const [n, setN] = useState('1');
+  const [at, setAt] = useState(DAY_HOUR);
+  // The hours open right under their button, as wide as it, a short list that scrolls inside and pushes the panel down
+  // (user's choices, 2026-11-19): a menu of 36 over the page overflowed the panel, which then scrolled; a grid of 36
+  // buttons was «bruttino»; a list as wide as the panel, «così grande».
+  const [picking, setPicking] = useState(false);
+  const valid = kind === 'same' || /^[1-9]\d?$/.test(n);
+  return (
+    <div className="alert-add" role="group" aria-label="Aggiungi un avviso">
+      <MenuSelect<'same' | 'before'> label="Quando" value={kind} options={DAY_KINDS} onChange={setKind} />
+      {kind === 'before' && <input type="text" inputMode="numeric" className="alert-n" aria-label="Quanti giorni prima" value={n}
+        onChange={e => setN(e.target.value.replace(/\D/g, '').slice(0, 2))} />}
+      <span className="small">alle</span>
+      <span className="hour-pick">
+        <button type="button" className="btn select" aria-label="Ora" aria-expanded={picking} onClick={() => setPicking(p => !p)}>{at.replace(/^0/, '')} ▾</button>
+        {picking && (
+          <span className="hour-list" role="listbox" aria-label="Ore"
+            ref={el => el?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'center' })}>
+            {HALF_HOURS.map(([v, t]) => <button key={v} type="button" role="option" aria-selected={v === at} onClick={() => { setAt(v); setPicking(false); }}>{t}</button>)}
+          </span>
+        )}
+      </span>
+      <button type="button" className="btn alert-plus" disabled={!valid}
+        onClick={() => onAdd({ of: 'day', before: kind === 'same' ? 0 : Number(n), at })}><Icon name="plus" size={16} /> Aggiungi</button>
+    </div>
   );
 }

@@ -5,7 +5,7 @@ import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { AgendaView, clearFolds } from '../src/agenda/AgendaView.js';
 import { setAgendaMode } from '../src/agenda/agendaMode.js';
 import { TodayTitle } from '../src/shell/TodayTitle.js';
-import { PIPPO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
+import { PIPPO, benchBackend, fromMore, memorySession, renderWithSession } from './memory-session.js';
 
 /*
  * «Informazione utile» and «Non mostrare in calendario» (user's choices, 2026-11-17): two switches of the detail, the
@@ -23,18 +23,24 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-/** The two switches between Riga nell'Agenda and In evidenza, which stays the last; both saved on the activity. */
+/**
+ * The two switches in ⋯ (2026-11-19), both saved on the activity; once on, each shows lit in the top row, before ⋯ and
+ * In evidenza, which stays the last.
+ */
 test('testTheTwoSwitchesOfTheDetail', async () => {
   const s = memorySession();
   renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, s);
   await screen.findByRole('heading', { name: 'Controllo backup' });
-  const row = screen.getByRole('button', { name: 'In evidenza' }).parentElement!;
-  const names = [...row.querySelectorAll('button')].map(b => b.getAttribute('aria-label'));
-  expect(names.slice(0, 5)).toEqual(['Si chiude da sola', "Riga nell'Agenda", 'Informazione utile', 'Non mostrare in calendario', 'In evidenza']);
-  fireEvent.click(screen.getByRole('button', { name: 'Informazione utile' }));
+  const names = () => [...screen.getByRole('button', { name: 'In evidenza' }).closest('.row-end')!.querySelectorAll(':scope > button, :scope > .attach > button')].map(b => b.getAttribute('aria-label'));
+  expect(names()).not.toContain('Informazione utile');
+  expect(names().slice(-2)).toEqual(['Altro', 'In evidenza']);
+  fromMore('Informazione utile');
   await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.info).toBe(true));
-  fireEvent.click(await screen.findByRole('button', { name: 'Non mostrare in calendario', pressed: false }));
+  await waitFor(() => expect(names()).toContain('Informazione utile'));
+  fromMore('Non mostrare in calendario');
   await waitFor(async () => expect((await s.primary.getActivity('backup')).activity.offCalendar).toBe(true));
+  await waitFor(() => expect(names()).toContain('Non mostrare in calendario'));
+  expect(names().slice(-2)).toEqual(['Altro', 'In evidenza']);
 });
 
 function bench(change: 'info' | 'off') {

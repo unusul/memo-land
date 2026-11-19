@@ -27,6 +27,7 @@ const SHELL_PATHS = {
   reopen: <><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4v4.5h4.5" /></>,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   bell: <><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></>,
+  bellOff: <><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 0 0 4 0" /><path d="M4 4l16 16" /></>,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   chevron: <path d="m9 6 6 6-6 6" />,
   back: <path d="M19.5 12h-15M10.5 6l-6 6 6 6" />,

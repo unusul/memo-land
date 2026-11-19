@@ -3,6 +3,7 @@ import { newActivity, setProp } from '@attivita/core';
 import type { AccountId, Activity, AgendaItem, GroupId, Instant, LocalDate } from '@attivita/core';
 import { addDays, newId, today } from '../dates.js';
 import { Icon } from '../shell/icons.js';
+import { setAgendaMode } from './agendaMode.js';
 
 /** Up to this many strips in a day; more, and one less is shown with «+N» (user's choice, 2026-11-17). */
 const MAX_STRIPS = 4;
@@ -98,12 +99,12 @@ export function MonthView({ month, setMonth, days, kindOf, struck, onDay }: {
 
 /**
  * The month's name and its arrows, in the header while the Calendar is open (user's choice, 2026-11-17): first they sat
- * over the grid, under an empty header.
+ * over the grid, under an empty header. A tap on the name goes back to the Agenda (2026-11-19), as the date does there.
  */
 export function MonthTitle({ month, setMonth }: { month: string; setMonth(month: string): void }) {
   return (
     <div className="month-title">
-      <b className="month-name">{monthLabel(month)}</b>
+      <button type="button" className="month-name" title="Torna all'Agenda" onClick={() => setAgendaMode('list')}>{monthLabel(month)}</button>
       <span className="month-arrows">
         <button type="button" className="icon-choice small prev" aria-label="Mese prima" onClick={() => setMonth(shiftMonth(month, -1))}><Icon name="chevron" size={18} /></button>
         <button type="button" className="icon-choice small" aria-label="Mese dopo" onClick={() => setMonth(shiftMonth(month, 1))}><Icon name="chevron" size={18} /></button>

@@ -25,7 +25,7 @@ import type { RowSize } from '../groups/barPrefs.js';
 import { Attachments } from './Attachments.js';
 import { Links } from './Links.js';
 import { ChecklistView } from './ChecklistView.js';
-import { CopyButton } from './CopyButton.js';
+import { CopyButton, useCopyText } from './CopyButton.js';
 import { Disclosure } from '../shell/Disclosure.js';
 import { useBackLayer } from '../shell/back.js';
 import { PanelActions, PanelBackdrop, PanelHead, useEscape } from '../shell/PanelActions.js';
@@ -364,10 +364,10 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
-        {!isNew && <span className="row-end">{a.props.schedule && canEdit && <ClosesItselfButton on={a.closesItself !== undefined} onToggle={on => void run(() => setClosesItself(a, on, localNow(), me, instantNow()))} />}<AlertButton activity={a} me={me} /><RowSizeButton id={a.id} me={me} />{a.groupId !== null && canEdit && <>
-          <FlagButton on={a.info === true} label="Informazione utile" icon="info" title="Informazione utile: da sapere, non da fare; ridotta nell'Agenda, fuori dal Calendario" onToggle={on => void run(() => setInfo(a, on, instantNow()))} />
-          <FlagButton on={a.offCalendar === true} label="Non mostrare in calendario" icon="calendarOff" title="Non mostrare in calendario: resta nell'Agenda" onToggle={on => void run(() => setOffCalendar(a, on, instantNow()))} />
-        </>}<HighlightButton id={a.id} me={me} /><CopyButton activity={a} /></span>}
+        {!isNew && <HeaderSwitches activity={a} me={me}
+          closesItself={a.props.schedule && canEdit ? on => void run(() => setClosesItself(a, on, localNow(), me, instantNow())) : undefined}
+          info={a.groupId !== null && canEdit ? on => void run(() => setInfo(a, on, instantNow())) : undefined}
+          offCalendar={a.groupId !== null && canEdit ? on => void run(() => setOffCalendar(a, on, instantNow())) : undefined} />}
       </header>}
       {asGroupList && closed && group && can(group, me, 'editActivity') && (
         <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>
@@ -473,6 +473,46 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
  * «Si chiude da sola» (2026-11-16): only on an activity with a date and time; on, the activity is marked done by itself
  * at the end of its time, a series one time after the other. For what is only to know about: «Anna al lavoro 8–17:30».
  */
+/**
+ * The icons on the right of the detail (user's choice, 2026-11-19): the bell, ⋯ and In evidenza, the last. ⋯ opens a
+ * strip with the other switches, Condividi and Copia, the same icons as before, each doing what it did; a switch that
+ * is on also shows beside the bell, so what is set is in sight. Before, all were in a row of up to nine icons, that on
+ * a phone went past the screen's edge; then for a moment ⋯ was a list of rows with words, «molto brutto».
+ */
+function HeaderSwitches({ activity: a, me, closesItself, info, offCalendar }: {
+  activity: Activity; me: string;
+  closesItself?: ((on: boolean) => void) | undefined; info?: ((on: boolean) => void) | undefined; offCalendar?: ((on: boolean) => void) | undefined;
+}) {
+  useBarPrefs();
+  const text = useCopyText(a);
+  const closesOn = a.closesItself !== undefined;
+  const size = rowSizeOf(me, a.id);
+  return (
+    <span className="row-end">
+      <span role="status" className="small muted">{text.said}</span>
+      {closesItself && closesOn && <ClosesItselfButton on onToggle={closesItself} />}
+      {size !== 'auto' && <RowSizeButton id={a.id} me={me} />}
+      {info && a.info === true && <FlagButton on label="Informazione utile" icon="info" title={INFO_TITLE} onToggle={info} />}
+      {offCalendar && a.offCalendar === true && <FlagButton on label="Non mostrare in calendario" icon="calendarOff" title={OFF_CALENDAR_TITLE} onToggle={offCalendar} />}
+      <AlertButton activity={a} me={me} />
+      <PopMenu className="icon-choice small" buttonLabel="Altro" title="Altro" label={<Icon name="more" size={18} />} menuLabel="Altro" roomBelow={220}>
+        {close => <span className="icon-strip">
+          {closesItself && <ClosesItselfButton on={closesOn} onToggle={on => { close(); closesItself(on); }} />}
+          <RowSizeButton id={a.id} me={me} onChosen={close} />
+          {info && <FlagButton on={a.info === true} label="Informazione utile" icon="info" title={INFO_TITLE} onToggle={on => { close(); info(on); }} />}
+          {offCalendar && <FlagButton on={a.offCalendar === true} label="Non mostrare in calendario" icon="calendarOff" title={OFF_CALENDAR_TITLE} onToggle={on => { close(); offCalendar(on); }} />}
+          {text.canShare && <button type="button" className="icon-choice small" aria-label="Condividi" title="Condividi" onClick={() => { close(); void text.share(); }}><Icon name="share" size={18} /></button>}
+          <button type="button" className="icon-choice small" aria-label="Copia il testo" title="Copia il testo" onClick={() => { close(); void text.copy(); }}><Icon name="copy" size={18} /></button>
+        </span>}
+      </PopMenu>
+      <HighlightButton id={a.id} me={me} />
+    </span>
+  );
+}
+
+const INFO_TITLE = "Informazione utile: da sapere, non da fare; ridotta nell'Agenda, fuori dal Calendario";
+const OFF_CALENDAR_TITLE = "Non mostrare in calendario: resta nell'Agenda";
+
 function ClosesItselfButton({ on, onToggle }: { on: boolean; onToggle(on: boolean): void }) {
   return (
     <button type="button" className="icon-choice small" aria-label="Si chiude da sola" aria-pressed={on}
@@ -502,7 +542,7 @@ const ROW_SIZES: readonly (readonly [RowSize, string, IconName])[] = [
  * How the activity's rows start in the person's Agenda, theirs only: a small menu of three (user's choice, 2026-11-17;
  * before, «Sempre espansa» on or off). Lit when it is not «Automatica», with the arrows open or closed.
  */
-function RowSizeButton({ id, me }: { id: string; me: string }) {
+function RowSizeButton({ id, me, onChosen }: { id: string; me: string; onChosen?: () => void }) {
   useBarPrefs();
   const size = rowSizeOf(me, id);
   const [, text, icon] = ROW_SIZES.find(([s]) => s === size)!;
@@ -510,7 +550,7 @@ function RowSizeButton({ id, me }: { id: string; me: string }) {
     <PopMenu className={`icon-choice small${size === 'auto' ? '' : ' on'}`} buttonLabel="Riga nell'Agenda" title={`Riga nell'Agenda: ${text}`}
       label={<Icon name={icon} size={18} />} menuLabel="Riga nell'Agenda" roomBelow={24 + 44 * ROW_SIZES.length}>
       {close => ROW_SIZES.map(([s, t, i]) => <MenuChoice key={s} label={t} value={s} icon={<Icon name={i} size={18} />} checked={s === size}
-        onChoose={() => { close(); setRowSize(me, id, s); }} />)}
+        onChoose={() => { close(); onChosen?.(); setRowSize(me, id, s); }} />)}
     </PopMenu>
   );
 }

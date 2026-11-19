@@ -4,7 +4,7 @@ import { complete } from '@attivita/core';
 import { ActivityDetail } from '../src/activity/ActivityDetail.js';
 import { AgendaView, clearFolds } from '../src/agenda/AgendaView.js';
 import { reducedOf, rowSizeOf, setHighlights, setRowSize } from '../src/groups/barPrefs.js';
-import { PIPPO, benchBackend, memorySession, renderWithSession } from './memory-session.js';
+import { PIPPO, benchBackend, fromMore, memorySession, openMore, renderWithSession } from './memory-session.js';
 
 /*
  * Rows reduced and expanded in the Agenda (user's choices, 2026-11-16 and 2026-11-17): in a group of two or three people
@@ -79,16 +79,15 @@ test('testATapOnTheTimeExpands', async () => {
 });
 
 /**
- * How the rows start, from the detail beside «Si chiude da sola»: a small menu of three, Automatica, Sempre espansa,
- * Sempre ridotta (user's choice, 2026-11-17; before, a switch for «Sempre espansa» alone). The person's own, in their
- * prefs; the button is lit when it is not Automatica.
+ * How the rows start, from its icon in the detail's ⋯: a small menu of three, Automatica, Sempre espansa, Sempre
+ * ridotta (user's choice, 2026-11-17; before, a switch for «Sempre espansa» alone). The person's own, in their prefs.
+ * When it is not Automatica its lit icon also shows in the top row (2026-11-19), and opens the same three.
  */
 test('testRowSizeMenuFromTheDetail', async () => {
   renderWithSession(<ActivityDetail activityId="backup" onClose={() => undefined} />, bench());
   await screen.findByRole('heading', { name: 'Controllo backup' });
-  const button = screen.getByRole('button', { name: "Riga nell'Agenda" });
-  expect(button.classList.contains('on')).toBe(false);
-  fireEvent.click(button);
+  expect(screen.queryByRole('button', { name: "Riga nell'Agenda" })).toBeNull();
+  fromMore("Riga nell'Agenda");
   const menu = screen.getByRole('menu', { name: "Riga nell'Agenda" });
   expect(within(menu).getAllByRole('menuitemradio').map(b => b.textContent)).toEqual(['Automatica', 'Sempre espansa', 'Sempre ridotta']);
   expect(within(menu).getAllByRole('menuitemradio').every(b => b.querySelector('svg') !== null)).toBe(true);
@@ -103,6 +102,8 @@ test('testRowSizeMenuFromTheDetail', async () => {
   fireEvent.click(screen.getByRole('button', { name: "Riga nell'Agenda" }));
   fireEvent.click(screen.getByRole('menuitemradio', { name: 'Automatica' }));
   expect(rowSizeOf(PIPPO, 'backup')).toBe('auto');
+  expect(screen.queryByRole('button', { name: "Riga nell'Agenda" })).toBeNull();
+  expect(within(openMore()).getByRole('button', { name: "Riga nell'Agenda" })).toBeTruthy();
 });
 
 /** Always expanded, its rows start in full, in Personale and once done too; the arrow still reduces them. */

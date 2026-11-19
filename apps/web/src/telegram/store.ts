@@ -20,6 +20,20 @@ export interface TelegramStore {
 
 export const telegramLink = (bot: string, code: string): string => `https://t.me/${bot}?start=${code}`;
 
+/**
+ * Telegram in the demo (user's request, 2026-11-19): a chat already tied to a bot that sends nothing, so the bell,
+ * Prossime notifiche and Manda una prova can be seen without a server.
+ */
+export function demoTelegram(): TelegramStore {
+  return {
+    status: async () => ({ configured: true, bot: 'memo_land_bot', linked: true, start: false, end: false }),
+    linkCode: async () => null,
+    setAlerts: async () => undefined,
+    unlink: async () => undefined,
+    replaceQueue: async alerts => alerts.length,
+  };
+}
+
 export function supabaseTelegram(db: SupabaseClient): TelegramStore {
   const call = async <T>(fn: string, args?: Record<string, unknown>): Promise<T> => {
     const { data, error } = await db.rpc(fn, args);
