@@ -57,13 +57,13 @@ export function alertBlock(hasStore: boolean, status: TelegramStatus | null | un
  * The bell, on every activity (user's choices, 2026-11-18/19): a panel with the activity's Telegram alerts, up to five,
  * or the reason they cannot be set. The person's only, as «In evidenza»; lit when it has alerts. Alerts are only those
  * set here (2026-11-19): «Come in Impostazioni / Scelti qui / Nessuno» went with the switches of Impostazioni. Before,
- * the bell showed only on an activity with a time and with Telegram's server.
+ * the bell showed only on an activity with a time and with Telegram's server. The panel is opened by the bell or by the
+ * detail's «Avvisi» row (2026-11-19): `open` and `setOpen` come from the detail, so the two open the same panel.
  */
-export function AlertButton({ activity: a, me }: { activity: Activity; me: string }) {
+export function AlertButton({ activity: a, me, open, setOpen }: { activity: Activity; me: string; open: boolean; setOpen(open: boolean): void }) {
   const { telegram } = useSession();
   const status = useTelegramStatus();
   useBarPrefs();
-  const [open, setOpen] = useState(false);
   useBackLayer(open, () => setOpen(false));
   useEscape(open, () => setOpen(false));
   const when = a.props.schedule?.start ?? a.props.due;
@@ -91,6 +91,26 @@ export function AlertButton({ activity: a, me }: { activity: Activity; me: strin
         </div>
       </>}
     </span>
+  );
+}
+
+/**
+ * The detail's «Avvisi» row, under the properties (user's request, 2026-11-19): the alerts set in words, «15 minuti
+ * prima dell'inizio, alla fine», or «Imposta»; a tap opens the bell's panel, which also says why alerts cannot be set
+ * here. Only on an activity with a date: without one no alert can go off. On 2026-11-18 a row among the properties had
+ * been set aside for the bell alone; the bell stays.
+ */
+export function AlertRow({ activity: a, me, onOpen }: { activity: Activity; me: string; onOpen(): void }) {
+  useBarPrefs();
+  if ((a.props.schedule?.start ?? a.props.due) === undefined) return null;
+  const list = alertListOf(alertsOf(me)[a.id], NO_GENERAL) ?? [];
+  return (
+    <>
+      <dt>Avvisi</dt>
+      <dd><button type="button" className="link value" aria-label="Modifica Avvisi" onClick={onOpen}>
+        {list.length > 0 ? list.map(alertWords).join(', ') : 'Imposta'}
+      </button></dd>
+    </>
   );
 }
 

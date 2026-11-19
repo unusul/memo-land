@@ -20,7 +20,7 @@ import { movedNote, occurrenceAt } from './occurrence.js';
 import { MoveOccurrenceForm } from './MoveOccurrenceForm.js';
 import { shortDay } from './DatePicker.js';
 import { isHighlighted, rowSizeOf, setRowSize, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
-import { AlertButton } from './AlertButton.js';
+import { AlertButton, AlertRow } from './AlertButton.js';
 import type { RowSize } from '../groups/barPrefs.js';
 import { Attachments } from './Attachments.js';
 import { Links } from './Links.js';
@@ -83,6 +83,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Chip | 'reject' | 'release' | 'decompose' | 'snooze' | 'moveOccurrence' | null>(initialForm ?? null);
   const [reason, setReason] = useState('');
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const [usage, setUsage] = useState(() => loadUsage(me));
   const [problem, setProblem] = useState<string | null>(null);
   // The open property form's change, if any: Chiudi saves it instead of dropping it.
@@ -364,7 +365,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <button type="button" className="icon-choice small" aria-label="Indietro" title="Indietro" onClick={() => void close()}><Icon name="back" size={18} /></button>
         {!isNew && <h2 id="detail-h" className={canEdit ? 'sr-only' : undefined}>{a.title}</h2>}
         {isNew && <button className="btn primary" aria-label="Salva l'attività" disabled={saving || !a.title.trim()} onClick={() => void close()}>Salva</button>}
-        {!isNew && <HeaderSwitches activity={a} me={me}
+        {!isNew && <HeaderSwitches activity={a} me={me} alertsOpen={alertsOpen} setAlertsOpen={setAlertsOpen}
           closesItself={a.props.schedule && canEdit ? on => void run(() => setClosesItself(a, on, localNow(), me, instantNow())) : undefined}
           info={a.groupId !== null && canEdit ? on => void run(() => setInfo(a, on, instantNow())) : undefined}
           offCalendar={a.groupId !== null && canEdit ? on => void run(() => setOffCalendar(a, on, instantNow())) : undefined} />}
@@ -402,6 +403,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
             onRemove={removable(k) && !startsTheSeries(k) ? () => run(() => removeProp(a, k, me, instantNow())) : undefined}
             note={editable(k) && startsTheSeries(k) ? 'per toglierla, togli prima Ripeti' : undefined} />
         ))}
+        {!isNew && !asGroupList && <AlertRow activity={a} me={me} onOpen={() => setAlertsOpen(true)} />}
         {occ && <><dt>Occorrenza</dt><dd>{when(occ.start)} · {occ.assignee ? shortName(occ.assignee) : 'libera'}{occ.coveredFor ? ` (copre ${shortName(occ.coveredFor)})` : ''}{occ.done ? ' · fatta' : ''}{occ.skipped ? ' · saltata' : ''}{movedNote(occ) ? ` · ${movedNote(occ)}` : ''}</dd></>}
       </dl>
       {editingSet && !PANEL.has(form as Chip) && propForm}
@@ -479,8 +481,8 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
  * is on also shows beside the bell, so what is set is in sight. Before, all were in a row of up to nine icons, that on
  * a phone went past the screen's edge; then for a moment ⋯ was a list of rows with words, «molto brutto».
  */
-function HeaderSwitches({ activity: a, me, closesItself, info, offCalendar }: {
-  activity: Activity; me: string;
+function HeaderSwitches({ activity: a, me, alertsOpen, setAlertsOpen, closesItself, info, offCalendar }: {
+  activity: Activity; me: string; alertsOpen: boolean; setAlertsOpen(open: boolean): void;
   closesItself?: ((on: boolean) => void) | undefined; info?: ((on: boolean) => void) | undefined; offCalendar?: ((on: boolean) => void) | undefined;
 }) {
   useBarPrefs();
@@ -494,7 +496,7 @@ function HeaderSwitches({ activity: a, me, closesItself, info, offCalendar }: {
       {size !== 'auto' && <RowSizeButton id={a.id} me={me} />}
       {info && a.info === true && <FlagButton on label="Informazione utile" icon="info" title={INFO_TITLE} onToggle={info} />}
       {offCalendar && a.offCalendar === true && <FlagButton on label="Non mostrare in calendario" icon="calendarOff" title={OFF_CALENDAR_TITLE} onToggle={offCalendar} />}
-      <AlertButton activity={a} me={me} />
+      <AlertButton activity={a} me={me} open={alertsOpen} setOpen={setAlertsOpen} />
       <PopMenu className="icon-choice small" buttonLabel="Altro" title="Altro" label={<Icon name="more" size={18} />} menuLabel="Altro" roomBelow={220}>
         {close => <span className="icon-strip">
           {closesItself && <ClosesItselfButton on={closesOn} onToggle={on => { close(); closesItself(on); }} />}

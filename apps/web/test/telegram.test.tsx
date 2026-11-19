@@ -198,6 +198,39 @@ test('testTheBellOpensAPanelOfAlerts', async () => {
 });
 
 /**
+ * The «Avvisi» row under the properties (user's request, 2026-11-19): «Imposta» with no alerts, the alerts in words
+ * once set, and a tap opens the bell's panel; no row on an activity without a date, where the bell stays.
+ */
+test('testTheAlertRowOfTheDetail', async () => {
+  localStorage.clear();
+  const backend = benchBackend();
+  backend.activities.set('riunione', { ...at('riunione', 'Riunione', { schedule: { start: '2999-01-01T18:00', end: '2999-01-01T19:00' } }), groupId: 'inv:developers' });
+  backend.activities.set('idea', { ...at('idea', 'Idea regalo', {}), groupId: 'inv:developers' });
+  const store = fakeTelegram();
+  store.state = { ...store.state, linked: true };
+  await refreshTelegram(store);
+  const { unmount } = renderWithSession(<ActivityDetail activityId="riunione" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
+  await screen.findByRole('heading', { name: 'Riunione' });
+  const row = screen.getByRole('button', { name: 'Modifica Avvisi' });
+  expect(row.textContent).toBe('Imposta');
+  fireEvent.click(row);
+  const panel = screen.getByRole('dialog', { name: 'Avvisi su Telegram' });
+  chooseIn('Quando', 'beforeStart');
+  fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanto prima' }), { target: { value: '15' } });
+  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
+  chooseIn('Quando', 'end');
+  fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi' }));
+  fireEvent.click(within(panel).getByRole('button', { name: 'Chiudi' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi su Telegram' })).toBeNull());
+  expect(screen.getByRole('button', { name: 'Modifica Avvisi' }).textContent).toBe("15 minuti prima dell'inizio, alla fine");
+  unmount();
+  renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
+  await screen.findByRole('heading', { name: 'Idea regalo' });
+  expect(screen.queryByRole('button', { name: 'Modifica Avvisi' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Avvisi su Telegram' })).toBeTruthy();
+});
+
+/**
  * The bell is on every activity (user's request, 2026-11-19); when alerts cannot be set its panel says why, in place
  * of the list. Before, the bell was simply missing.
  */
