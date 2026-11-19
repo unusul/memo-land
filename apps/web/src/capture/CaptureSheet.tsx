@@ -110,7 +110,7 @@ export function CaptureSheet({ onSaved, onClose, shrink = shrinkImage, shared }:
         {notice && <p className="error" role="alert">{notice}</p>}
         {kept && <p className="muted small" role="status">Salvato in Appunti: lo trovi in Io, per 7 giorni.</p>}
         <div className="btns">
-          <AttachMenu className="btn" onFiles={f => void add(f)} />
+          <AttachMenu className="btn" onFiles={f => { setNotice(null); void add(f); }} onProblem={setNotice} />
           {/* The three ways out stay together: on a phone they go under + Allega as one row, on the right. */}
           <span className="btns end">
             <button type="button" className="btn" onClick={onClose}>Annulla</button>

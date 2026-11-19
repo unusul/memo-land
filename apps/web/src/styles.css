@@ -122,6 +122,9 @@ p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 .day { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--r); padding: 10px 14px 10px 10px; margin-bottom: 10px }
 .day .d { align-self: start; padding-top: 6px; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); text-align: center }
+/* The date is a button (2026-11-19): a tap reduces the whole day to «3 attività», another brings the rows back. */
+button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-family: inherit; cursor: pointer }
+.day-count { align-self: center; justify-self: start; background: none; border: 0; padding: 6px 0; font: inherit; font-size: .85rem; color: var(--muted); cursor: pointer }
 .day .d b { display: block; font: 800 1.45rem/1.1 var(--display); color: var(--fg); letter-spacing: -.02em }
 /* With rows reduced at first (2026-11-16) a day of one or two is shorter than its date: the rows sit in the middle of
    it, the empty room split above and below, instead of all of it below (the date on one line was tried, and dropped). */

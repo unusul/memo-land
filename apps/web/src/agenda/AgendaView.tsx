@@ -62,6 +62,7 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   useBackLayer(mode === 'month', () => setAgendaMode('list'));
   const month = useShownMonth() || from.slice(0, 7);
   const [openDay, setOpenDay] = useState<LocalDate | null>(null);
+  const [, redrawDays] = useState(0);
   // «Copia su un altro giorno» (user's choices, 2026-11-17): the activity waiting for the day a tap on the month gives
   // it, one day at a time, and then a line saying what was done for a few seconds. The phone's back gives up the copy.
   const [copying, setCopying] = useState<{ id: string; title: string } | null>(null);
@@ -149,12 +150,18 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
       {Object.keys(agenda.days).length === 0 && <p className="muted">Niente in agenda {shown === MORE_DAYS ? 'nelle prossime due settimane' : `fino ${untilDay(addDays(from, shown - 1))}`}. Premi + per catturare un'idea.</p>}
       {Object.entries(agenda.days).map(([day, items]) => {
         const p = dayParts(day);
+        const closed = closedDays.has(day);
+        const toggleDay = () => { if (closed) closedDays.delete(day); else closedDays.add(day); redrawDays(n => n + 1); };
         return (
           <div key={day} className={`day${day === today() ? ' today' : ''}`}>
-            <div className="d">{p.weekday}<b>{p.day}</b>{p.month}</div>
-            <ul className="items">
-              {rows(day, items)}
-            </ul>
+            <button type="button" className="d" aria-label={`${closed ? 'Espandi' : 'Riduci'} ${dayLabel(day).toLowerCase()}`} aria-expanded={!closed} onClick={toggleDay}>
+              {p.weekday}<b>{p.day}</b>{p.month}
+            </button>
+            {closed ? <button type="button" className="day-count" onClick={toggleDay}>{items.length} attività</button> : (
+              <ul className="items">
+                {rows(day, items)}
+              </ul>
+            )}
           </div>
         );
       })}
@@ -207,7 +214,12 @@ const Info = () => <span className="pill info">info</span>;
  * 2026-11-16); at the next opening every row is again reduced, «Sempre espansa» aside.
  */
 const folds = new Map<string, boolean>();
-export const clearFolds = (): void => folds.clear();
+/**
+ * The days reduced by a tap on their date (user's choices, 2026-11-19): one grey line, «3 attività», in place of the
+ * rows; the rows keep their own state, so they come back as they were. For as long as the app stays open, as the rows.
+ */
+const closedDays = new Set<LocalDate>();
+export const clearFolds = (): void => { folds.clear(); closedDays.clear(); };
 const foldKey = (it: AgendaItem) => `${it.activityId}|${it.start}`;
 
 function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy }: { it: AgendaItem; shared: boolean; info: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void; onCopy?: (() => void) | undefined }) {

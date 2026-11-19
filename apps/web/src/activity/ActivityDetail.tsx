@@ -456,7 +456,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
               </button>
             )))}
             {!a.checklist && !listOpen && !asGroupList && <button className="chip" onClick={() => setListOpen(true)}>+ Lista</button>}
-            <AttachMenu disabled={saving} onFiles={f => void addFiles(f)} />
+            <AttachMenu disabled={saving} onFiles={f => { setProblem(null); void addFiles(f); }} onProblem={setProblem} />
           </div>
           {!editingSet && !PANEL.has(form as Chip) && propForm}
         </>

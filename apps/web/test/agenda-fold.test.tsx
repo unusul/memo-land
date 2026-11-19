@@ -68,6 +68,27 @@ test('testTheArrowExpandsAndReduces', async () => {
   await waitFor(() => expect(reduced(open!)).toBe(false));
 });
 
+/**
+ * A tap on the date reduces the whole day to one line, «1 attività», and another brings the rows back as they were
+ * (user's choices, 2026-11-19): the rows keep their own state, so a row expanded by its arrow comes back expanded.
+ */
+test('testTheDateReducesTheWholeDay', async () => {
+  renderWithSession(<AgendaView from="2026-11-03" days={3} onOpen={() => undefined} />, bench());
+  const [done] = await rows();
+  fireEvent.click(within(done!).getByRole('button', { name: 'Espandi Controllo backup' }));
+  await waitFor(() => expect(reduced(done!)).toBe(false));
+  const date = screen.getByRole('button', { name: 'Riduci martedì 3 novembre' });
+  expect(date.getAttribute('aria-expanded')).toBe('true');
+  fireEvent.click(date);
+  const count = await screen.findByRole('button', { name: '1 attività' });
+  expect(count.closest('.day')!.querySelector('.item-row')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Espandi martedì 3 novembre' }).getAttribute('aria-expanded')).toBe('false');
+  expect(screen.getAllByText('Controllo backup')).toHaveLength(1);
+  fireEvent.click(count);
+  const [again] = await rows();
+  expect(reduced(again!)).toBe(false);
+});
+
 /** The time is part of the arrow's button (user's choice, 2026-11-16): a tap on it expands too, and does not open the detail. */
 test('testATapOnTheTimeExpands', async () => {
   const opened: string[] = [];
