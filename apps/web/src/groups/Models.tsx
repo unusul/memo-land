@@ -97,7 +97,8 @@ function newItemsIn(model: ListModel, lists: readonly Activity[], section: strin
 /**
  * A model's page, from Noi: name and icon, its group, then the sections by the handle with their items as chips, the
  * new ones (written in a list, not yet placed) lit in their section, a new item, a new section, and «Elimina il modello».
- * An item's chip opens the sections, its own highlighted, and «Togli dal modello». Only who edits the group changes it.
+ * An item's chip opens the sections, its own highlighted; its × takes it away at once, with Annulla (2026-11-19: the
+ * menu's «Togli dal modello» went, the same as the ×). Only who edits the group changes it.
  */
 export function ModelPage({ model: m, onBack }: { model: Activity; onBack(): void }) {
   const ws = useWs();
@@ -152,18 +153,28 @@ export function ModelPage({ model: m, onBack }: { model: Activity; onBack(): voi
     await change(() => removeSection(before, s.id, me, instantNow()));
     toast({ text: 'Sezione tolta', undo: () => void change(() => undoTo(before, latest.current, instantNow())) });
   }
+  // The × on each chip (user's request, 2026-11-19): the item goes at once, with Annulla, as a section does. Before, only
+  // from the chip's menu, «Togli dal modello».
+  async function removeItemWithUndo(key: string, name: string) {
+    const before = latest.current;
+    await change(() => removeModelItem(before, key, me, instantNow()));
+    toast({ text: `«${name}» tolta dal modello`, undo: () => void change(() => undoTo(before, latest.current, instantNow())) });
+  }
   const chip = (name: string, current: string | undefined, key?: string, fresh = false) => (
-    <li key={key ?? name}>
+    <li key={key ?? name} className={editable && key !== undefined ? 'with-x' : undefined}>
       {editable ? (
         <PopMenu className={fresh ? 'chip fresh' : 'chip'} label={name} buttonLabel={`Sezione di ${name}`} menuLabel={`Sezione di ${name}`} roomBelow={24 + 44 * (model.sections.length + 1)}>
           {close => <>
             {model.sections.map(s => (
               <MenuChoice key={s.id} label={s.name} value={s.id} checked={s.id === current} onChoose={() => { close(); if (s.id !== current || fresh) place(name, s.id); }} />
             ))}
-            {key !== undefined && <MenuChoice label="Togli dal modello" value="" onChoose={() => { close(); void change(() => removeModelItem(latest.current, key, me, instantNow())); }} />}
           </>}
         </PopMenu>
       ) : <span className={fresh ? 'chip fresh' : 'chip'}>{name}</span>}
+      {editable && key !== undefined && (
+        <button type="button" className="chip-x" aria-label={`Togli ${name} dal modello`} title="Togli dal modello"
+          onClick={() => void removeItemWithUndo(key, name)}><Icon name="close" size={14} /></button>
+      )}
     </li>
   );
 

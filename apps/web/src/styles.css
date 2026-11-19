@@ -470,6 +470,12 @@ textarea { width: 100%; resize: vertical }
 /* New: written in a list and not yet placed (user's choice, 2026-11-18). */
 .model-items .chip.fresh { background: var(--accent-soft); border-color: var(--accent); color: var(--accent) }
 /* «+ voce», the last chip of an open section, and the field it becomes, on a row of its own (2026-11-18). */
+/* The × inside each chip, on its right edge (2026-11-19): the chip makes room for it. */
+.model-items li.with-x { position: relative; display: inline-flex }
+.model-items li.with-x > .attach > .chip { padding-right: 32px }
+.model-items .chip-x { position: absolute; top: 50%; right: 5px; transform: translateY(-50%); display: grid; place-items: center; width: 24px; height: 24px;
+  padding: 0; border: 0; border-radius: 999px; background: none; color: var(--muted); cursor: pointer }
+.model-items .chip-x:hover { color: var(--bad); background: var(--bad-soft) }
 .model-items .chip.add-chip { border-style: dashed; color: var(--muted); font-weight: 400; display: inline-flex; align-items: center; gap: 4px }
 .model-items .model-add { flex: 1 1 100%; padding-right: 4px }
 .add-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 0 12px; border: 1px dashed var(--line); border-radius: 10px; background: none; color: var(--muted); font: inherit; cursor: pointer }

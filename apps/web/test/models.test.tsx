@@ -162,8 +162,27 @@ test('testAddMoveAndRemoveItems', async () => {
   openSection('Banco frigo');
   chooseIn('Sezione di latte', 'colazione');
   await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('latte')]?.section).toBe('colazione'));
-  chooseIn('Sezione di kombucha', '');
+  fireEvent.click(within(p).getByRole('button', { name: 'Togli kombucha dal modello' }));
   await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('kombucha')]).toBeUndefined());
+});
+
+/**
+ * The × on each chip (user's request, 2026-11-19): the item goes at once, with Annulla, as a section does; an item
+ * learnt from a list and not yet in the model has none. Before, only from the chip's menu, «Togli dal modello».
+ */
+test('testTheChipsXRemovesAnItemWithUndo', async () => {
+  const s = bench();
+  const p = await openModelPage(s);
+  openSection('Banco frigo');
+  fireEvent.click(within(p).getByRole('button', { name: 'Togli latte dal modello' }));
+  await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('latte')]).toBeUndefined());
+  expect(await screen.findByText('«latte» tolta dal modello')).toBeTruthy();
+  // The chip's menu only places the item: «Togli dal modello» went with the × (2026-11-19).
+  fireEvent.click(within(p).getByRole('button', { name: 'Sezione di yogurt' }));
+  expect(within(screen.getByRole('menu', { name: 'Sezione di yogurt' })).queryByText('Togli dal modello')).toBeNull();
+  fireEvent.keyDown(screen.getByRole('menu', { name: 'Sezione di yogurt' }), { key: 'Escape' });
+  fireEvent.click(screen.getByRole('button', { name: 'Annulla' }));
+  await waitFor(async () => expect((await stored(s, MODEL)).model!.items[itemKey('latte')]?.section).toBeTruthy());
 });
 
 /**
