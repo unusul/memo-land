@@ -7,21 +7,42 @@ import { APP_DATE, APP_VERSION } from '../settings/version.js';
 export type Register = typeof registerSW;
 
 let waiting = false;
+/** The number of the version waiting, read from version.json beside the published app; null until known. */
+let nextVersion: string | null = null;
 let update: ((reload?: boolean) => Promise<void>) | null = null;
 const listeners = new Set<() => void>();
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
 const isWaiting = () => waiting;
+const getNextVersion = () => nextVersion;
+const notify = () => listeners.forEach(l => l());
+
+/** Reads the published version.json (fresh, not from a cache); null when it cannot be read. */
+export async function fetchPublishedVersion(): Promise<string | null> {
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}version.json`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const { version } = await res.json() as { version?: unknown };
+    return typeof version === 'string' ? version : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Registers the service worker and listens for a new version (user's choice, 2026-11-17). It looks again each time the
  * app comes back to the foreground, so an app left open for days learns of one too. Before, the new version was taken
  * in the background and shown only one or two reloads later, without a word.
  */
-export function startAppUpdates(register: Register = registerSW): void {
+export function startAppUpdates(register: Register = registerSW, published: () => Promise<string | null> = fetchPublishedVersion): void {
   waiting = false;
+  nextVersion = null;
   update = register({
     immediate: true,
-    onNeedRefresh() { waiting = true; listeners.forEach(l => l()); },
+    onNeedRefresh() {
+      waiting = true;
+      notify();
+      void published().then(v => { nextVersion = v; notify(); });
+    },
     onRegisteredSW(_url, registration) {
       if (!registration) return;
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void registration.update(); });
@@ -29,13 +50,17 @@ export function startAppUpdates(register: Register = registerSW): void {
   });
 }
 
-/** «C'è una versione nuova · Aggiorna»: a tap loads it, when the person chooses, so nothing half written is lost. */
+/**
+ * «C'è una versione nuova · 0.16.0 → 0.17.0 · Aggiorna»: a tap loads it, when the person chooses, so nothing half written is
+ * lost. The two numbers (user's choice, 2026-11-19) say what is open and what comes; the new one only once it is read.
+ */
 export function UpdateBand() {
   const on = useSyncExternalStore(subscribe, isWaiting);
+  const next = useSyncExternalStore(subscribe, getNextVersion);
   if (!on) return null;
   return (
     <section className="update-band" role="status" aria-label="Versione nuova">
-      <span>C'è una versione nuova di memo-land</span>
+      <span>C'è una versione nuova di memo-land <span className="versions">{APP_VERSION}{next && next !== APP_VERSION && <> → <b>{next}</b></>}</span></span>
       <button type="button" className="link" onClick={() => void update?.(true)}>Aggiorna</button>
     </section>
   );

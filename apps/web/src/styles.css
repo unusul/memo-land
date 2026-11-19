@@ -531,6 +531,8 @@ textarea { width: 100%; resize: vertical }
 
 /* A new version waiting for Aggiorna (user's choice, 2026-11-17), as the demo's band. */
 .update-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 14px; margin-bottom: 12px; border-radius: 12px; background: var(--accent-soft); color: var(--fg); font-size: .9rem }
+.update-band .versions { color: var(--muted); white-space: nowrap; margin-left: 4px }
+.update-band .versions b { color: var(--fg) }
 /* Once the new version is loaded (user's choice, 2026-11-17): green, where Aggiorna was, a line running down in six seconds. */
 .updated-band { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 12px; border-radius: 12px; overflow: hidden;
   background: var(--ok-soft); color: var(--fg); font-size: .9rem }

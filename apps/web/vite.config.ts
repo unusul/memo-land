@@ -29,6 +29,8 @@ export default defineConfig({
   server: proxyTarget ? { proxy: { '/sb': { target: proxyTarget, changeOrigin: true, rewrite: p => p.replace(/^\/sb/, '') } } } : {},
   plugins: [
     react(),
+    // version.json beside the app, not precached: the band of a new version reads the number it is about to load.
+    { name: 'version-file', generateBundle() { this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ version: appVersion, date: appDate }) }); } },
     VitePWA({
       // A new version waits for Aggiorna in the app's band (user's choice, 2026-11-17): reloading by itself could lose
       // what is being written. Registered by the app (shell/appUpdate.tsx), not by an injected script.
@@ -59,7 +61,9 @@ export default defineConfig({
         share_target: { action: base, method: 'GET', params: { title: 'title', text: 'text', url: 'url' } },
         shortcuts: [{ name: 'Nuova bozza', short_name: 'Bozza', url: `${base}?capture=1`, icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }] }],
       },
-      workbox: { navigateFallback: `${base}index.html`, globPatterns: ['**/*.{js,css,html,svg}'] },
+      // The runtime inside sw.js (2026-11-19): loaded apart with importScripts, a copy installed without it failed at
+      // every start, before listening for Aggiorna, so the band stayed and the tap did nothing.
+      workbox: { navigateFallback: `${base}index.html`, globPatterns: ['**/*.{js,css,html,svg}'], inlineWorkboxRuntime: true },
     }),
   ],
   test: {

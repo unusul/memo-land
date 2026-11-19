@@ -16,11 +16,29 @@ beforeEach(() => localStorage.clear());
 test('testAWaitingVersionShowsAggiorna', () => {
   const update = vi.fn(async () => undefined);
   const register: Register = options => { options?.onNeedRefresh?.(); return update; };
-  startAppUpdates(register);
+  startAppUpdates(register, async () => null);
   render(<UpdateBand />);
   expect(screen.getByRole('status').textContent).toContain("C'è una versione nuova");
   fireEvent.click(screen.getByRole('button', { name: 'Aggiorna' }));
   expect(update).toHaveBeenCalledWith(true);
+});
+
+/** The band says the version open and the one waiting (user's choice, 2026-11-19), the new one once it is read. */
+test('testTheBandSaysBothVersions', async () => {
+  const register: Register = options => { options?.onNeedRefresh?.(); return async () => undefined; };
+  startAppUpdates(register, async () => '9.9.9');
+  render(<UpdateBand />);
+  expect(await screen.findByText('9.9.9')).toBeTruthy();
+  expect(screen.getByRole('status').textContent).toMatch(/versione nuova di memo-land \d+\.\d+\.\d+ → 9\.9\.9Aggiorna$/);
+});
+
+/** Without version.json (an older publication, no network) only the version open is said. */
+test('testTheBandWithoutTheNewNumber', async () => {
+  const register: Register = options => { options?.onNeedRefresh?.(); return async () => undefined; };
+  startAppUpdates(register, async () => null);
+  render(<UpdateBand />);
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.getByRole('status').textContent).not.toContain('→');
 });
 
 test('testNoBandWithoutANewVersion', () => {
