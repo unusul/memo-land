@@ -10,8 +10,8 @@ declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<{ url: str
 
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
-// Every page is the app, but the Vault's test of the device key (prf-test.html, 2026-11-20), a page of its own.
-registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/\/prf-test\.html$/] }));
+// Every page is the app. From 2026-11-20 to the Vault's first use the test of the device key (prf-test.html) was left out.
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
 
 // Aggiorna in the app's band (shell/appUpdate.tsx, through virtual:pwa-register).
 self.addEventListener('message', event => {

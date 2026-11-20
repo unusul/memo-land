@@ -3,7 +3,7 @@ import { b64, randomBytes, unb64 } from './crypto.js';
 /**
  * The passkeys that open the Vault (user's choice, 2026-11-20: no passphrase, only the device's key). Each gives the
  * same 32 bytes for the same input (WebAuthn's PRF extension), from which the key comes. Tried on the user's devices
- * the same day (prf-test.html): Windows Hello gives them when the passkey is made but refuses them on unlock, in Chrome
+ * the same day (prf-test.html, taken away once the Vault worked): Windows Hello gives them when the passkey is made but refuses them on unlock, in Chrome
  * and Firefox alike; a passkey in Google's password manager gives them both times, on the PC and on the phone.
  */
 export interface PasskeyApi {
