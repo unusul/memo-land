@@ -3,12 +3,14 @@ import { fromFloating, toFloating } from '@attivita/core';
 import type { LocalDate, LocalDateTime } from '@attivita/core';
 import { addDays, today } from '../dates.js';
 import { Icon } from '../shell/icons.js';
+import { TimeField } from '../shell/TimeField.js';
 
 const MONTHS = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 const WEEKDAYS = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
 /** The week starts on Monday, as in Italian calendars. */
 const HEADER = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'];
-const SHORTCUTS: readonly [string, number][] = [['Oggi', 0], ['Domani', 1], ['Tra una settimana', 7]];
+/** «Tra una settimana» taken away (user's request, 2026-11-20): «Altra data…» reaches it. */
+const SHORTCUTS: readonly [string, number][] = [['Oggi', 0], ['Domani', 1]];
 
 type Month = string; // YYYY-MM
 
@@ -103,8 +105,6 @@ function MonthView({ shown, setShown, picked, now, choose }: {
   );
 }
 
-const DURATIONS: readonly [string, number | null][] = [['nessuna', null], ['30 min', 30], ['1 ora', 60], ['2 ore', 120]];
-
 export const minutesBetween = (start: LocalDateTime, end: LocalDateTime): number => (toFloating(end).getTime() - toFloating(start).getTime()) / 60_000;
 
 export function plusMinutes(at: LocalDateTime, minutes: number): LocalDateTime {
@@ -113,34 +113,38 @@ export function plusMinutes(at: LocalDateTime, minutes: number): LocalDateTime {
   return fromFloating(d, false);
 }
 
+/** How long an event lasts, in words beside its end: «45 min», «1 h», «2 h 30 min». */
+export const durationWords = (minutes: number): string =>
+  minutes < 60 ? `${minutes} min` : minutes % 60 === 0 ? `${minutes / 60} h` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+
 /**
- * An optional duration under the time: none, the usual lengths, or an end of one's own on the same day. It says the end
- * the event gets; «nessuna» leaves only the start.
+ * An optional end on the same day, written or chosen, and how long the event lasts in words beside it (user's choice,
+ * 2026-11-20, after Tempo). Empty, only the start. Before, four chips «nessuna», «30 min», «1 ora», «2 ore» and the end.
  */
 export function DurationRow({ start, end, onChange }: { start: LocalDateTime | ''; end: LocalDateTime | ''; onChange(end: LocalDateTime | ''): void }) {
   const minutes = start && end ? minutesBetween(start, end) : null;
   return (
-    <div className="duration chips" role="group" aria-label="Durata">
-      <span className="muted">durata</span>
-      {DURATIONS.map(([name, m]) => (
-        <button key={name} type="button" className="chip" aria-pressed={minutes === m} disabled={!start}
-          onClick={() => onChange(m === null || !start ? '' : plusMinutes(start, m))}>{name}</button>
-      ))}
-      <label className="muted">fine <input aria-label="Fine" type="time" disabled={!start} value={end ? end.slice(11, 16) : ''}
-        onChange={e => onChange(e.target.value && start ? `${start.slice(0, 10)}T${e.target.value}` : '')} /></label>
+    <div className="duration" role="group" aria-label="Durata">
+      {/* Not before the start (user's request, 2026-11-20): the half hours up to it are not in the list. */}
+      <label className="muted time-label">fine <TimeField label="Fine" disabled={!start} allowEmpty after={start ? start.slice(11, 16) : undefined} value={end ? end.slice(11, 16) : ''}
+        onChange={t => onChange(t && start ? `${start.slice(0, 10)}T${t}` : '')} /></label>
+      {minutes !== null && minutes > 0 && <span className="muted duration-words">{durationWords(minutes)}</span>}
     </div>
   );
 }
 
-/** A day on the calendar and a time in its field (the time keeps the browser's own field). A new day starts at 09:00. */
+/**
+ * A day on the calendar and a time, written or chosen from the half hours (2026-11-20; before, the browser's own time
+ * field). A new day starts at 09:00.
+ */
 export function DateTimePicker({ label, value, onChange }: { label: string; value: LocalDateTime | ''; onChange(at: LocalDateTime): void }) {
   const day = value.slice(0, 10);
   const time = value.slice(11, 16);
   return (
     <div className="cal-time">
       <DatePicker label={label} value={day} onChange={d => onChange(`${d}T${time || '09:00'}`)} />
-      <label className="muted">alle <input aria-label="Ora" type="time" required disabled={!day} value={time}
-        onChange={e => { if (e.target.value) onChange(`${day}T${e.target.value}`); }} /></label>
+      <label className="muted time-label">alle <TimeField label="Ora" disabled={!day} value={time}
+        onChange={t => { if (t) onChange(`${day}T${t}`); }} /></label>
     </div>
   );
 }

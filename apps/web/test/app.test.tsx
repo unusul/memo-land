@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { expect, test } from 'vitest';
 import { App } from '../src/App.js';
 import { memorySession } from './memory-session.js';
@@ -28,7 +28,9 @@ test('testThePlusOnIoAddsInPersonale', async () => {
   render(<App open={async () => memorySession()} login={noLogin} />);
   const nav = await screen.findByRole('navigation', { name: 'Sezioni' });
   expect(screen.getByRole('button', { name: 'Nuova bozza' })).toBeTruthy();
-  fireEvent.click([...nav.querySelectorAll('button')].find(b => b.textContent?.startsWith('Io'))!);
+  // By its name, «Io» or «Io, 2 da vedere»: its text starts with the badge once the count has loaded, «2Io», and a
+  // search by text failed on GitHub when the count came before the click (2026-11-20).
+  fireEvent.click(within(nav).getByRole('button', { name: /^Io(,|$)/ }));
   fireEvent.click(await screen.findByRole('button', { name: 'Nuova attività in Personale' }));
   expect(await screen.findByRole('textbox', { name: 'Titolo' })).toBeTruthy();
   expect(screen.queryByRole('dialog', { name: 'Nuova bozza' })).toBeNull();

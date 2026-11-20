@@ -29,7 +29,7 @@ test('testAssignChipIsAMenuThatAppliesAtOnce', async () => {
   expect(screen.queryByRole('menu')).toBeNull();
 });
 
-/** Scadenza: Oggi, Domani, Tra una settimana or a day of the month, in the menu; the day chosen is the due date. */
+/** Scadenza: Oggi, Domani or a day of the month, in the menu; the day chosen is the due date. */
 test('testDueChipIsAMenuWithTheDatePicker', async () => {
   const s = memorySession();
   renderWithSession(<ActivityDetail activityId="idea" onClose={() => undefined} />, s);

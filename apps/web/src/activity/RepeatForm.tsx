@@ -5,6 +5,7 @@ import { localNow, today } from '../dates.js';
 import { noteChoice, topChoices } from '../usage/choicesStore.js';
 import { DatePicker, DaysPicker, shortDay } from './DatePicker.js';
 import { MenuSelect } from '../shell/PopMenu.js';
+import { TimeField } from '../shell/TimeField.js';
 import { PanelActions } from '../shell/PanelActions.js';
 import { UNIT_NAMES, WEEKDAYS, describeRepeat, nextHour, specOf, toRepeat, weekdayOf } from './timing.js';
 import type { DayTimes, RepeatSpec, Weekday } from './timing.js';
@@ -188,9 +189,9 @@ function DayTimeRows({ days, times, base, onChange, onEmpty }: {
       {days.map(d => (
         <span key={d} className="day-time">
           <span className="d">{label(d)}</span>
-          <input aria-label={`Inizio ${label(d)}`} type="time" value={at(d).start} onChange={e => { if (e.target.value || onEmpty) change(d, { start: e.target.value }); if (!e.target.value) onEmpty?.(); }} />
+          <TimeField label={`Inizio ${label(d)}`} value={at(d).start} allowEmpty={onEmpty !== undefined} onChange={t => { if (t || onEmpty) change(d, { start: t }); if (!t) onEmpty?.(); }} />
           <span aria-hidden="true">–</span>
-          <input aria-label={`Fine ${label(d)}`} type="time" value={at(d).end ?? ''} onChange={e => change(d, { end: e.target.value || undefined })} />
+          <TimeField label={`Fine ${label(d)}`} value={at(d).end ?? ''} allowEmpty after={at(d).start || undefined} onChange={t => change(d, { end: t || undefined })} />
         </span>
       ))}
     </span>

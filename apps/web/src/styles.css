@@ -54,13 +54,13 @@ button { font: inherit; color: inherit }
 /* As tall in the Calendar, with the month on one line, as in the Agenda with the date and its count on two (user's
    choice, 2026-11-17): the header does not jump when the view changes. */
 .today-title { display: grid; align-content: center; gap: 1px; padding: 6px 0; margin: 2px 0; min-height: 4.0625rem }
-.today-title .today-line { display: grid; gap: 1px; padding: 4px 10px; margin: 0 -10px; border: 0; border-radius: 12px; background: none; color: inherit; text-align: left; cursor: pointer }
+.today-title .today-line { display: grid; gap: 1px; padding: 4px 10px; margin: 0 -10px; border: 0; border-radius: 8px; background: none; color: inherit; text-align: left; cursor: pointer }
 .today-title .today-line:hover { background: var(--surface-2) }
 .today-title .urgent { color: var(--marker); font-weight: 700 }
 .today-title b { font: 700 1.25rem/1.2 var(--display); letter-spacing: -.01em }
 .today-title b::first-letter { text-transform: uppercase }
 .today-title small { font-size: .85rem; color: var(--muted) }
-.gear { margin-left: auto; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: none; color: var(--muted); cursor: pointer }
+.gear { margin-left: auto; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer }
 .gear:hover { background: var(--surface-2); color: var(--fg) }
 .gear[aria-current="page"] { color: var(--accent); background: var(--accent-soft) }
 .wrap { max-width: 1080px; width: 100%; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)) }
@@ -82,7 +82,7 @@ button { font: inherit; color: inherit }
 .badge { position: absolute; top: -5px; left: 14px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; border: 2px solid var(--surface);
   background: var(--muted); color: var(--surface); font: 700 11px/14px var(--body); text-align: center }
 .badge.urgent { background: var(--marker) }
-.fab { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: calc(var(--nav-h) + 14px + env(safe-area-inset-bottom)); width: 58px; height: 58px; border-radius: 18px;
+.fab { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: calc(var(--nav-h) + 14px + env(safe-area-inset-bottom)); width: 58px; height: 58px; border-radius: 12px;
   border: 0; background: var(--marker); color: var(--surface); font-size: 30px; line-height: 1; cursor: pointer; box-shadow: 0 8px 24px rgb(0 0 0 / .2) }
 .fab:hover { filter: brightness(1.05) }
 /* Wide screens: a 220px menu on the left (icon and name, the most used groups indented under Gruppi);
@@ -92,7 +92,7 @@ button { font: inherit; color: inherit }
   .top { margin-left: 220px }
   .top .wrap { max-width: 832px; padding: 0 36px; margin: 0 auto }
   .tabs { position: fixed; top: 0; bottom: 0; left: 0; width: 220px; flex-direction: column; gap: 2px; border-top: 0; border-right: 1px solid var(--line); padding: 20px 10px; z-index: 5; overflow-y: auto }
-  .tabs button { flex: none; display: flex; align-items: center; gap: 12px; justify-items: start; padding: 10px 12px; border-radius: 10px; font-size: 14px; text-align: left }
+  .tabs button { flex: none; display: flex; align-items: center; gap: 12px; justify-items: start; padding: 10px 12px; border-radius: 6px; font-size: 14px; text-align: left }
   .tabs button:hover { background: var(--surface-2); color: var(--fg) }
   .tabs button[aria-current="page"] { box-shadow: none; background: var(--accent-soft); color: var(--accent) }
   .tabs .badge { left: 12px }
@@ -113,8 +113,8 @@ button { font: inherit; color: inherit }
 .small { font-size: .85rem }
 .center { text-align: center; padding: 48px 16px }
 .label { font: 600 .72rem var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 8px 0 0 }
-.error { color: var(--bad); background: var(--bad-soft); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px }
-p[role="status"] { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 8px 12px; margin: 0 0 12px }
+.error { color: var(--bad); background: var(--bad-soft); border-radius: 6px; padding: 10px 12px; margin: 0 0 12px }
+p[role="status"] { background: var(--warn-soft); color: var(--warn); border-radius: 6px; padding: 8px 12px; margin: 0 0 12px }
 p.flash { background: var(--ok-soft); color: var(--ok); font-weight: 600 }
 
 /* Agenda (taken from the financial trial): each day is one card, its activities compact rows split by a line;
@@ -167,33 +167,39 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .time { font-size: .82rem; font-weight: 600; color: var(--muted); white-space: nowrap }
 /* «GIORNO» small in capitals, as the weekday of the date (user's choice, 2026-11-16): beside «10:00–11:00» it read larger. */
 .time.allday { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em }
-.pill { display: inline-block; margin-left: 6px; font-size: .72rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--chip); color: var(--muted) }
+.pill { display: inline-block; margin-left: 6px; font-size: .72rem; font-weight: 600; padding: 2px 9px; border-radius: 4px; background: var(--chip); color: var(--muted) }
 .pill.cover { color: var(--warn); background: var(--warn-soft) }
 .pill.ok { color: var(--ok); background: var(--ok-soft) }
 .pill.high { color: var(--bad); background: var(--bad-soft) }
 /* An information (2026-11-17): grey, to know and not to do. */
 .pill.info { color: var(--muted); background: var(--surface-2) }
 /* Under Ripeti's mode, what it means with the numbers written (2026-11-17). */
-.repeat-example { flex: 1 1 100%; margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent); border-radius: 10px; background: var(--surface-2); color: var(--muted); font-size: .85rem }
+.repeat-example { flex: 1 1 100%; margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; background: var(--surface-2); color: var(--muted); font-size: .85rem }
 .repeat-example b { color: var(--fg); font-weight: 600 }
 .item.info .t { color: var(--muted) }
 .pill.prop { margin: 0; color: var(--accent); background: var(--accent-soft) }
 
 /* Controls: 44px touch targets, 16px text in fields so phones do not zoom. */
 .btns, .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
-.btn { min-height: 44px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 8px 16px; font-weight: 600; cursor: pointer }
-.btn:hover { background: var(--surface-2) }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface) }
+/* Buttons after Jira (user's choice, 2026-11-20): square corners, no border, a fill a step lighter, the main action full
+   in the accent. Before, pills with a dashed border and boxes with a line, 44px high. */
+.btn { min-height: 32px; border: 0; background: var(--surface-2); border-radius: 6px; padding: 6px 12px; font-size: .875rem; font-weight: 500; cursor: pointer }
+.btn:hover { background: color-mix(in srgb, var(--surface-2) 85%, var(--fg)) }
+/* Highlighted softly (user's remark, 2026-11-20, «troppo marcata»): the accent's tint and its colour, not a full fill. */
+.btn.primary { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
 .btn.primary:hover { filter: brightness(1.08) }
 .btn:disabled { opacity: .45; cursor: default; filter: none }
 .link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0 4px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px }
 .link.value { color: inherit; padding: 0; font-weight: inherit; text-decoration: underline dotted; text-align: left }
-.chip { min-height: 36px; border: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-weight: 600; cursor: pointer }
-.chip:hover { border-style: solid }
+.chip { min-height: 32px; border: 0; background: var(--surface-2); border-radius: 6px; padding: 6px 12px; font-size: .875rem; font-weight: 500; cursor: pointer }
+.chip:hover { background: color-mix(in srgb, var(--surface-2) 85%, var(--fg)) }
+/* «Aggiungi proprietà»: the + are grey words that take a fill under the pointer, as Jira's actions. */
+.add-props > .chip, .add-props > .attach > .chip { background: none; color: var(--muted) }
+.add-props > .chip:hover, .add-props > .attach > .chip:hover, .add-props > .attach > .chip[aria-pressed="true"] { background: var(--surface-2); color: var(--fg) }
 /* «A date scelte»: the start's own day, which the date or schedule changes, not a choice to take away here. */
-.chip.fixed { border-style: solid; color: var(--muted); cursor: default }
+.chip.fixed { background: none; box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); cursor: default }
 .links { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px }
-.links a { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 12px; border-radius: 999px; background: var(--accent-soft);
+.links a { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 12px; border-radius: 6px; background: var(--accent-soft);
   color: var(--accent); font-weight: 600; text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .btns.end { margin-left: auto; justify-content: flex-end }
 /* Data e ora: the optional duration, a whole row under the time. */
@@ -203,17 +209,18 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .day-time { display: flex; align-items: center; gap: 8px }
 .day-time .d { width: 3ch; font-weight: 600 }
 /* The month calendar: a whole row of its form, seven columns from Monday. */
-.cal, .cal-time { flex: 1 1 100%; display: grid; gap: 8px; max-width: 340px }
+.cal, .cal-time { flex: 1 1 100%; display: grid; gap: 8px; max-width: 300px }
 .repeat-start { flex: 1 1 100% }
 .repeat-start .cal { margin-top: 6px }
 .cal-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600 }
 .cal-head .prev svg { transform: rotate(180deg) }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center }
 .cal-grid .wd { font-size: .72rem; color: var(--muted); padding: 4px 0 }
-.cal-grid button { min-height: 40px; min-width: 0; border: 0; border-radius: 999px; background: none; color: var(--fg); font: inherit; cursor: pointer }
+/* Small and square (user's remark, 2026-11-20, «troppo grande», «troppo curve»): before, 40px rows as wide as the panel and pill-shaped days. */
+.cal-grid button { min-height: 32px; min-width: 0; border: 0; border-radius: 6px; background: none; color: var(--fg); font: inherit; font-size: .875rem; cursor: pointer }
 .cal-grid button:hover { background: var(--surface-2) }
 .cal-grid button[aria-current="date"] { color: var(--accent); font-weight: 700; box-shadow: inset 0 0 0 1px var(--accent) }
-.cal-grid button[aria-pressed="true"] { background: var(--accent); color: var(--surface) }
+.cal-grid button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 700 }
 .row-end { display: inline-flex; align-items: center; gap: 8px; margin-left: auto }
 /* With every switch on, the detail's icons go to a second line instead of past the screen's edge (2026-11-19). */
 .detail > header .row-end { flex-wrap: wrap; justify-content: flex-end; min-width: 0 }
@@ -223,10 +230,10 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .highlight[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
 .highlight[aria-pressed="true"] svg { fill: currentColor }
 /* «Si chiude da sola», on: lit as the switches are. */
-.icon-choice[aria-pressed="true"], .icon-choice.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
+.icon-choice[aria-pressed="true"], .icon-choice.on { color: var(--accent); background: var(--accent-soft) }
 .attach { position: relative; display: inline-flex }
 .attach .menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 200px; display: grid; padding: 6px;
-  background: var(--raised); border: 1.5px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18) }
+  background: var(--raised); border: 1.5px solid var(--edge); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / .18) }
 .attach .menu.end { left: auto; right: 0 }
 /* The hours of a day alert (2026-11-20): a short floating list that scrolls inside. */
 .attach .menu.hours { min-width: 110px; max-height: 220px; overflow-y: auto; overscroll-behavior: contain }
@@ -235,11 +242,11 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 /* Over the panels (z-index 20): being fixed, the holder makes its own layer, and without a z-index the panel covered it. */
 .attach.floated { position: fixed; top: 0; left: 0; z-index: 40; width: 0; height: 0 }
 .attach .menu.up { top: auto; bottom: calc(100% + 6px) }
-.attach .menu > button { min-height: 44px; border: 0; background: none; color: var(--fg); text-align: left; padding: 8px 12px; border-radius: 8px; font: inherit; cursor: pointer }
+.attach .menu > button { min-height: 44px; border: 0; background: none; color: var(--fg); text-align: left; padding: 8px 12px; border-radius: 4px; font: inherit; cursor: pointer }
 .attach .menu > button:hover, .attach .menu > button:focus-visible { background: var(--surface-2) }
 /* Assegna (2026-11-18): a member's name gives it at once, «proposta» beside it asks first. */
 .attach .menu .assign-row { display: flex; align-items: center; gap: 6px }
-.attach .menu .assign-row > button[role=menuitemradio] { flex: 1; min-height: 44px; border: 0; background: none; color: var(--fg); text-align: left; padding: 8px 12px; border-radius: 8px; font: inherit; cursor: pointer }
+.attach .menu .assign-row > button[role=menuitemradio] { flex: 1; min-height: 44px; border: 0; background: none; color: var(--fg); text-align: left; padding: 8px 12px; border-radius: 4px; font: inherit; cursor: pointer }
 .attach .menu .assign-row > button[role=menuitemradio]:hover { background: var(--surface-2) }
 .attach .menu .assign-row > button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
 .attach .menu .assign-row .chip.small { min-height: 30px; padding: 2px 10px; font-size: .8rem; font-weight: 600; flex: none }
@@ -255,35 +262,41 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
    on a wide screen (right of the 220px menu, or it looked off the page; and below the 70px header, with as much room above as below; 2026-11-18). Was: in the middle on a wide
    screen; before, under what was tapped. Fixed to the screen, over the dimmed page (.panel-backdrop, z-index 19). */
 /* The most a panel takes, as a sheet or as a window (user's choice, 2026-11-18): on a tablet the sheet ran across it all. */
-:root { --panel-max-w: 560px; --panel-max-h: 720px }
+/* 440px since 2026-11-20 (user's choice): with the calendar at 300px, the 560px window had room left over. */
+:root { --panel-max-w: 440px; --panel-max-h: 720px }
 .attach .menu.panel, .attach .menu.panel.up, .attach .menu.panel.end { position: fixed; top: auto; right: auto; bottom: 0; left: 50%; transform: translateX(-50%);
   width: min(100%, var(--panel-max-w)); max-height: min(85vh, var(--panel-max-h));
-  overflow-y: auto; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0 }
+  overflow-y: auto; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 12px 12px 0 0 }
 /* Wider than the panel, without the side menu (600–899px): a window too, between the 70px header and the 62px bottom
    bar, as much room above as below (user's choice, 2026-11-18): the sheet, narrower than the screen, looked cut off. */
 @media (min-width: 600px) and (max-width: 899.98px) {
-  .attach .menu.panel, .attach .menu.panel.up, .attach .menu.panel.end { top: calc(50% + 4px); bottom: auto; transform: translate(-50%, -50%);
-    width: min(var(--panel-max-w), calc(100vw - 48px)); max-height: min(calc(100vh - 180px), var(--panel-max-h)); padding: 16px; border-radius: 14px }
+  /* Its top stays put and it grows downwards (user's choice, 2026-11-20): centred, it jumped at every change of height
+     («seleziona date», a month of six weeks). */
+  .attach .menu.panel, .attach .menu.panel.up, .attach .menu.panel.end { top: 86px; bottom: auto; transform: translateX(-50%);
+    width: min(var(--panel-max-w), calc(100vw - 48px)); max-height: min(calc(100vh - 164px), var(--panel-max-h)); padding: 16px; border-radius: 8px }
 }
 @media (min-width: 900px) {
-  .attach .menu.panel, .attach .menu.panel.up, .attach .menu.panel.end { top: calc(50% + 35px); right: auto; bottom: auto; left: calc(50% + 110px); max-height: min(calc(100vh - 118px), var(--panel-max-h)); transform: translate(-50%, -50%);
-    width: min(var(--panel-max-w), calc(100vw - 268px)); padding: 16px; border-radius: 14px }
+  .attach .menu.panel, .attach .menu.panel.up, .attach .menu.panel.end { top: 96px; right: auto; bottom: auto; left: calc(50% + 110px); max-height: min(calc(100vh - 120px), var(--panel-max-h)); transform: translateX(-50%);
+    width: min(var(--panel-max-w), calc(100vw - 268px)); padding: 16px; border-radius: 8px }
 }
 /* In a panel the month takes the panel's width (2026-11-18): in the 560px window it stayed 340px, with room left over. */
-.attach .menu.panel .cal, .attach .menu.panel .cal-time { width: 100%; max-width: none }
+.attach .menu.panel .cal-time { width: 100%; max-width: none }
+.attach .menu.panel .cal { width: 100%; max-width: 300px }
+/* Narrower than the panel, the calendar no longer fills its row: what follows it goes under, not beside it. */
+.attach .menu.panel .cal + * { flex-basis: 100% }
 .attach .menu.panel .cal-grid button { justify-self: center; width: min(44px, 100%) }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px }
 .panel-head h3 { margin: 0; font-size: 1rem }
 /* The small x at the top (user's choice, 2026-11-18): a bare icon, unlike Annulla's boxed one at the bottom. */
-.panel-head .icon-choice.panel-close { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--muted) }
+.panel-head .icon-choice.panel-close { width: 28px; height: 28px; border: 0; border-radius: 4px; background: none; color: var(--muted) }
 .panel-head .icon-choice.panel-close:hover { background: var(--surface-2); color: var(--fg) }
 /* Annulla and Applica at the bottom right of a panel, on a row of their own (2026-11-17): they no longer move sideways. */
 /* Rimanda (2026-11-18): two ways, one Applica; the way that counts is lit on its left. */
 .snooze-way { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0 6px 10px; border-left: 3px solid transparent }
 .snooze-way.chosen { border-left-color: var(--accent) }
 .panel-actions { flex: 1 1 100%; display: flex; justify-content: flex-end; gap: 8px }
-.icon-choice.apply { color: var(--accent); border-color: var(--accent); background: var(--accent-soft) }
-.icon-choice.apply:disabled { color: var(--muted); border-color: var(--line); background: var(--surface) }
+.icon-choice.apply { color: var(--accent); background: var(--accent-soft) }
+.icon-choice.apply:disabled { color: var(--muted); background: var(--surface-2) }
 /* Behind an open panel the page dims, and a tap on it does nothing; the panel sits over it (z-index 20). */
 /* The image viewer (2026-11-18): the image large over the dimmed page, inside the app, with x at the top right. */
 /* Togli beside each attachment (2026-11-18). */
@@ -295,7 +308,7 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
    when it does not, so its top stays reachable. A darker veil than the panels', so the image stands out. */
 .viewer { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; overflow: auto; overscroll-behavior: contain;
   padding: 68px 16px 16px; background: rgb(0 0 0 / .6) }
-.viewer img { flex: none; max-width: 100%; height: auto; margin: auto 0; border-radius: 10px }
+.viewer img { flex: none; max-width: 100%; height: auto; margin: auto 0; border-radius: 6px }
 /* Light on the dark veil, in both themes: the × was a dark button on a dark page and could hardly be seen. Clear of a
    computer's scroll bar on the right. */
 .viewer .viewer-close { position: fixed; top: 12px; right: 24px; z-index: 1; width: 44px; height: 44px; border: 0; border-radius: 999px;
@@ -314,10 +327,10 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .alert-list { list-style: none; margin: 0; padding: 0 }
 .alert-list li, .alert-none { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; padding: 0 6px; border-bottom: 1px solid var(--line) }
 /* A row lights up under the pointer; its bin, not a ×, so it does not look like the panel's close (2026-11-19). */
-.alert-list li { border-radius: 8px }
+.alert-list li { border-radius: 4px }
 .alert-list li:hover { background: var(--surface-2) }
 .alert-list li > svg { color: var(--accent); flex: none }
-.alert-list li .link { margin-left: auto; display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; border-radius: 8px; color: var(--muted) }
+.alert-list li .link { margin-left: auto; display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; border-radius: 4px; color: var(--muted) }
 .alert-list li .link:hover { color: var(--bad); background: var(--bad-soft) }
 .alert-none { color: var(--muted); padding: 8px 2px }
 .alert-none > svg { flex: none }
@@ -345,11 +358,11 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .alert-panel .panel-actions { margin-top: 14px }
 .alert-list li .link.plus:hover { color: var(--accent); background: var(--accent-soft) }
 .alert-list li .link.plus:disabled { opacity: .4; cursor: default; background: none }
-.chip[aria-pressed="true"] { border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft) }
+.chip[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); font-weight: 600 }
 [role="group"] .chip[aria-pressed="true"] { background: var(--accent); color: var(--surface) }
 .chip .n { font-size: .7rem; color: var(--muted); margin-left: 4px }
 .form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border: 0; padding: 0; margin: 0 }
-input, select, textarea { font: 16px/1.4 var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; min-height: 44px; padding: 8px 12px; max-width: 100%; min-width: 0 }
+input, select, textarea { font: 16px/1.4 var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; min-height: 44px; padding: 8px 12px; max-width: 100%; min-width: 0 }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft) }
 textarea { width: 100%; resize: vertical }
 .num { width: 5em }
@@ -373,7 +386,7 @@ textarea { width: 100%; resize: vertical }
 .swipe-go .swipe-under { background: var(--accent); color: var(--surface) }
 .swipe .swipe-top > * { background: var(--surface) }
 /* Toast: a line at the bottom for a few seconds, with Annulla. */
-.toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 16px; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 12px; background: var(--fg); color: var(--bg); box-shadow: 0 4px 16px rgba(0, 0, 0, .25) }
+.toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 16px; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 8px; background: var(--fg); color: var(--bg); box-shadow: 0 4px 16px rgba(0, 0, 0, .25) }
 .toast .link { color: var(--bg); font-weight: 700 }
 /* Noi: one row per group, the row opens it, ⋯ manages it. */
 .noi-head { display: flex; align-items: center; justify-content: space-between; gap: 12px }
@@ -408,7 +421,7 @@ textarea { width: 100%; resize: vertical }
 .glossary dt { font-weight: 600 }
 .glossary dd { margin: 2px 0 0; color: var(--muted) }
 /* The demo's band: always at the top of the content, with the way out. */
-.demo-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 14px; margin-bottom: 12px; border-radius: 12px; background: var(--marker-soft); color: var(--fg); font-size: .9rem }
+.demo-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 14px; margin-bottom: 12px; border-radius: 8px; background: var(--marker-soft); color: var(--fg); font-size: .9rem }
 /* A Google project that did not open again, one row each (2026-11-18). */
 .unreached-list { list-style: none; margin: 0; padding: 0; flex: 1; display: grid; gap: 4px }
 .unreached-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px }
@@ -452,15 +465,15 @@ textarea { width: 100%; resize: vertical }
 .check-items .who-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: .85em; cursor: pointer }
 .check-items .who-btn svg { display: block; color: var(--accent) }
 .check-items .who-name { max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.check-items .who-menu { position: absolute; top: calc(100% - 4px); right: 0; z-index: 5; min-width: 10em; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / .25) }
+.check-items .who-menu { position: absolute; top: calc(100% - 4px); right: 0; z-index: 5; min-width: 10em; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / .25) }
 /* The swipe hides what leaves the row: the row whose menu is open lets it out, above the rows below. */
 .check-items li.picking { position: relative; z-index: 4 }
 .check-items li.picking .swipe { overflow: visible }
 .check-items .who-menu ul { list-style: none; margin: 0; padding: 0 }
-.check-items .who-menu li { padding: 10px 12px; border-radius: 8px; color: var(--fg); cursor: pointer }
+.check-items .who-menu li { padding: 10px 12px; border-radius: 4px; color: var(--fg); cursor: pointer }
 .check-items .who-menu li:hover { background: var(--surface-2) }
 .check-items .who-menu li[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
-.check-items .who-other, .attach .menu .who-other { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer }
+.check-items .who-other, .attach .menu .who-other { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 4px 4px; background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer }
 .check-items .who-menu form { margin-top: 4px }
 .check-items .who-menu input { width: 100%; min-height: 40px }
 .attach .menu form input { width: 100%; min-height: 40px }
@@ -469,12 +482,26 @@ textarea { width: 100%; resize: vertical }
 .attach .menu form input.num, .repeat-every .num { width: 4.5em }
 /* The times beside each day of a weekly series: as wide as a time, not as the panel (2026-11-17). */
 .attach .menu form input[type="time"] { width: 8.5em }
+/* The time written or chosen from the half hours (2026-11-20, after Tempo): in place of the browser's time field. */
+.time-field { display: inline-flex }
+.time-field { position: relative; align-items: center }
+/* Narrow, the text on the left and room for the ▾: the panels' own rule (`.attach .menu form input`) made it half a panel wide. */
+.time-field input, .attach .menu form .time-field input { width: 6.5em; padding-right: 30px; text-align: left }
+.time-caret { position: absolute; right: 9px; top: 50%; display: inline-flex; color: var(--muted); pointer-events: none; transform: translateY(-50%) rotate(90deg) }
+.duration { display: flex; align-items: center; gap: 10px }
+/* «alle» and «fine» take the same room, so the two fields line up (user's remark, 2026-11-20). */
+/* max-content: in the grid of «alle» the field column stretched to the panel's width, and the ▾ went to its far end. */
+.time-label { display: inline-grid; grid-template-columns: 2.6em max-content; justify-content: start; align-items: center }
+.attach .menu.time-list { list-style: none; margin: 0; min-width: 90px; gap: 0 }
+.attach .menu.time-list li { min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 4px; cursor: pointer }
+.attach .menu.time-list li:hover { background: var(--surface-2) }
+.attach .menu.time-list li[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
 .check-items .check-row > button.link { display: grid; place-items: center; min-height: 44px }
 .check-items .check-row > button.link svg { display: block }
 /* The handle: a narrow strip on the left; touch-action none, or the phone scrolls the page instead of dragging. */
 .check-items .grip { flex: none; display: grid; place-items: center; width: 24px; min-height: 44px; margin-right: -6px; padding: 0; border: 0; background: none; color: var(--muted); cursor: grab; touch-action: none }
 .check-items li { transition: transform .15s ease }
-.check-items li.dragging { position: relative; z-index: 1; transition: none; background: var(--surface, var(--bg)); box-shadow: 0 4px 14px rgb(0 0 0 / .18); border-radius: 8px }
+.check-items li.dragging { position: relative; z-index: 1; transition: none; background: var(--surface, var(--bg)); box-shadow: 0 4px 14px rgb(0 0 0 / .18); border-radius: 4px }
 .check-items li.dragging .grip { cursor: grabbing }
 .check-items .item-edit { flex: 1; display: flex }
 .check-items .item-edit input { flex: 1 }
@@ -496,7 +523,7 @@ textarea { width: 100%; resize: vertical }
 .model-items .chip-x:hover { color: var(--bad); background: var(--bad-soft) }
 .model-items .chip.add-chip { border-style: dashed; color: var(--muted); font-weight: 400; display: inline-flex; align-items: center; gap: 4px }
 .model-items .model-add { flex: 1 1 100%; padding-right: 4px }
-.add-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 0 12px; border: 1px dashed var(--line); border-radius: 10px; background: none; color: var(--muted); font: inherit; cursor: pointer }
+.add-row { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 0 12px; border: 1px dashed var(--line); border-radius: 6px; background: none; color: var(--muted); font: inherit; cursor: pointer }
 /* Impostazioni → Persone (2026-11-18): the name seen, the email and the groups under it, the pencil at the end. */
 .people-list { list-style: none; margin: 0; padding: 0 }
 .people-list li { display: flex; align-items: center; gap: 8px; min-height: 52px; border-bottom: 1px solid var(--line) }
@@ -510,9 +537,9 @@ textarea { width: 100%; resize: vertical }
 .fixed-switch { display: flex; gap: 8px; align-items: center }
 .fixed-switch input { flex: none; width: 18px; height: 18px; min-height: 0; padding: 0; accent-color: var(--accent) }
 .attachments { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px }
-.thumb { display: block; max-width: min(100%, 320px); max-height: 240px; border-radius: 10px; border: 1px solid var(--line) }
+.thumb { display: block; max-width: min(100%, 320px); max-height: 240px; border-radius: 6px; border: 1px solid var(--line) }
 .card { background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--grp); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 8px }
-.sheet { position: fixed; inset: auto 0 0 0; background: var(--surface); border-top: 1px solid var(--line); border-radius: 20px 20px 0 0; box-shadow: 0 -12px 40px rgb(0 0 0 / .22);
+.sheet { position: fixed; inset: auto 0 0 0; background: var(--surface); border-top: 1px solid var(--line); border-radius: 12px 12px 0 0; box-shadow: 0 -12px 40px rgb(0 0 0 / .22);
   padding: 22px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); max-width: 760px; margin: 0 auto; z-index: 10 }
 .sheet::before { content: ""; position: absolute; top: 8px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 999px; background: var(--line) }
 .login { max-width: 420px; margin: 0 auto; padding: 64px 16px; display: grid; gap: 16px }
@@ -527,15 +554,15 @@ textarea { width: 100%; resize: vertical }
 .pinned { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px }
 .card .row { align-items: center; justify-content: flex-start }
 .pin-controls { margin-left: auto; display: flex; gap: 6px }
-.grp-icon.pick { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--grp); cursor: pointer }
+.grp-icon.pick { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--grp); cursor: pointer }
 .grp-icon.pick:hover { background: var(--surface-2) }
 .icon-grid { display: grid; gap: 10px; justify-items: start }
 .icon-section { display: grid; gap: 4px }
 .icon-section .label { margin: 0 }
 .icon-row { display: flex; flex-wrap: wrap; gap: 6px }
-.icon-choice { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--fg); cursor: pointer }
-.icon-choice:hover { background: var(--surface-2); color: var(--grp) }
-.icon-choice[aria-checked="true"] { color: var(--accent); background: var(--accent-soft); border-color: var(--accent) }
+.icon-choice { width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 6px; background: var(--surface-2); color: var(--fg); cursor: pointer }
+.icon-choice:hover { background: color-mix(in srgb, var(--surface-2) 85%, var(--fg)); color: var(--grp) }
+.icon-choice[aria-checked="true"] { color: var(--accent); background: var(--accent-soft) }
 .kv-row { display: flex; align-items: center; gap: 16px }
 .closed summary { cursor: pointer; font-weight: 600; color: var(--muted); padding: 8px 0; min-height: 44px; display: flex; align-items: center }
 .closed-row { display: flex; align-items: center; gap: 6px }
@@ -547,17 +574,17 @@ textarea { width: 100%; resize: vertical }
 .where input[type="radio"] { min-height: 0; width: 18px; height: 18px; padding: 0; accent-color: var(--accent) }
 .new-group { --grp: var(--accent) }
 /* Two or three choices side by side, the chosen one highlighted (the type of a group). */
-.seg { display: inline-flex; justify-self: start; border: 1px solid var(--line); border-radius: 12px; overflow: hidden }
+.seg { display: inline-flex; justify-self: start; border: 1px solid var(--line); border-radius: 6px; overflow: hidden }
 .seg button { min-height: 40px; padding: 6px 14px; border: 0; background: var(--surface); color: var(--muted); font-weight: 600; cursor: pointer }
 .seg button + button { border-left: 1px solid var(--line) }
 .seg button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent) }
 .pills { display: inline-flex; flex-wrap: wrap; gap: 4px }
 .pills .pill { margin-left: 0 }
-.icon-choice.small { width: 36px; height: 36px }
+.icon-choice.small { width: 32px; height: 32px }
 .icon-choice.small svg { width: 18px; height: 18px }
 .group-name { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
 .group-name input { min-height: 40px; font: inherit; font-weight: 700 }
-.icon-choice:disabled { opacity: .35; cursor: default; background: var(--surface); color: var(--fg) }
+.icon-choice:disabled { opacity: .35; cursor: default; background: var(--surface-2); color: var(--fg) }
 
 /* The month as Google's calendar (user's choice, 2026-11-17): a grid of lines, the titles cut at the cell's edge. Each
    title in the text's own colour after a thin bar of its group's (2026-11-19, as the Agenda's rows): before, dark
@@ -572,7 +599,7 @@ textarea { width: 100%; resize: vertical }
   border-radius: 0; background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; overflow: hidden }
 .month-grid .cell:not(:nth-child(7n+8)) { border-left: 1px solid var(--line) }
 .month-grid .cell:hover { background: var(--surface) }
-.month-grid .cell .n { align-self: center; min-width: 24px; margin-bottom: 2px; border-radius: 999px; font-size: .78rem; font-weight: 600; line-height: 18px; text-align: center }
+.month-grid .cell .n { align-self: center; min-width: 24px; margin-bottom: 2px; border-radius: 4px; font-size: .78rem; font-weight: 600; line-height: 18px; text-align: center }
 .month-grid .cell[aria-current="date"] .n { background: var(--accent); color: var(--surface); font-weight: 700 }
 .month-grid .cell.other .n { color: var(--muted); opacity: .6 }
 .month-grid .strip { display: block; padding: 0 0 0 4px; border-left: 3px solid var(--grp); color: var(--fg); font-size: .75rem; font-weight: 500; line-height: 15px;
@@ -589,7 +616,7 @@ textarea { width: 100%; resize: vertical }
 .setting-value { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 62%; text-align: right; overflow-wrap: anywhere }
 .settings-card .people-list li:last-child { border-bottom: 0 }
 .settings-card .upcoming { border-top: 1px solid var(--line); padding-top: 8px }
-.switch { position: relative; flex: none; width: 46px; height: 28px; padding: 0; border: 0; border-radius: 14px; background: var(--line); cursor: pointer; transition: background .15s }
+.switch { position: relative; flex: none; width: 46px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: var(--line); cursor: pointer; transition: background .15s }
 .switch[aria-checked=true] { background: var(--marker) }
 .switch .knob { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .3); transition: left .15s }
 .switch[aria-checked=true] .knob { left: 21px }
@@ -604,27 +631,27 @@ textarea { width: 100%; resize: vertical }
 .day-sheet-head h3 { margin: 0 }
 /* «Ripeti qui un evento»: the events open under the button, inside the day's panel (it scrolls, a menu over it would be cut). */
 /* «Appunti» (2026-11-18): the clipboard offered under the capture field, and the clips in Io, cut to two lines. */
-.clip-preview { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 12px; background: var(--raised) }
+.clip-preview { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 8px; background: var(--raised) }
 .clip-preview .clip-text { color: var(--muted); overflow-wrap: anywhere }
 .clips .meta { display: block }
 .clips .clip-open { flex: none; margin-left: 12px; color: var(--fg) }
 .clips .clip-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; overflow-wrap: anywhere }
-.repeat-here { flex: 1 1 100%; display: grid; gap: 2px; margin-top: 8px; padding: 6px; border: 1px solid var(--edge); border-radius: 12px; background: var(--raised) }
+.repeat-here { flex: 1 1 100%; display: grid; gap: 2px; margin-top: 8px; padding: 6px; border: 1px solid var(--edge); border-radius: 8px; background: var(--raised) }
 .repeat-here input { margin: 4px 4px 6px }
-.repeat-here .pick { display: grid; text-align: left; gap: 2px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--fg); font: inherit; cursor: pointer }
+.repeat-here .pick { display: grid; text-align: left; gap: 2px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: 4px; background: none; color: var(--fg); font: inherit; cursor: pointer }
 .repeat-here .pick:hover { background: var(--surface-2) }
 .repeat-here .pick .t { font-weight: 600 }
 .repeat-here .pick .meta { font-size: .8rem; color: var(--muted) }
 /* «Copia su un altro giorno»: the icon after a day's row, and the line over the month while it waits for the day. */
 .item-row .copy-day { flex: none; margin-left: 12px }
-.copy-band { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-weight: 600 }
+.copy-band { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-weight: 600 }
 
 /* A new version waiting for Aggiorna (user's choice, 2026-11-17), as the demo's band. */
-.update-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 14px; margin-bottom: 12px; border-radius: 12px; background: var(--accent-soft); color: var(--fg); font-size: .9rem }
+.update-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 14px; margin-bottom: 12px; border-radius: 8px; background: var(--accent-soft); color: var(--fg); font-size: .9rem }
 .update-band .versions { color: var(--muted); white-space: nowrap; margin-left: 4px }
 .update-band .versions b { color: var(--fg) }
 /* Once the new version is loaded (user's choice, 2026-11-17): green, where Aggiorna was, a line running down in six seconds. */
-.updated-band { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 12px; border-radius: 12px; overflow: hidden;
+.updated-band { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 12px; border-radius: 8px; overflow: hidden;
   background: var(--ok-soft); color: var(--fg); font-size: .9rem }
 .updated-band .ok-icon { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 999px; background: var(--ok); color: var(--surface) }
 .updated-band .close { margin-left: auto; display: inline-grid; place-items: center; min-height: 28px; padding: 0 4px; color: var(--muted) }
@@ -633,8 +660,8 @@ textarea { width: 100%; resize: vertical }
 /* «Agenda | Calendario» at the bottom, over the sections' bar (user's choice, 2026-11-17): a pill to tap or to swipe. */
 .app:has(> .view-strip) { grid-template-rows: auto 1fr auto auto }
 .view-strip { display: flex; justify-content: center; padding: 6px 16px; background: var(--surface); border-top: 1px solid var(--line); touch-action: pan-y }
-.view-strip .seg { display: flex; padding: 3px; border-radius: 999px; background: var(--bg) }
-.view-strip button { min-height: 32px; padding: 0 18px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 .72rem var(--body);
+.view-strip .seg { display: flex; padding: 3px; border-radius: 8px; background: var(--bg) }
+.view-strip button { min-height: 32px; padding: 0 18px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: 700 .72rem var(--body);
   letter-spacing: .08em; text-transform: uppercase; cursor: pointer }
 .view-strip button[aria-current="page"] { background: var(--accent-soft); color: var(--accent) }
 .app:has(> .view-strip) .fab { bottom: calc(var(--nav-h) + 45px + 14px + env(safe-area-inset-bottom)) }

@@ -79,8 +79,8 @@ test('testShortcutsAndTodayMarked', () => {
   expect(within(cal).getByRole('button', { name: dayLabel(today()) }).getAttribute('aria-current')).toBe('date');
   fireEvent.click(within(cal).getByRole('button', { name: 'Oggi' }));
   fireEvent.click(within(cal).getByRole('button', { name: 'Domani' }));
-  fireEvent.click(within(cal).getByRole('button', { name: 'Tra una settimana' }));
-  expect(onChange.mock.calls.map(c => c[0])).toEqual([today(), addDays(today(), 1), addDays(today(), 7)]);
+  expect(within(cal).queryByRole('button', { name: 'Tra una settimana' })).toBeNull();
+  expect(onChange.mock.calls.map(c => c[0])).toEqual([today(), addDays(today(), 1)]);
 });
 
 test('testDueIsChosenOnTheCalendar', async () => {

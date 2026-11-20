@@ -7,7 +7,7 @@ import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
   accept, addItem, anchorOf, removeAttachment, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, resumeIfDue, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
-  moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, rebase, setClosesItself, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
+  moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, rebase, setClosesItself, undoTo, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
 import { instantNow, localNow } from '../dates.js';
@@ -42,6 +42,7 @@ import { PropertyForm } from './PropertyForms.js';
 import { moveTargets } from '../groups/moveTargets.js';
 import { groupName } from '../groups/GroupsView.js';
 import type { Chip } from './PropertyForms.js';
+import { useToast } from '../shell/toast.js';
 
 /** The chips that open a menu under themselves instead of a form (user's choice, 2026-11-16). */
 type InlineKey = 'priority' | 'assignment' | 'due';
@@ -55,8 +56,26 @@ const ACTION_LABEL: Record<ActionKind, string> = {
   met: 'Segna avverata', moveToGroup: 'Sposta in un gruppo', decompose: 'Scomponi…',
   snooze: 'Rimanda…', archive: 'Archivia', toDraft: 'Torna bozza',
 };
-/** Highlighted only where someone waits for the person's answer: a proposal to accept. */
-const PRIMARY: ReadonlySet<ActionKind> = new Set<ActionKind>(['accept']);
+/**
+ * One action highlighted, never two (user's remark, 2026-11-20, «molto brutto due bottoni evidenziati»): «Accetta» where
+ * someone waits for the person's answer, otherwise «Fatto». Before, «Accetta» only; for a moment both.
+ */
+export const primaryOf = (actions: readonly ActionKind[]): ActionKind | undefined =>
+  actions.includes('accept') ? 'accept' : actions.includes('complete') ? 'complete' : undefined;
+/** The highlighted action always first (user's request, 2026-11-20), the others in their order. */
+export const mainFirst = (actions: readonly ActionKind[]): ActionKind[] => {
+  const main = primaryOf(actions);
+  return main ? [main, ...actions.filter(k => k !== main)] : [...actions];
+};
+/**
+ * What a tap did, in the floating line with Annulla (user's request, 2026-11-20), as the swipes of the agenda do. Not
+ * «Torna bozza»: taking it back would move it between engines again.
+ */
+const DONE_TEXT: Partial<Record<ActionKind, string>> = {
+  accept: 'Accettata', claim: 'Presa da te', cover: 'Questa volta la copri tu', leaveOccurrence: 'Lasciata questa volta',
+  complete: 'Fatta', reopenOccurrence: 'Tolta la spunta', skip: 'Saltata', restore: "Rimessa com'era", met: 'Condizione avverata',
+  archive: 'Archiviata',
+};
 /** What Chiudi says after saving a form left open. */
 const SAVED: Record<Chip, string> = {
   due: 'Scadenza salvata', schedule: 'Data e ora salvata', repeat: 'Ripeti salvato', assignment: 'Assegnazione salvata',
@@ -263,9 +282,26 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
     }
   }
 
+  const toast = useToast();
+  /**
+   * An action with Annulla (2026-11-20): back to the activity as it was, on the version saved by then. It works after
+   * the page closed too (Archivia), as the line stays at the bottom of the app.
+   */
+  async function acted(kind: ActionKind, change: () => Activity, after?: () => void) {
+    const before = a!;
+    if (!(await run(change, after)) || isNew) return;
+    const text = DONE_TEXT[kind];
+    if (!text) return;
+    toast({ text, undo: () => {
+      const saved = ownSave.current;
+      if (saved) ws.save(undoTo(before, saved, instantNow())).then(back => { ownSave.current = back; }).catch(e => toast({ text: errorText(e) }));
+    } });
+  }
+
   function act(kind: ActionKind) {
     const now = instantNow();
     const it: Activity = a!;
+    const run = (change: () => Activity, after?: () => void) => acted(kind, change, after);
     switch (kind) {
       case 'accept': return run(() => accept(it, me, now));
       case 'reject': return setForm('reject');
@@ -410,7 +446,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
 
       {!isNew && actions.length > 0 && (
         <div className="btns">
-          {actions.map(k => (k === 'moveToGroup' ? <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Gruppo">{groupChoices}</PopMenu>
+          {mainFirst(actions).map(k => (k === 'moveToGroup' ? <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Gruppo">{groupChoices}</PopMenu>
             : k === 'snooze' ? (
               <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Rimanda" panel>
                 {close => <SnoozeForm me={me} onCancel={close} onSnooze={until => { close(); void run(() => snooze(a, until, me, instantNow()), () => onClose()); }} />}
@@ -434,7 +470,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
               <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Sposta questa volta" panel>
                 {close => <MoveOccurrenceForm from={occ.start} onCancel={close} onMove={to => { close(); void run(() => moveOccurrence(a, occ.key, to, me, role, instantNow())); }} />}
               </PopMenu>
-            ) : <button key={k} className={`btn${PRIMARY.has(k) ? ' primary' : ''}`} onClick={() => act(k)}>{labelOf(k)}</button>))}
+            ) : <button key={k} className={`btn${k === primaryOf(actions) ? ' primary' : ''}`} onClick={() => act(k)}>{labelOf(k)}</button>))}
         </div>
       )}
       {form === 'decompose' && <DecomposeForm parent={a} onDone={() => onClose()} />}
@@ -444,7 +480,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         <>
           {/* Most used first: the order says it, the label need not. */}
           <p className="label">Aggiungi proprietà</p>
-          <div className="chips">
+          <div className="chips add-props">
             {chips.map(k => (k === 'groupId' ? <PopMenu key={k} label="+ Gruppo" menuLabel="Gruppo">{groupChoices}</PopMenu> : INLINE.has(k) ? inlineChip(k as InlineKey) : PANEL.has(k) ? (
               <span key={k} className="attach" ref={form === k ? panelBox : undefined}>
                 <button className="chip" aria-pressed={form === k} onClick={e => openPanel(k)}>+ {PROP_LABEL[k as PropKey]}</button>
