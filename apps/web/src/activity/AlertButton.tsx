@@ -7,7 +7,7 @@ import { useSession } from '../session/SessionContext.js';
 import { useBackLayer } from '../shell/back.js';
 import { Icon } from '../shell/icons.js';
 import { PanelActions, PanelBackdrop, PanelHead, useEscape } from '../shell/PanelActions.js';
-import { MenuSelect } from '../shell/PopMenu.js';
+import { MenuChoice, MenuSelect, PopMenu } from '../shell/PopMenu.js';
 import { DAY_HOUR, NO_GENERAL, alertWords } from '../telegram/alerts.js';
 import { usePushOn } from '../telegram/push.js';
 import { telegramOn, useTelegramStatus } from '../telegram/state.js';
@@ -123,7 +123,7 @@ export function AlertRow({ activity: a, me, onOpen }: { activity: Activity; me: 
     <>
       <dt>Avvisi</dt>
       <dd><button type="button" className="link value" aria-label="Modifica Avvisi" onClick={onOpen}>
-        {list.length > 0 ? list.map(alertWords).join(', ') : 'Imposta'}
+        {list.length === 0 ? 'Imposta' : list.length <= 2 ? list.map(alertWords).join(', ') : `${list.length} avvisi`}
       </button></dd>
     </>
   );
@@ -167,7 +167,13 @@ function AddRows({ hasEnd, taken, full, onAdd }: { hasEnd: boolean; taken: Alert
   );
 }
 
-/** The + of an add row, where an alert has its bin; off once the five are set. */
+/** The hour a new day alert starts at (user's choice, 2026-11-20; before, 9:00). */
+const NEW_DAY_HOUR = '10:00';
+
+/**
+ * The + of an add row, where an alert has its bin; off once the five are set. A row changed and not added is marked
+ * (user's request, 2026-11-20), as ✓ keeps only what the + put in the list; after its +, it goes back to how it started.
+ */
 function PlusButton({ words, disabled, full, onAdd }: { words: string; disabled?: boolean; full: boolean; onAdd(): void }) {
   return (
     <button type="button" className="link plus" aria-label={`Aggiungi ${words}`} title={full ? `Al massimo ${MAX_ACTIVITY_ALERTS} avvisi` : 'Aggiungi'}
@@ -191,8 +197,9 @@ function BeforeRow({ of, full, onAdd }: { of: 'start' | 'end'; full: boolean; on
   const [unit, setUnit] = useState<Unit>('min');
   const words = of === 'start' ? "prima dell'inizio" : 'prima della fine';
   const valid = /^[1-9]\d{0,2}$/.test(n);
+  const reset = () => { setN('10'); setUnit('min'); };
   return (
-    <li className="alert-new">
+    <li className={n !== '10' || unit !== 'min' ? 'alert-new edited' : 'alert-new'}>
       <Icon name="bell" size={18} />
       <span className="alert-fields">
         <input type="text" inputMode="numeric" className="alert-n" aria-label={`Quanto ${words}`} value={n}
@@ -200,7 +207,7 @@ function BeforeRow({ of, full, onAdd }: { of: 'start' | 'end'; full: boolean; on
         <MenuSelect<Unit> label={`Unità ${words}`} value={unit} options={UNITS} onChange={setUnit} />
         <span>{words}</span>
       </span>
-      <PlusButton words={words} disabled={!valid} full={full} onAdd={() => onAdd({ of, before: Number(n) * MINUTES[unit] })} />
+      <PlusButton words={words} disabled={!valid} full={full} onAdd={() => { onAdd({ of, before: Number(n) * MINUTES[unit] }); reset(); }} />
     </li>
   );
 }
@@ -220,31 +227,28 @@ function AddDayRows({ full, onAdd }: { full: boolean; onAdd(x: AlertAt): void })
 
 function DayRow({ before, full, onAdd }: { before: boolean; full: boolean; onAdd(x: AlertAt): void }) {
   const [n, setN] = useState('1');
-  const [at, setAt] = useState(DAY_HOUR);
-  // The hours open right under their button, as wide as it, a short list that scrolls inside and pushes the panel down
-  // (user's choices, 2026-11-19): a menu of 36 over the page overflowed the panel, which then scrolled; a grid of 36
-  // buttons was «bruttino»; a list as wide as the panel, «così grande».
-  const [picking, setPicking] = useState(false);
+  // 10:00 for a new one (user's choice, 2026-11-20); DAY_HOUR stays the hour of an alert saved without one.
+  const [at, setAt] = useState(NEW_DAY_HOUR);
   const words = before ? 'giorni prima' : 'il giorno stesso';
   const valid = !before || /^[1-9]\d?$/.test(n);
+  const edited = (before && n !== '1') || at !== NEW_DAY_HOUR;
+  const reset = () => { setN('1'); setAt(NEW_DAY_HOUR); };
   return (
-    <li className="alert-new">
+    <li className={edited ? 'alert-new edited' : 'alert-new'}>
       <Icon name="bell" size={18} />
       <span className="alert-fields">
         {before && <input type="text" inputMode="numeric" className="alert-n" aria-label="Quanti giorni prima" value={n}
           onChange={e => setN(e.target.value.replace(/\D/g, '').slice(0, 2))} />}
         <span>{words} alle</span>
-        <span className="hour-pick">
-          <button type="button" className="btn select" aria-label={`Ora ${words}`} aria-expanded={picking} onClick={() => setPicking(p => !p)}>{at.replace(/^0/, '')} ▾</button>
-          {picking && (
-            <span className="hour-list" role="listbox" aria-label="Ore"
-              ref={el => el?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'center' })}>
-              {HALF_HOURS.map(([v, t]) => <button key={v} type="button" role="option" aria-selected={v === at} onClick={() => { setAt(v); setPicking(false); }}>{t}</button>)}
-            </span>
-          )}
-        </span>
+        {/* The hours float over the page as the other menus, a short list that scrolls inside, opening on the hour set
+            (user's choice, 2026-11-20). Before, the list opened under its button inside the panel and made it longer:
+            then the only menu that did not float (2026-11-19: a menu over the page overflowed the panel, «bruttino» as a
+            grid, «così grande» as wide as the panel). */}
+        <PopMenu className="btn select" buttonLabel={`Ora ${words}`} label={`${at.replace(/^0/, '')} ▾`} menuLabel={`Ora ${words}`} menuClass="hours" roomBelow={240}>
+          {close => HALF_HOURS.map(([v, t]) => <MenuChoice key={v} label={t} value={v} checked={v === at} onChoose={() => { close(); setAt(v); }} />)}
+        </PopMenu>
       </span>
-      <PlusButton words={words} disabled={!valid} full={full} onAdd={() => onAdd({ of: 'day', before: before ? Number(n) : 0, at })} />
+      <PlusButton words={words} disabled={!valid} full={full} onAdd={() => { onAdd({ of: 'day', before: before ? Number(n) : 0, at }); reset(); }} />
     </li>
   );
 }

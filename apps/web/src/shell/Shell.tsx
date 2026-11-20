@@ -112,7 +112,10 @@ export function Shell() {
   // A list group's page has its own field to add items: no +.
   const onList = here !== undefined && (groupTypeOf(here) === 'list' || here.archived === true);
   const newIn = (id: string) => setCreating(newActivity({ id: newId(), accountId: ws.engineOf(id)?.account ?? account, title: '', groupId: id }, instantNow()));
-  const plus = () => (here ? newIn(here.id) : setCapturing(true));
+  // On Io the + makes a new activity in Personale at once (user's request, 2026-11-20), as on a group's page; elsewhere
+  // it captures a draft.
+  const onMe = tab === 'me' && !open && !creating;
+  const plus = () => (here ? newIn(here.id) : onMe ? newIn(personalGroupId) : setCapturing(true));
   // From a day of the month (user's choice, 2026-11-17): in Personale, which Dove changes, that day at 9:00.
   const newOn = (day: LocalDate) => setCreating(activityOnDay(day, personalGroupId, ws.engineOf(personalGroupId)?.account ?? account, instantNow()));
   // Swiping the page goes through the sections in the bar's order, the agenda first (from its header).
@@ -166,7 +169,7 @@ export function Shell() {
         )}
       </main>
       {capturing && <CaptureSheet shared={shared} onSaved={() => { setCapturing(false); go('me'); refreshQueue(); }} onClose={() => setCapturing(false)} />}
-      {!capturing && !creating && !onList && <button className="fab" aria-label={here ? `Nuova attività in ${here.name}` : 'Nuova bozza'} onClick={plus}>+</button>}
+      {!capturing && !creating && !onList && <button className="fab" aria-label={here ? `Nuova attività in ${here.name}` : onMe ? 'Nuova attività in Personale' : 'Nuova bozza'} onClick={plus}>+</button>}
       {viewSwitch && !wide && <ViewStrip />}
       <nav className="tabs" aria-label="Sezioni">
         {entry('groups', 'Noi', 0)}

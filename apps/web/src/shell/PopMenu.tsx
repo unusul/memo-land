@@ -15,12 +15,14 @@ const PANEL_HEIGHT = 420;
  * once (user's choice, 2026-11-16, «la gestione in linea»). Near the screen's edges it opens leftwards or upwards. A
  * press outside or Esc closes it; `children` gets `close` for the choices that end it.
  */
-export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chip', panel = false, roomBelow = ROOM_BELOW, children }: {
+export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chip', menuClass, panel = false, roomBelow = ROOM_BELOW, children }: {
   label: ReactNode; menuLabel: string; className?: string; children(close: () => void): ReactNode;
   /** The hint shown on hover, for a button with only an icon. */
   title?: string;
   /** The button's name when its text alone does not say what it does (a value shown in a row). */
   buttonLabel?: string;
+  /** One more class on the menu, for a long one that scrolls inside (the hours, 2026-11-20). */
+  menuClass?: string;
   /** Fields instead of a list of choices: the wider look of the property panels. */
   panel?: boolean;
   /** How tall the menu can get: below less than this it opens upwards. A two-choice menu needs far less than a month. */
@@ -42,6 +44,10 @@ export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chi
     // All of it in sight: a menu opened low on the page would end under the bottom bar. Not a floating one: it is placed
     // in sight already, and scrolling its panel would close it.
     if (!floating) box.current?.querySelector('.menu')?.scrollIntoView?.({ block: 'nearest' });
+    // A menu that scrolls inside opens on the value set now, in its middle (the hours: 10:00 among 36).
+    const list = (floated.current ?? box.current)?.querySelector<HTMLElement>('[role=menu]');
+    const on = list?.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (list && on && list.scrollHeight > list.clientHeight) list.scrollTop = on.offsetTop - (list.clientHeight - on.offsetHeight) / 2;
     // A panel closes with its own Annulla or Applica: a press outside does nothing there (user's choice, 2026-11-17).
     if (panel) return;
     const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node) && !floated.current?.contains(e.target as Node)) setOpen(false); };
@@ -84,7 +90,7 @@ export function PopMenu({ label, menuLabel, buttonLabel, title, className = 'chi
   }
 
   const menu = (
-    <span role="menu" aria-label={menuLabel} className={['menu', panel && 'panel', place.end && 'end', place.up && 'up'].filter(Boolean).join(' ')}
+    <span role="menu" aria-label={menuLabel} className={['menu', panel && 'panel', place.end && 'end', place.up && 'up', menuClass].filter(Boolean).join(' ')}
       style={floating ?? undefined} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }}>
       {panel && <PanelHead title={menuLabel} onCancel={close} />}
       {children(close)}

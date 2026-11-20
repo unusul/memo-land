@@ -363,11 +363,12 @@ test('testTheBellOnADateWithoutAnHour', async () => {
   fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi il giorno stesso' }));
   fireEvent.change(within(panel).getByRole('textbox', { name: 'Quanti giorni prima' }), { target: { value: '2' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Ora giorni prima' }));
-  fireEvent.click(within(within(panel).getByRole('listbox', { name: 'Ore' })).getByRole('option', { name: '18:30' }));
+  // The hours float over the page as the other menus (2026-11-20).
+  fireEvent.click(within(screen.getByRole('menu', { name: 'Ora giorni prima' })).getByRole('menuitemradio', { name: '18:30' }));
   fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi giorni prima' }));
-  expect(set(panel)).toEqual(['2 giorni prima alle 18:30', 'il giorno stesso alle 9:00']);
+  expect(set(panel)).toEqual(['2 giorni prima alle 18:30', 'il giorno stesso alle 10:00']);
   fireEvent.click(within(panel).getByRole('button', { name: 'Applica' }));
-  expect(alertsOf(PIPPO)['bolletta']).toEqual({ mode: 'here', list: [{ of: 'day', before: 2, at: '18:30' }, { of: 'day', before: 0, at: '09:00' }] });
+  expect(alertsOf(PIPPO)['bolletta']).toEqual({ mode: 'here', list: [{ of: 'day', before: 2, at: '18:30' }, { of: 'day', before: 0, at: '10:00' }] });
 });
 
 /** A tap on a notification opens its activity (2026-11-19): the address the service worker opens says which. */
@@ -416,4 +417,34 @@ test('testTheBellOffersStartAndEndOnce', async () => {
   fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi alla fine' }));
   expect(adds(panel)).toEqual(["Aggiungi prima dell'inizio", 'Aggiungi prima della fine']);
   expect(set(panel)).toEqual(["all'inizio", 'alla fine']);
+});
+
+/**
+ * Fewer words (user's remarks, 2026-11-20): the detail's row says «3 avvisi» from three on; an add row changed and not
+ * added is marked, and after its + it goes back to how it started; a new day alert starts at 10:00.
+ */
+test('testTheAlertRowCountsAndAChangedRowIsMarked', async () => {
+  localStorage.clear();
+  const backend = benchBackend();
+  backend.activities.set('spid', { ...at('spid', 'Scadenza Spid', { due: '2999-12-10' }), groupId: 'inv:developers' });
+  const store = fakeTelegram();
+  store.state = { ...store.state, linked: true };
+  await refreshTelegram(store);
+  renderWithSession(<ActivityDetail activityId="spid" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
+  await screen.findByRole('heading', { name: 'Scadenza Spid' });
+  fireEvent.click(screen.getByRole('button', { name: 'Modifica Avvisi' }));
+  const panel = screen.getByRole('dialog', { name: 'Avvisi' });
+  expect(within(panel).getByRole('button', { name: 'Ora il giorno stesso' }).textContent).toBe('10:00 ▾');
+  const days = within(panel).getByRole('textbox', { name: 'Quanti giorni prima' });
+  const row = days.closest('li')!;
+  expect(row.className).not.toContain('edited');
+  for (const n of ['14', '7', '2']) {
+    fireEvent.change(days, { target: { value: n } });
+    expect(row.className).toContain('edited');
+    fireEvent.click(within(panel).getByRole('button', { name: 'Aggiungi giorni prima' }));
+    expect(row.className).not.toContain('edited');
+    expect((days as HTMLInputElement).value).toBe('1');
+  }
+  fireEvent.click(within(panel).getByRole('button', { name: 'Applica' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Modifica Avvisi' }).textContent).toBe('3 avvisi'));
 });

@@ -37,7 +37,7 @@ import { SnoozeForm } from './SnoozeForm.js';
 import { describeRepeat, isWeekly } from './timing.js';
 import type { ActionKind } from './actions.js';
 import { DecomposeForm } from './DecomposeForm.js';
-import { TextFields, TitleField } from './TextFields.js';
+import { BodyField, TextFields, TitleField } from './TextFields.js';
 import { PropertyForm } from './PropertyForms.js';
 import { moveTargets } from '../groups/moveTargets.js';
 import { groupName } from '../groups/GroupsView.js';
@@ -378,7 +378,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       {isNew ? (
         <div className="text-fields">
           <TitleField autoFocus placeholder="Cosa c'è da fare?" value={a.title} onChange={e => setLocal({ ...a, title: e.target.value })} />
-          <textarea className="body-field" aria-label="Testo" placeholder="Aggiungi un testo…" rows={2} value={a.body} onChange={e => setLocal({ ...a, body: e.target.value })} />
+          <BodyField value={a.body} onChange={e => setLocal({ ...a, body: e.target.value })} />
         </div>
       ) : canEdit
         ? <TextFields key={a.id} title={a.title} body={a.body} hideTitle={asGroupList} onSave={text => run(() => editText(a, text, me, instantNow()))} />

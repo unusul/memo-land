@@ -18,3 +18,18 @@ test('testShowsAgendaWithSession', async () => {
   expect(screen.getByRole('button', { name: 'Calendario' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Nuova bozza' })).toBeTruthy();
 });
+
+/**
+ * On Io the + makes a new activity in Personale at once (user's request, 2026-11-20), as on a group's page; on the
+ * Agenda it still captures a draft. Before, on Io it captured a draft too.
+ */
+test('testThePlusOnIoAddsInPersonale', async () => {
+  const { fireEvent } = await import('@testing-library/react');
+  render(<App open={async () => memorySession()} login={noLogin} />);
+  const nav = await screen.findByRole('navigation', { name: 'Sezioni' });
+  expect(screen.getByRole('button', { name: 'Nuova bozza' })).toBeTruthy();
+  fireEvent.click([...nav.querySelectorAll('button')].find(b => b.textContent?.startsWith('Io'))!);
+  fireEvent.click(await screen.findByRole('button', { name: 'Nuova attività in Personale' }));
+  expect(await screen.findByRole('textbox', { name: 'Titolo' })).toBeTruthy();
+  expect(screen.queryByRole('dialog', { name: 'Nuova bozza' })).toBeNull();
+});
