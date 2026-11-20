@@ -29,6 +29,10 @@ const SHELL_PATHS = {
   bell: <><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></>,
   bellOff: <><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 0 0 4 0" /><path d="M4 4l16 16" /></>,
   close: <path d="M6 6l12 12M18 6 6 18" />,
+  /* The Vault (2026-11-20): a padlock, and an eye to show or hide a value. */
+  lock: <><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" /></>,
+  eye: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,
+  eyeOff: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /><path d="M4 4l16 16" /></>,
   chevron: <path d="m9 6 6 6-6 6" />,
   back: <path d="M19.5 12h-15M10.5 6l-6 6 6 6" />,
   more: <path d="M5.5 12h.01M12 12h.01M18.5 12h.01" strokeWidth="3" />,

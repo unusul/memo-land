@@ -5,6 +5,7 @@ import { appHome } from '../appHome.js';
 import { idbOutboxStore } from '../offline/idb-store.js';
 import { forgetGoogleProjects } from './google-config.js';
 import { supabaseTelegram } from '../telegram/store.js';
+import { supabaseVault } from '../vault/store.js';
 import { TIMED_OUT, chooseStartup, offlineIdentity, resolveOnboarding, withinStartupWait } from './onboarding.js';
 import type { OpenedSession } from './session.js';
 import type { PrefsStore, SyncedPrefs } from '../settings/prefsSync.js';
@@ -51,7 +52,7 @@ export async function openCentralSession(): Promise<OpenedSession | null> {
   rememberEmail(start.email);
   if (identity.offline) reloadWhenBack(db);
   const signOut = async () => { rememberEmail(null); await forgetGoogleProjects(); await db.auth.signOut(); };
-  return { account: identity.account, primary: engine, engines: [engine], personalGroupId: identity.personalGroupId, outbox: idbOutboxStore(), signOut, prefs: supabasePrefs(db), telegram: supabaseTelegram(db) };
+  return { account: identity.account, primary: engine, engines: [engine], personalGroupId: identity.personalGroupId, outbox: idbOutboxStore(), signOut, prefs: supabasePrefs(db), telegram: supabaseTelegram(db), vault: supabaseVault(db) };
 }
 
 /** The prefs that follow the account (bar, icons, theme) in its metadata, which the sign-in already keeps: no table. */

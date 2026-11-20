@@ -7,6 +7,7 @@ import { errorCodeText } from '../labels.js';
 import type { OutboxEntry } from '../offline/outbox.js';
 import { useSession } from '../session/SessionContext.js';
 import { useWs } from '../workspace/useWorkspace.js';
+import { VaultSection } from '../vault/VaultSection.js';
 
 /** What is only the person's: drafts to sort, the personal group's activities, captures still in the outbox. */
 export function MeView({ onOpen = () => undefined }: { onOpen?(t: OpenTarget): void } = {}) {
@@ -31,6 +32,8 @@ export function MeView({ onOpen = () => undefined }: { onOpen?(t: OpenTarget): v
           <GroupList label={groupName(g)} group={g} activities={ws.activities.filter(a => a.groupId === g.id && a.status === 'open')} onOpen={onOpen} />
         </div>
       ))}
+      {/* The Vault (2026-11-20): titles and values only the person reads, under the personal group. */}
+      <VaultSection />
       <ClosedLists onOpen={onOpen} canReopen={a => a.accountId === account || personal.some(g => g.id === a.groupId)}
         activities={[...ws.drafts.filter(d => d.status !== 'open'), ...ws.activities.filter(a => a.status !== 'open' && personal.some(g => g.id === a.groupId))]} />
       {waiting > 0 && <p>{waiting === 1 ? '1 bozza in attesa di rete' : `${waiting} bozze in attesa di rete`}: partiranno appena torna la connessione.</p>}

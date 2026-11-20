@@ -2,6 +2,7 @@ import type { AccountId, Engine, GroupId } from '@attivita/core';
 import type { OutboxStore } from '../offline/outbox.js';
 import type { PrefsStore } from '../settings/prefsSync.js';
 import type { TelegramStore } from '../telegram/store.js';
+import type { VaultStore } from '../vault/store.js';
 
 /** A Google project connected before that did not open again, and why. */
 export interface Unreached { projectId: string; reason: 'signedOut' | 'failed' }
@@ -28,6 +29,8 @@ export interface Session {
   unreached?: Unreached[];
   /** The Telegram alerts' server side (2026-11-18); only on the central engine, absent in the demo. */
   telegram?: TelegramStore;
+  /** The Vault in Io (2026-11-20): only on the central engine; the demo keeps one in memory. */
+  vault?: VaultStore;
   addEngine(e: Engine): void;
 }
 
