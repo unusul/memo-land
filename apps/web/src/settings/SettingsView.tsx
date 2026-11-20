@@ -9,6 +9,7 @@ import { retryPrefsSync, useSyncStatus } from './prefsSync.js';
 import { useSession } from '../session/SessionContext.js';
 import { Icon } from '../shell/icons.js';
 import { SettingRow, SettingsCard } from './Card.js';
+import { ImportSection } from './ImportSection.js';
 import { loadTheme, saveTheme } from './theme.js';
 import type { Theme } from './theme.js';
 import { APP_DATE, APP_VERSION, versionLine } from './version.js';
@@ -17,7 +18,7 @@ const THEMES: Array<[Theme, string, 'auto' | 'sun' | 'moon']> = [['auto', 'Autom
 
 /**
  * The person's settings, opened from the gear in the header, in cards (user's choice, 2026-11-19): Account, Aspetto,
- * Avvisi, Persone, Altro, each with rows, the label on the left and its control on the right.
+ * Avvisi, Persone, Import (2026-11-20), Altro, each with rows, the label on the left and its control on the right.
  */
 export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
   const { account, signOut, demo, prefs } = useSession();
@@ -53,6 +54,7 @@ export function SettingsView({ onHelp }: { onHelp?(): void } = {}) {
       <SettingsCard title="Persone">
         <People account={account} />
       </SettingsCard>
+      <ImportSection />
       <SettingsCard title="Altro">
         {onHelp && <SettingRow label="Aiuto e glossario"><button className="btn" aria-label="Aiuto e glossario" onClick={onHelp}>Apri</button></SettingRow>}
         {!demo && <SettingRow label="Dati di esempio" hint="Una demo che non tocca i tuoi dati"><button className="btn" onClick={startDemo}>Prova con dati di esempio</button></SettingRow>}

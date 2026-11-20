@@ -21,3 +21,5 @@ export * from './memory-engine.js';
 export * from './agenda.js';
 export * from './alerts.js';
 export * from './usage.js';
+export * from './ics.js';
+export * from './ics-import.js';
