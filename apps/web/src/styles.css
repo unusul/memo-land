@@ -183,7 +183,9 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .btns, .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 /* Buttons after Jira (user's choice, 2026-11-20): square corners, no border, a fill a step lighter, the main action full
    in the accent. Before, pills with a dashed border and boxes with a line, 44px high. */
-.btn { min-height: 32px; border: 0; background: var(--surface-2); border-radius: 6px; padding: 6px 12px; font-size: .875rem; font-weight: 500; cursor: pointer }
+.btn { min-height: 32px; border: 0; background: var(--surface-2); border-radius: 6px; padding: 6px 12px; font-size: .875rem; font-weight: 500; cursor: pointer;
+  /* Icon and words on one centre line (user's remark, 2026-11-20): inline, the icon sat on the text's baseline, higher. */
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px }
 .btn:hover { background: color-mix(in srgb, var(--surface-2) 85%, var(--fg)) }
 /* Highlighted softly (user's remark, 2026-11-20, «troppo marcata»): the accent's tint and its colour, not a full fill. */
 .btn.primary { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
