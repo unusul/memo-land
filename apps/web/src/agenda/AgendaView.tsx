@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { buildAgenda, can, needsAttention, outOfCalendar } from '@attivita/core';
+import { alertGoesTo, alertListOf, buildAgenda, can, needsAttention, outOfCalendar } from '@attivita/core';
 import { nextTime, shortDay } from './when.js';
 import { RepeatHere, daysOf } from './RepeatHere.js';
 import { copyToDay } from './copyToDay.js';
-import { highlightsOf, rowSizeOf, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
+import { alertsOf, highlightsOf, rowSizeOf, setHighlights, useBarPrefs } from '../groups/barPrefs.js';
+import { NO_GENERAL } from '../telegram/alerts.js';
 import { setAgendaMode, setShownMonth, useAgendaMode, useShownMonth } from './agendaMode.js';
 import type { Activity, AgendaItem, Group, GroupKind, LocalDate } from '@attivita/core';
 import { addDays, dayParts, instantNow, today } from '../dates.js';
@@ -210,6 +211,20 @@ const sharedGroup = (g: Group | undefined): boolean => g !== undefined && g.kind
 const Info = () => <span className="pill info">info</span>;
 
 /**
+ * Whether a time of the agenda has alerts for the person (user's request, 2026-11-20): alerts set with the bell, that
+ * «Per chi» lets through for this time, as the server reads them; not on a time done, skipped or moved away, which the
+ * server does not alert. A time of today already gone keeps it: a bell that went off while looking would be a jump.
+ */
+export function rowAlerted(it: AgendaItem, me: string): boolean {
+  if (it.done || it.skipped || it.movedTo) return false;
+  const set = alertsOf(me)[it.activityId];
+  return (alertListOf(set, NO_GENERAL) ?? []).length > 0 && alertGoesTo(set?.who, it.assignee, me);
+}
+
+/** The bell after the title, small and grey (user's choice, 2026-11-20). */
+const Bell = () => <span className="row-bell" role="img" aria-label="Con avvisi" title="Con avvisi"><Icon name="bell" size={14} /></span>;
+
+/**
  * The rows switched by their arrow, by activity and start, for as long as the app stays open (user's choice,
  * 2026-11-16); at the next opening every row is again reduced, «Sempre espansa» aside.
  */
@@ -233,14 +248,15 @@ function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy }: { it:
   const size = rowSizeOf(me, it.activityId);
   const small = folds.get(foldKey(it)) ?? (size === 'auto' ? !(shared && !struck(it) && !info) : size === 'reduced');
   const toggle = () => { folds.set(foldKey(it), !small); redraw(n => n + 1); };
+  const bell = rowAlerted(it, me);
   return (
     <div className="item-row">
     {/* The row's own start opens it: a moved occurrence has two rows with one key. */}
     <button className={`item${struck(it) ? ' done' : ''}${small ? ' reduced' : ''}${info ? ' info' : ''}`} style={{ '--grp': info ? 'var(--muted)' : KIND_COLOR[kind] } as React.CSSProperties}
       data-take={info ? undefined : takeOf(it, kind, me)} onClick={() => onOpen({ activityId: it.activityId, occurrenceKey: it.start })}>
       <span className="bar" />
-      {small ? <span className="t">{it.title}{info && <Info />}</span> : <span>
-        <span className="t">{it.title}</span>{info && <Info />}{high && <High />}<br />
+      {small ? <span className="t">{it.title}{info && <Info />}{bell && <Bell />}</span> : <span>
+        <span className="t">{it.title}</span>{info && <Info />}{high && <High />}{bell && <Bell />}<br />
         {/* In the personal group «libera» would say nothing: everything there is the person's own. */}
         {/* Who covers for whom reads in the row's grey, after the names (user's choice, 2026-11-18): an orange pill was too much. */}
         <span className="meta">{kind === 'personal' ? group : `${group} · ${who}`}{it.coveredFor && ` · copre ${shortName(it.coveredFor)}`}</span>

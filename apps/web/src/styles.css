@@ -143,6 +143,7 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .item:hover .t { color: var(--accent) }
 .item .bar { align-self: stretch; border-radius: 4px; background: var(--grp) }
 .item .t { font-weight: 600; overflow-wrap: anywhere }
+.row-bell { display: inline-flex; vertical-align: -2px; margin-left: 6px; color: var(--muted) }
 .item .meta { font-size: .82rem; color: var(--muted) }
 .item.done .t { text-decoration: line-through; color: var(--muted) }
 /* A row and its arrow (2026-11-16): reduced, one lower line with the title on the left and the time on the right. */
