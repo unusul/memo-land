@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Activity } from '@attivita/core';
 import { MAX_ACTIVITY_ALERTS, alertListOf, alertsOf, setActivityAlert, useBarPrefs } from '../groups/barPrefs.js';
 import type { AlertAt } from '../groups/barPrefs.js';
+import type { AlertWho } from '@attivita/core';
 import { useSession } from '../session/SessionContext.js';
 import { useBackLayer } from '../shell/back.js';
 import { Icon } from '../shell/icons.js';
@@ -74,13 +75,18 @@ export function AlertButton({ activity: a, me, open, setOpen }: { activity: Acti
   const blocked = alertBlock(telegram !== undefined, status, when !== undefined, device === true, a.groupId === null);
   // A date without an hour: alerts on its day, at an hour chosen (2026-11-19).
   const dateOnly = (when?.length ?? 0) <= 10;
-  const list = alertListOf(alertsOf(me)[a.id], NO_GENERAL) ?? [];
-  const save = (next: AlertAt[]) => setActivityAlert(me, a.id, next.length > 0 ? { mode: 'here', list: [...next].sort(order) } : undefined);
+  const saved = alertsOf(me)[a.id];
+  const list = alertListOf(saved, NO_GENERAL) ?? [];
   // The changes wait in the panel and go all together with ✓ (user's request, 2026-11-19), as in the other panels with
-  // fields; × , Esc and the phone's back drop them. Before, each Aggiungi and each × was kept at once.
-  const [draft, setDraft] = useState<AlertAt[] | null>(null);
-  const shown = draft ?? list;
-  const change = (next: AlertAt[]) => setDraft([...next].sort(order));
+  // fields; × , Esc and the phone's back drop them. Before, each Aggiungi and each × was kept at once. «Per chi» waits
+  // with them (2026-11-20); with no alert left it is not kept.
+  const [draft, setDraft] = useState<{ list: AlertAt[]; who: AlertWho } | null>(null);
+  const shown = draft?.list ?? list;
+  const who = draft?.who ?? saved?.who ?? 'all';
+  const save = ({ list: next, who: w }: { list: AlertAt[]; who: AlertWho }) => setActivityAlert(me, a.id,
+    next.length > 0 ? { mode: 'here', list: next, ...(w === 'all' ? {} : { who: w }) } : undefined);
+  const change = (next: AlertAt[]) => setDraft({ list: [...next].sort(order), who });
+  const choose = (w: AlertWho) => setDraft({ list: shown, who: w });
   const add = (x: AlertAt) => { if (!shown.some(y => same(x, y))) change([...shown, x]); };
   const close = () => { setDraft(null); setOpen(false); };
   const apply = (e: React.FormEvent) => { e.preventDefault(); if (draft) save(draft); close(); };
@@ -95,6 +101,7 @@ export function AlertButton({ activity: a, me, open, setOpen }: { activity: Acti
         <form className="menu panel alert-panel" role="dialog" aria-label="Avvisi" onSubmit={apply}>
           <PanelHead title="Avvisi" onCancel={close} />
           {blocked ? <p className="alert-none"><Icon name="bellOff" size={18} /> {blocked}</p> : <>
+          <WhoRow who={who} onChoose={choose} />
           <AlertList list={shown} onRemove={i => change(shown.filter((_, k) => k !== i))}>
             {dateOnly
               ? <AddDayRows full={shown.length >= MAX_ACTIVITY_ALERTS} onAdd={add} />
@@ -108,6 +115,27 @@ export function AlertButton({ activity: a, me, open, setOpen }: { activity: Acti
   );
 }
 
+/** The words of «Per chi» (user's choice, 2026-11-20). */
+const WHO: ReadonlyArray<readonly [AlertWho, string]> = [['all', 'Sempre'], ['mineOrNobody', 'Mia o di nessuno'], ['mine', 'Solo mia']];
+
+/**
+ * «Per chi», on top of the bell's panel (user's choice, 2026-11-20): for whom its alerts go off, for all of them,
+ * time by time; «Sempre» to start with, as the alerts set before it. Chips, as the quick dates, so they wrap on a phone.
+ */
+function WhoRow({ who, onChoose }: { who: AlertWho; onChoose(who: AlertWho): void }) {
+  return (
+    <div className="alert-who" role="group" aria-label="Per chi">
+      <span>Per chi</span>
+      <span className="alert-who-choices">
+        {WHO.map(([v, t]) => <button key={v} type="button" className="chip" aria-pressed={who === v} onClick={() => onChoose(v)}>{t}</button>)}
+      </span>
+    </div>
+  );
+}
+
+/** What the «Avvisi» row adds for «Per chi»: nothing for «Sempre». */
+export const whoSuffix = (who: AlertWho | undefined): string => (who === 'mine' ? ' · solo mia' : who === 'mineOrNobody' ? ' · mia o di nessuno' : '');
+
 /**
  * The detail's «Avvisi» row, under the properties (user's request, 2026-11-19): the alerts set in words, «15 minuti
  * prima dell'inizio, alla fine», or «Imposta»; a tap opens the bell's panel, which also says why alerts cannot be set
@@ -118,12 +146,13 @@ export function AlertRow({ activity: a, me, onOpen }: { activity: Activity; me: 
   useBarPrefs();
   // Not on a draft either: it has no alerts (2026-11-19).
   if ((a.props.schedule?.start ?? a.props.due) === undefined || a.groupId === null) return null;
-  const list = alertListOf(alertsOf(me)[a.id], NO_GENERAL) ?? [];
+  const saved = alertsOf(me)[a.id];
+  const list = alertListOf(saved, NO_GENERAL) ?? [];
   return (
     <>
       <dt>Avvisi</dt>
       <dd><button type="button" className="link value" aria-label="Modifica Avvisi" onClick={onOpen}>
-        {list.length === 0 ? 'Imposta' : list.length <= 2 ? list.map(alertWords).join(', ') : `${list.length} avvisi`}
+        {list.length === 0 ? 'Imposta' : `${list.length <= 2 ? list.map(alertWords).join(', ') : `${list.length} avvisi`}${whoSuffix(saved?.who)}`}
       </button></dd>
     </>
   );

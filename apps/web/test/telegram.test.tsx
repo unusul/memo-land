@@ -448,3 +448,43 @@ test('testTheAlertRowCountsAndAChangedRowIsMarked', async () => {
   fireEvent.click(within(panel).getByRole('button', { name: 'Applica' }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Modifica Avvisi' }).textContent).toBe('3 avvisi'));
 });
+
+/**
+ * «Per chi» on top of the bell's panel (user's choice, 2026-11-20): «Sempre» to start with; «Solo mia» waits for ✓ with
+ * the alerts, is kept with them and shows in the «Avvisi» row; back to «Sempre» it is not kept, and with no alert left
+ * nothing is.
+ */
+test('testWhoInTheBellsPanel', async () => {
+  localStorage.clear();
+  const backend = benchBackend();
+  backend.activities.set('riunione', { ...at('riunione', 'Riunione', { schedule: { start: '2999-01-01T18:00', end: '2999-01-01T19:00' } }), groupId: 'inv:developers' });
+  const store = fakeTelegram();
+  store.state = { ...store.state, linked: true };
+  await refreshTelegram(store);
+  renderWithSession(<ActivityDetail activityId="riunione" onClose={() => undefined} />, { ...memorySession(PIPPO, {}, backend), telegram: store });
+  await screen.findByRole('heading', { name: 'Riunione' });
+  const open = () => { fireEvent.click(screen.getByRole('button', { name: 'Modifica Avvisi' })); return screen.getByRole('dialog', { name: 'Avvisi' }); };
+  const apply = async (panel: HTMLElement) => {
+    fireEvent.click(within(panel).getByRole('button', { name: 'Applica' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Avvisi' })).toBeNull());
+  };
+  const pressed = (panel: HTMLElement) => within(within(panel).getByRole('group', { name: 'Per chi' })).getAllByRole('button')
+    .filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.textContent);
+  let panel = open();
+  expect(pressed(panel)).toEqual(['Sempre']);
+  fireEvent.click(within(panel).getByRole('button', { name: 'Solo mia' }));
+  fireEvent.click(within(panel).getByRole('button', { name: "Aggiungi all'inizio" }));
+  await apply(panel);
+  expect(alertsOf(PIPPO)['riunione']).toEqual({ mode: 'here', list: [{ of: 'start', before: 0 }], who: 'mine' });
+  expect(screen.getByRole('button', { name: 'Modifica Avvisi' }).textContent).toBe("all'inizio · solo mia");
+  panel = open();
+  expect(pressed(panel)).toEqual(['Solo mia']);
+  fireEvent.click(within(panel).getByRole('button', { name: 'Sempre' }));
+  await apply(panel);
+  expect(alertsOf(PIPPO)['riunione']).toEqual({ mode: 'here', list: [{ of: 'start', before: 0 }] });
+  panel = open();
+  fireEvent.click(within(panel).getByRole('button', { name: 'Mia o di nessuno' }));
+  fireEvent.click(within(panel).getByRole('button', { name: "Togli all'inizio" }));
+  await apply(panel);
+  expect(alertsOf(PIPPO)['riunione']).toBeUndefined();
+});

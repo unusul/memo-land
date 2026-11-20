@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'vitest';
-import { alertEntries, alertKey, dueAlerts, instantIn, localIn, NO_GENERAL } from '../src/index.js';
-import type { AlertPerson } from '../src/index.js';
+import { alertEntries, alertKey, dueAlerts, instantIn, localIn, NO_GENERAL, takeOccurrence } from '../src/index.js';
+import type { AlertPerson, AlertWho } from '../src/index.js';
 import { costTask, inviteGroup } from './fixtures.js';
 
 const deviceZone = process.env.TZ;
@@ -77,4 +77,26 @@ test('testDueAlertsFollowTheGroupsAndTheZone', () => {
   expect(dueAlerts(person({ account: 'u9', alerts: person().alerts }), now)).toEqual([]);
   expect(dueAlerts(person({ groups: [{ ...inviteGroup, archived: true }] }), now)).toEqual([]);
   expect(dueAlerts(person({ zone: 'UTC' }), new Date('2026-11-20T18:30:00Z')).map(e => e.push.body)).toEqual(['tra 15 minuti · 18:45–19:30 · developers']);
+});
+
+/**
+ * «Per chi» of the bell (user's choice, 2026-11-20), occurrence by occurrence. A daily meeting of u3, whose 21 November
+ * u1 takes, and one of nobody's, both alerted at their start by u1: `all` (and no `who`, as the alerts set before it)
+ * alerts every time; `mineOrNobody` the one taken and nobody's; `mine` only the one taken. Before, a bell alerted u1 for
+ * u3's times too, whatever u1 wanted.
+ */
+test('testWhoKeepsTheAlertsToTheTimesThatAreMine', () => {
+  const series = takeOccurrence({
+    ...costTask, id: 's', title: 'Turno',
+    props: { schedule: { start: '2026-11-20T18:45' }, repeat: { mode: 'calendar', rrule: 'FREQ=DAILY;COUNT=3' }, assignment: { state: 'accepted', assignee: 'u3', assignedBy: 'u3' } },
+  }, '2026-11-21T18:45', 'u1', 'owner', '2026-11-20T08:00:00Z');
+  const free = { ...costTask, id: 'f', title: 'Libera', props: { schedule: { start: '2026-11-20T19:00' } } };
+  const sources = [{ group: inviteGroup, activities: [series, free] }];
+  const times = (who?: AlertWho) => alertEntries(sources, () => 'u1', NO_GENERAL, new Date('2026-11-20T12:00:00Z'),
+    () => ({ mode: 'here', list: [{ of: 'start', before: 0 }], ...(who ? { who } : {}) }), 'Europe/Rome').map(e => `${e.activityId} ${e.time}`);
+  const every = ['s 2026-11-20T18:45', 'f 2026-11-20T19:00', 's 2026-11-21T18:45', 's 2026-11-22T18:45'];
+  expect(times()).toEqual(every);
+  expect(times('all')).toEqual(every);
+  expect(times('mineOrNobody')).toEqual(['f 2026-11-20T19:00', 's 2026-11-21T18:45']);
+  expect(times('mine')).toEqual(['s 2026-11-21T18:45']);
 });

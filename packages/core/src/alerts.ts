@@ -22,8 +22,22 @@ export interface AlertAt { of: 'start' | 'end' | 'day'; before: number; at?: str
  * The person's own alerts for an activity: `none`, or a list, at most five. Theirs only, as «In evidenza»; absent, the
  * activity follows Impostazioni. Saved by 0.16.0 as { when, before }: read through `alertListOf`.
  */
-export interface ActivityAlert { mode?: 'here' | 'none'; list?: AlertAt[]; when?: 'start' | 'both' | 'end' | 'none'; before?: number }
+export interface ActivityAlert { mode?: 'here' | 'none'; list?: AlertAt[]; when?: 'start' | 'both' | 'end' | 'none'; before?: number; who?: AlertWho }
 export const MAX_ACTIVITY_ALERTS = 5;
+
+/**
+ * For whom the bell's alerts go off (user's choice, 2026-11-20), occurrence by occurrence, so «this time I take it»
+ * counts: `all`, whoever has it; `mineOrNobody`, mine or nobody's; `mine`, only mine. Absent it is `all`, as the alerts
+ * set before it went for everyone.
+ */
+export type AlertWho = 'all' | 'mineOrNobody' | 'mine';
+
+/** Whether an occurrence whose assignee is `assignee` (undefined: nobody) alerts `me`, as `who` asks. */
+export function alertGoesTo(who: AlertWho | undefined, assignee: AccountId | undefined, me: AccountId): boolean {
+  if (who === 'mine') return assignee === me;
+  if (who === 'mineOrNobody') return assignee === undefined || assignee === me;
+  return true;
+}
 
 /** Which alerts the person wants by default, at the time of the start and of the end. */
 export interface AlertChoice { start: boolean; end: boolean }
@@ -74,7 +88,7 @@ export function alertListOf(a: ActivityAlert | undefined, general: AlertChoice):
  * an end, for what is the person's or nobody's; not for someone else's, nor for a time done, skipped or moved away.
  * Those already past are left out. «Ora, 18:00: Riunione · esempio.it», «Scade ora, 18:00: …» for a due time,
  * «Finisce ora, 19:00: …». An activity's own choice (`own`, from the bell's panel) takes the place of `choice`, and
- * counts for someone else's activity too: the person asked for it. `zone` is an IANA time zone, «Europe/Rome».
+ * counts for someone else's activity too: the person asked for it, unless its `who` keeps the alerts to theirs. `zone` is an IANA time zone, «Europe/Rome».
  */
 export function alertEntries(sources: AgendaSource[], meIn: (groupId: GroupId) => AccountId, choice: AlertChoice, now: Date,
   own: (activityId: string) => ActivityAlert | undefined, zone: string): AlertEntry[] {
@@ -87,8 +101,10 @@ export function alertEntries(sources: AgendaSource[], meIn: (groupId: GroupId) =
   for (const items of Object.values(buildAgenda(sources, from, to).days)) {
     for (const it of items) {
       if (it.done || it.skipped || it.movedTo) continue;
-      const mine = alertListOf(own(it.activityId), choice);
+      const set = own(it.activityId);
+      const mine = alertListOf(set, choice);
       if (!mine && it.assignee !== undefined && it.assignee !== meIn(it.groupId)) continue;
+      if (!alertGoesTo(set?.who, it.assignee, meIn(it.groupId))) continue;
       const list: AlertAt[] = mine ?? [
         ...(choice.start ? [{ of: 'start' as const, before: 0 }] : []),
         ...(choice.end ? [{ of: 'end' as const, before: 0 }] : []),
