@@ -7,7 +7,7 @@ import { useToast } from '../shell/toast.js';
 import { VAULT_ERROR, VaultError, browserPasskeys } from './passkey.js';
 import type { PasskeyApi } from './passkey.js';
 import type { VaultEntryRow, VaultKeyRow, VaultStore } from './store.js';
-import { addPasskey, createVault, readEntry, saveEntry, setVaultKey, unlockVault, useVaultKey } from './vault.js';
+import { addPasskey, createVault, readEntry, resetVault, saveEntry, setVaultKey, unlockVault, useVaultKey } from './vault.js';
 
 const problemOf = (e: unknown): string => (e instanceof VaultError ? VAULT_ERROR[e.code] : errorText(e));
 /** The name a new passkey gets to start with: where it was made. */
@@ -32,6 +32,7 @@ function VaultBody({ store, passkeys: given }: { store: VaultStore; passkeys?: P
   const [entries, setEntries] = useState<VaultEntryRow[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const load = async () => { const [k, e] = await Promise.all([store.keys(), store.entries()]); setKeys(k); setEntries(e); };
   useEffect(() => { load().catch(e => setProblem(problemOf(e))); }, [store]);
   const run = async (job: () => Promise<void>) => {
@@ -58,14 +59,23 @@ function VaultBody({ store, passkeys: given }: { store: VaultStore; passkeys?: P
           {!key && <p className="vault-locked">
             <span className="muted">{entries.length === 0 ? 'Nessuna voce.' : 'Bloccato: i valori si vedono dopo lo sblocco.'}</span>
             <button type="button" className="btn primary" disabled={busy} onClick={() => run(async () => setVaultKey(await unlockVault(store, passkeys)))}>Sblocca</button>
+            {!resetting && <button type="button" className="link" onClick={() => setResetting(true)}>Ricomincia da capo…</button>}
           </p>}
+          {!key && resetting && (
+            <div className="vault-reset" role="group" aria-label="Ricomincia da capo">
+              <p className="warn">Togli tutte le voci e le chiavi del Vault? I valori non si possono recuperare.</p>
+              <button type="button" className="btn" disabled={busy}
+                onClick={() => run(async () => { await resetVault(store, passkeys); setResetting(false); await load(); })}>Togli tutto</button>
+              <button type="button" className="btn" onClick={() => setResetting(false)}>Annulla</button>
+            </div>
+          )}
           <ul className="vault-list" aria-label="Voci del Vault">
             {entries.map(e => <EntryRow key={e.id} entry={e} vaultKey={key} store={store} onSaved={load} onRemove={() => remove(e)} onProblem={setProblem} />)}
           </ul>
           {key && <NewEntry onAdd={(title, value) => run(async () => { await saveEntry(store, key, newId(), title, value); await load(); })} />}
           {key && <Passkeys keys={keys} busy={busy}
             onAdd={label => run(async () => { await addPasskey(store, passkeys, key, label); await load(); })}
-            onRemove={k => run(async () => { await store.removeKey(k.credentialId); await load(); })} />}
+            onRemove={k => run(async () => { await store.removeKey(k.credentialId); await passkeys.forget(k.credentialId); await load(); })} />}
         </>}
     </div>
   );

@@ -26,7 +26,9 @@ export async function addPasskey(store: VaultStore, passkeys: PasskeyApi, vaultK
 export async function unlockVault(store: VaultStore, passkeys: PasskeyApi): Promise<CryptoKey> {
   const keys = await store.keys();
   if (keys.length === 0) throw new VaultError('NO_PASSKEY');
-  const got = await passkeys.unlock(keys);
+  const got = await passkeys.unlock(keys).catch((e: unknown) => {
+    throw e instanceof VaultError && e.code === 'CANCELLED' ? new VaultError('NOT_OPENED') : e;
+  });
   const row = keys.find(k => k.credentialId === got.credentialId);
   if (!row) throw new VaultError('WRONG_KEY');
   try {
@@ -34,6 +36,16 @@ export async function unlockVault(store: VaultStore, passkeys: PasskeyApi): Prom
   } catch {
     throw new VaultError('WRONG_KEY');
   }
+}
+
+/**
+ * Back to «Crea il Vault» (user's request, 2026-11-20): every entry and every passkey's copy of the key taken away. For
+ * a Vault whose passkeys are lost, deleted from the password manager say, that nothing can open any more; before, it
+ * stayed locked for good, as taking away needed it open. The password manager is told the passkeys are gone.
+ */
+export async function resetVault(store: VaultStore, passkeys: PasskeyApi): Promise<void> {
+  for (const e of await store.entries()) await store.removeEntry(e.id);
+  for (const k of await store.keys()) { await store.removeKey(k.credentialId); await passkeys.forget(k.credentialId); }
 }
 
 export async function saveEntry(store: VaultStore, vaultKey: CryptoKey, id: string, title: string, value: string): Promise<VaultEntryRow> {

@@ -18,10 +18,13 @@ const prfOf = async (id: string, salt: string) => crypto.subtle.digest('SHA-256'
  * Passkeys in memory, as the device would hold them: `pick` says which one the person chooses on unlock, `liar` gives
  * other bytes than the ones it gave on creation (a passkey that does not open the Vault).
  */
-function fakePasskeys(o: { pick?: (ids: string[]) => string; liar?: boolean } = {}): PasskeyApi & { made: string[] } {
+function fakePasskeys(o: { pick?: (ids: string[]) => string; liar?: boolean } = {}): PasskeyApi & { made: string[]; forgotten: string[] } {
   const made: string[] = [];
+  const forgotten: string[] = [];
   return {
     made,
+    forgotten,
+    async forget(id) { forgotten.push(id); },
     async create(label) {
       const credentialId = b64(new TextEncoder().encode(`${label}-${made.length}`));
       const prfSalt = b64(crypto.getRandomValues(new Uint8Array(32)));
@@ -138,4 +141,34 @@ test('testNoVaultWithoutItsStore', () => {
   const { vault: _none, ...session } = { ...memorySession(), vault: undefined };
   renderWithSession(<VaultSection />, session);
   expect(screen.queryByRole('region', { name: 'Vault' })).toBeNull();
+});
+
+/**
+ * A Vault whose passkey was deleted from the password manager (user's case, 2026-11-20): locked for good, it starts
+ * again with «Ricomincia da capo…», after a confirmation; entries and keys go, the password manager is told.
+ * Before, nothing could be taken away without opening it.
+ */
+test('testALostVaultStartsAgain', async () => {
+  const store = memoryVault();
+  const first = fakePasskeys();
+  await saveEntry(store, await createVault(store, first, 'PC'), 'e1', 'test1', 'x');
+  const passkeys = fakePasskeys();
+  renderVault(passkeys, store);
+  fireEvent.click(await screen.findByRole('button', { name: 'Ricomincia da capo…' }));
+  fireEvent.click(within(screen.getByRole('group', { name: 'Ricomincia da capo' })).getByRole('button', { name: 'Annulla' }));
+  expect(await store.entries()).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Ricomincia da capo…' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Togli tutto' }));
+  expect(await screen.findByRole('button', { name: 'Crea il Vault' })).toBeTruthy();
+  expect(await store.entries()).toEqual([]);
+  expect(await store.keys()).toEqual([]);
+  expect(passkeys.forgotten).toEqual(first.made);
+});
+
+/** An unlock the browser could not do (a passkey deleted, a cancel) says where to go next. */
+test('testANotOpenedVaultPointsToStartingAgain', async () => {
+  const store = memoryVault();
+  await createVault(store, fakePasskeys(), 'PC');
+  const gone: PasskeyApi = { ...fakePasskeys(), unlock: async () => { throw new VaultError('CANCELLED'); } };
+  await expect(unlockVault(store, gone)).rejects.toEqual(new VaultError('NOT_OPENED'));
 });

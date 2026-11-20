@@ -689,6 +689,8 @@ textarea { width: 100%; resize: vertical }
 .vault-fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .vault-fields input { flex: 1 1 10em; min-height: 36px }
 .vault .warn { margin: 0; color: var(--warn) }
+.vault-reset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px }
+.vault-reset .warn { flex: 1 1 100% }
 .vault-create .btn, .vault-create label { justify-self: start }
 .vault-create label { display: inline-flex; align-items: center; gap: 8px }
 .vault-keys summary { cursor: pointer; color: var(--muted); min-height: 36px; display: flex; align-items: center }

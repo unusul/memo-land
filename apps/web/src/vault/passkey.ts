@@ -11,9 +11,14 @@ export interface PasskeyApi {
   create(label: string): Promise<{ credentialId: string; prfSalt: string; prf: ArrayBuffer }>;
   /** One of these passkeys, chosen by the person, and its PRF output. */
   unlock(keys: ReadonlyArray<{ credentialId: string; prfSalt: string }>): Promise<{ credentialId: string; prf: ArrayBuffer }>;
+  /**
+   * Tells the password manager that a passkey no longer opens anything (2026-11-20), so it can take it away: a page
+   * cannot delete a passkey itself. Chrome's Signal API; elsewhere it does nothing, and it never fails.
+   */
+  forget(credentialId: string): Promise<void>;
 }
 
-export type VaultErrorCode = 'NO_PRF' | 'CANCELLED' | 'NO_PASSKEY' | 'WRONG_KEY';
+export type VaultErrorCode = 'NO_PRF' | 'CANCELLED' | 'NOT_OPENED' | 'NO_PASSKEY' | 'WRONG_KEY';
 export class VaultError extends Error {
   constructor(readonly code: VaultErrorCode) { super(code); }
 }
@@ -22,6 +27,9 @@ export class VaultError extends Error {
 export const VAULT_ERROR: Record<VaultErrorCode, string> = {
   NO_PRF: 'Questa chiave non dà una chiave per cifrare. Su Windows salva la passkey nel Gestore password di Google, non in Windows Hello.',
   CANCELLED: 'Annullato, o il tempo è scaduto: riprova.',
+  // An unlock the browser could not do tells nothing more: no passkey there (deleted from the password manager, the
+  // user's case of 2026-11-20) reads as a cancel. The way out is said.
+  NOT_OPENED: "Non sbloccato: annullato, tempo scaduto o passkey non trovata. Se la passkey non c'è più, usa «Ricomincia da capo…».",
   NO_PASSKEY: 'Il browser non ha le passkey.',
   WRONG_KEY: 'Questa chiave non apre il Vault.',
 };
@@ -73,6 +81,10 @@ export function browserPasskeys(): PasskeyApi {
     async unlock(keys) {
       ready();
       return get(keys);
+    },
+    async forget(credentialId) {
+      const signal = (window.PublicKeyCredential as unknown as { signalUnknownCredential?(o: { rpId: string; credentialId: string }): Promise<void> } | undefined)?.signalUnknownCredential;
+      try { await signal?.call(window.PublicKeyCredential, { rpId: location.hostname, credentialId }); } catch { /* only a hint */ }
     },
   };
 }
