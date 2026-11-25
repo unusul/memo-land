@@ -489,6 +489,8 @@ textarea { width: 100%; resize: vertical }
 .time-field { position: relative; align-items: center }
 /* Narrow, the text on the left and room for the ▾: the panels' own rule (`.attach .menu form input`) made it half a panel wide. */
 .time-field input, .attach .menu form .time-field input { width: 6.5em; padding-right: 30px; text-align: left }
+/* On Android the browser's own field (2026-11-25): its width and padding, no ▾ (the browser draws its own). */
+.time-field.native input, .attach .menu form .time-field.native input { width: 8.5em; padding-right: revert; text-align: revert }
 .time-caret { position: absolute; right: 9px; top: 50%; display: inline-flex; color: var(--muted); pointer-events: none; transform: translateY(-50%) rotate(90deg) }
 .duration { display: flex; align-items: center; gap: 10px }
 /* «alle» and «fine» take the same room, so the two fields line up (user's remark, 2026-11-20). */
@@ -693,11 +695,21 @@ textarea { width: 100%; resize: vertical }
 .vault-head h3 { display: inline-flex; align-items: center; gap: 8px; margin: 0 }
 .vault-head .btn { margin-left: auto }
 .vault-locked { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 }
-.vault-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px }
-.vault-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 44px; padding: 4px 8px; border-radius: 6px; background: var(--surface) }
-.vault-entry .t { font-weight: 600; min-width: 8em }
-.vault-entry .v { flex: 1; min-width: 0; color: var(--muted); font-family: ui-monospace, monospace; overflow-wrap: anywhere }
-.vault-actions { display: inline-flex; gap: 4px; margin-left: auto }
+/* A table (user's request, 2026-11-25): the rows share the columns through subgrid, so every value starts where the
+   longest title ends (at most 45% of the width); before, each row was a flex line and the values went zigzag. */
+.vault-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: fit-content(45%) minmax(0, 1fr) auto; gap: 2px 16px }
+.vault-entry { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; min-height: 44px; padding: 4px 8px; border-radius: 6px; background: var(--surface) }
+.vault-entry.editing > * { grid-column: 1 / -1 }
+.vault-entry .t { font-weight: 600; overflow-wrap: anywhere }
+.vault-entry .v { min-width: 0; color: var(--muted); font-family: ui-monospace, monospace; overflow-wrap: anywhere }
+.vault-actions { display: inline-flex; gap: 4px }
+.vault-search { min-height: 36px }
+.vault-pager { display: flex; align-items: center; justify-content: center; gap: 8px }
+.vault-pager .prev svg { transform: rotate(180deg) }
+/* Starting again wipes everything: a quiet line at the bottom, not an accent link beside «Sblocca» (2026-11-25). */
+.link.quiet { color: var(--muted); font-weight: 400; font-size: .8rem; text-decoration: none }
+.link.quiet:hover, .link.quiet:focus-visible { text-decoration: underline }
+.vault-restart { justify-self: start; margin-top: 8px; padding: 0 }
 .vault-fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .vault-fields input { flex: 1 1 10em; min-height: 36px }
 .vault .warn { margin: 0; color: var(--warn) }

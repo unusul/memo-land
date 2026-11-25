@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { newId } from '../dates.js';
 import { errorText } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
@@ -59,8 +60,13 @@ function VaultBody({ store, passkeys: given }: { store: VaultStore; passkeys?: P
           {!key && <p className="vault-locked">
             <span className="muted">{entries.length === 0 ? 'Nessuna voce.' : 'Bloccato: i valori si vedono dopo lo sblocco.'}</span>
             <button type="button" className="btn primary" disabled={busy} onClick={() => run(async () => setVaultKey(await unlockVault(store, passkeys)))}>Sblocca</button>
-            {!resetting && <button type="button" className="link" onClick={() => setResetting(true)}>Ricomincia da capo…</button>}
           </p>}
+          <EntryList entries={entries} render={e => <EntryRow key={e.id} entry={e} vaultKey={key} store={store} onSaved={load} onRemove={() => remove(e)} onProblem={setProblem} />} />
+          {key && <NewEntry onAdd={(title, value) => run(async () => { await saveEntry(store, key, newId(), title, value); await load(); })} />}
+          {key && <Passkeys keys={keys} busy={busy}
+            onAdd={label => run(async () => { await addPasskey(store, passkeys, key, label); await load(); })}
+            onRemove={k => run(async () => { await store.removeKey(k.credentialId); await passkeys.forget(k.credentialId); await load(); })} />}
+          {!key && !resetting && <button type="button" className="link quiet vault-restart" onClick={() => setResetting(true)}>Ricomincia da capo…</button>}
           {!key && resetting && (
             <div className="vault-reset" role="group" aria-label="Ricomincia da capo">
               <p className="warn">Togli tutte le voci e le chiavi del Vault? I valori non si possono recuperare.</p>
@@ -69,15 +75,42 @@ function VaultBody({ store, passkeys: given }: { store: VaultStore; passkeys?: P
               <button type="button" className="btn" onClick={() => setResetting(false)}>Annulla</button>
             </div>
           )}
-          <ul className="vault-list" aria-label="Voci del Vault">
-            {entries.map(e => <EntryRow key={e.id} entry={e} vaultKey={key} store={store} onSaved={load} onRemove={() => remove(e)} onProblem={setProblem} />)}
-          </ul>
-          {key && <NewEntry onAdd={(title, value) => run(async () => { await saveEntry(store, key, newId(), title, value); await load(); })} />}
-          {key && <Passkeys keys={keys} busy={busy}
-            onAdd={label => run(async () => { await addPasskey(store, passkeys, key, label); await load(); })}
-            onRemove={k => run(async () => { await store.removeKey(k.credentialId); await passkeys.forget(k.credentialId); await load(); })} />}
         </>}
     </div>
+  );
+}
+
+/** Entries on one page of the Vault (user's request, 2026-11-25). */
+export const VAULT_PAGE = 7;
+const fold = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+/**
+ * The entries in a table, found by title (the values are sealed, so only titles are searched) and shown a page at a
+ * time (user's request, 2026-11-25). Before, one long list with nothing to search.
+ */
+function EntryList({ entries, render }: { entries: VaultEntryRow[]; render(e: VaultEntryRow): ReactNode }) {
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  const found = entries.filter(e => { const t = fold(e.title); return words.every(w => t.includes(w)); });
+  const pages = Math.max(1, Math.ceil(found.length / VAULT_PAGE));
+  const at = Math.min(page, pages - 1);
+  return (
+    <>
+      {entries.length > VAULT_PAGE && <input type="search" className="vault-search" aria-label="Cerca nel Vault" placeholder="Cerca per titolo…"
+        value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} />}
+      {words.length > 0 && found.length === 0 && <p className="muted small">Nessuna voce con questo titolo.</p>}
+      <ul className="vault-list" aria-label="Voci del Vault">
+        {found.slice(at * VAULT_PAGE, (at + 1) * VAULT_PAGE).map(render)}
+      </ul>
+      {pages > 1 && (
+        <nav className="vault-pager" aria-label="Pagine del Vault">
+          <button type="button" className="icon-choice small prev" aria-label="Pagina prima" disabled={at === 0} onClick={() => setPage(at - 1)}><Icon name="chevron" size={16} /></button>
+          <span className="muted small">{at + 1} di {pages}</span>
+          <button type="button" className="icon-choice small" aria-label="Pagina dopo" disabled={at === pages - 1} onClick={() => setPage(at + 1)}><Icon name="chevron" size={16} /></button>
+        </nav>
+      )}
+    </>
   );
 }
 

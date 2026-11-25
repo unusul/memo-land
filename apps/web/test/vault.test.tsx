@@ -5,7 +5,7 @@ import { VaultError } from '../src/vault/passkey.js';
 import type { PasskeyApi } from '../src/vault/passkey.js';
 import { memoryVault } from '../src/vault/store.js';
 import { addPasskey, createVault, readEntry, saveEntry, setVaultKey, unlockVault } from '../src/vault/vault.js';
-import { VaultSection } from '../src/vault/VaultSection.js';
+import { VAULT_PAGE, VaultSection } from '../src/vault/VaultSection.js';
 import { ToastHost } from '../src/shell/toast.js';
 import { memorySession, renderWithSession } from './memory-session.js';
 
@@ -171,4 +171,26 @@ test('testANotOpenedVaultPointsToStartingAgain', async () => {
   await createVault(store, fakePasskeys(), 'PC');
   const gone: PasskeyApi = { ...fakePasskeys(), unlock: async () => { throw new VaultError('CANCELLED'); } };
   await expect(unlockVault(store, gone)).rejects.toEqual(new VaultError('NOT_OPENED'));
+});
+
+/**
+ * Many entries (user's request, 2026-11-25): seven to a page with «Pagina dopo» / «Pagina prima», and a search by title
+ * that ignores case and accents and starts again from the first page. Before, one long list with nothing to search.
+ */
+test('testTheVaultIsSearchedAndPaged', async () => {
+  const store = memoryVault();
+  const key = await createVault(store, fakePasskeys(), 'PC');
+  for (let i = 1; i <= VAULT_PAGE + 2; i++) await saveEntry(store, key, `e${String(i).padStart(2, '0')}`, `Voce ${String(i).padStart(2, '0')}`, 'x');
+  await saveEntry(store, key, 'z', 'Città', 'x');
+  await act(async () => { renderVault(fakePasskeys(), store); });
+  const list = await screen.findByRole('list', { name: 'Voci del Vault' });
+  await waitFor(() => expect(within(list).getAllByRole('listitem')).toHaveLength(VAULT_PAGE));
+  expect(screen.getByText('1 di 2')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Pagina dopo' }));
+  expect(within(list).getAllByRole('listitem')).toHaveLength(3);
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Cerca nel Vault' }), { target: { value: 'CITTA' } });
+  expect(within(list).getAllByRole('listitem').map(li => li.querySelector('.t')!.textContent)).toEqual(['Città']);
+  expect(screen.queryByRole('navigation', { name: 'Pagine del Vault' })).toBeNull();
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Cerca nel Vault' }), { target: { value: 'nessuna' } });
+  expect(screen.getByText('Nessuna voce con questo titolo.')).toBeTruthy();
 });

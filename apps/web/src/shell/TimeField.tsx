@@ -27,17 +27,44 @@ export function nearestHalfHour(time: string): string {
   return HALF_HOURS.reduce((best, t) => (Math.abs(minutesOf(t) - at) < Math.abs(minutesOf(best) - at) ? t : best));
 }
 
+interface TimeFieldProps {
+  label: string; value: string; onChange(time: string): void; disabled?: boolean; allowEmpty?: boolean;
+  /** Only times later than this one (an end after its start, user's request 2026-11-20): an earlier one goes back. */
+  after?: string | undefined;
+}
+
+const onAndroid = () => /Android/i.test(navigator.userAgent);
+
+/**
+ * A time field: on Android the browser's own, with its clock dial (user's request, 2026-11-25: the typed field with
+ * the list of half hours was unusable there); elsewhere the typed one. From 0.28.0 to 2026-11-25 Android had the
+ * typed one too.
+ */
+export function TimeField(props: TimeFieldProps) {
+  return onAndroid() ? <NativeTimeField {...props} /> : <TypedTimeField {...props} />;
+}
+
+/** The browser's time field, with the same rules: empty only with `allowEmpty`, and only after `after`. */
+function NativeTimeField({ label, value, onChange, disabled = false, allowEmpty = false, after }: TimeFieldProps) {
+  return (
+    <span className="time-field native">
+      <input type="time" aria-label={label} disabled={disabled} value={value} min={after}
+        onChange={e => {
+          const t = e.target.value;
+          if (t === '') { if (allowEmpty && value !== '') onChange(''); return; }
+          if ((after === undefined || t > after) && t !== value) onChange(t);
+        }} />
+    </span>
+  );
+}
+
 /**
  * A time written or chosen from a list of half hours opening on the time set (user's choice, 2026-11-20, after Tempo's
  * field), in place of the browser's time field, which every phone draws its own way. A full «HH:MM» goes out at once;
  * a short form («930») when the field is left or with Enter. What is not a time goes back to the time set; empty, to
  * empty only with `allowEmpty`. The list floats over the page, as the other menus (a list inside a panel made it longer).
  */
-export function TimeField({ label, value, onChange, disabled = false, allowEmpty = false, after }: {
-  label: string; value: string; onChange(time: string): void; disabled?: boolean; allowEmpty?: boolean;
-  /** Only times later than this one (an end after its start, user's request 2026-11-20): an earlier one goes back. */
-  after?: string | undefined;
-}) {
+function TypedTimeField({ label, value, onChange, disabled = false, allowEmpty = false, after }: TimeFieldProps) {
   const [text, setText] = useState(value);
   const [at, setAt] = useState<React.CSSProperties | null>(null);
   const input = useRef<HTMLInputElement>(null);

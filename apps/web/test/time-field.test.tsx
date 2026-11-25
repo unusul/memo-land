@@ -96,3 +96,28 @@ test('testAnEmptyEndOpensAfterTheStart', () => {
   fireEvent.click(screen.getByRole('combobox', { name: 'Fine' }));
   expect(screen.getByRole('listbox').querySelector('[data-near="true"]')?.textContent).toBe('18:30');
 });
+
+/**
+ * On Android the browser's own time field, with its clock dial (user's request, 2026-11-25: the typed field with the
+ * half hours was unusable there), keeping the rules: only after the start, empty only when allowed. From 0.28.0 to
+ * 2026-11-25 Android had the typed field too.
+ */
+test('testAndroidGetsTheBrowsersTimeField', () => {
+  const ua = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile');
+  try {
+    const onChange = vi.fn();
+    render(<TimeField label="Fine" value="19:00" after="18:00" onChange={onChange} />);
+    expect(screen.queryByRole('combobox')).toBeNull();
+    const field = screen.getByLabelText('Fine') as HTMLInputElement;
+    expect(field.type).toBe('time');
+    expect(field.min).toBe('18:00');
+    fireEvent.change(field, { target: { value: '17:00' } });
+    fireEvent.change(field, { target: { value: '' } });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(field.value).toBe('19:00');
+    fireEvent.change(field, { target: { value: '20:15' } });
+    expect(onChange).toHaveBeenCalledWith('20:15');
+  } finally {
+    ua.mockRestore();
+  }
+});
