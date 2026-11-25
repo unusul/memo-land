@@ -115,6 +115,11 @@ export interface Checklist {
   model?: ActivityId;
 }
 
+export interface Counter {
+  /** A day's count, by local date; days at 0 are not kept. */
+  days: Record<LocalDate, number>;
+}
+
 export interface ModelSection {
   /** Stable across renames: the items point here, not to the name. */
   id: string;
@@ -156,6 +161,8 @@ export interface Activity {
   overrides: Record<OccurrenceKey, OccurrenceOverride>;
   /** A list of things to tick inside the activity (shopping, packing). */
   checklist?: Checklist;
+  /** A count kept day by day (2026-11-25): «Bicchieri d'acqua», + adds one to today's. */
+  counter?: Counter;
   /** Set on a list model only: the activity is hidden everywhere and holds the model (see ListModel). */
   model?: ListModel;
   /**

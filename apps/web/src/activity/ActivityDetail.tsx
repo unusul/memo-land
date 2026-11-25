@@ -6,7 +6,7 @@ import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, addItem, anchorOf, removeAttachment, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, resumeIfDue, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, addCounter, addItem, anchorOf, removeAttachment, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, resumeIfDue, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, rebase, setClosesItself, undoTo, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
@@ -25,6 +25,7 @@ import type { RowSize } from '../groups/barPrefs.js';
 import { Attachments } from './Attachments.js';
 import { Links } from './Links.js';
 import { ChecklistView } from './ChecklistView.js';
+import { CounterView } from './CounterView.js';
 import { CopyButton, useCopyText } from './CopyButton.js';
 import { Disclosure } from '../shell/Disclosure.js';
 import { useBackLayer } from '../shell/back.js';
@@ -424,6 +425,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
         ? files.length > 0 && <ul className="attachments">{files.map((f, i) => <li key={i}>{f.name} <button type="button" className="link" aria-label={`Togli ${f.name}`} onClick={() => setFiles(l => l.filter((_, j) => j !== i))}>togli</button></li>)}</ul>
         : <Attachments activity={a} onRemove={canEdit ? id => void run(() => removeAttachment(a, id, me, instantNow())) : undefined} />}
       {!asGroupList && (a.checklist || listOpen) && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} members={listMembers} typed={isNew ? typedItem : undefined} />}
+      {!asGroupList && a.counter && <CounterView activity={a} editable={canEdit} change={next => run(next)} />}
       <dl className="kv">
         {/* A list group's page says the group above, and a list is always an "idea": neither row tells anything there. */}
         {!asGroupList && <>
@@ -492,6 +494,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
               </button>
             )))}
             {!a.checklist && !listOpen && !asGroupList && <button className="chip" onClick={() => setListOpen(true)}>+ Lista</button>}
+            {!a.counter && !asGroupList && <button className="chip" onClick={() => void run(() => addCounter(a, instantNow()))}>+ Contatore</button>}
             <AttachMenu disabled={saving} onFiles={f => { setProblem(null); void addFiles(f); }} onProblem={setProblem} />
           </div>
           {!editingSet && !PANEL.has(form as Chip) && propForm}

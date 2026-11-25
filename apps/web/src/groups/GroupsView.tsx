@@ -301,9 +301,9 @@ function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { gro
   );
 }
 
-/** Section titles of a group's list, in the order they are shown. */
+/** Section titles of a group's list, in the order they are shown: Eventi before Ricorrenti (user's request, 2026-11-25). */
 const LIST_SECTIONS: Array<[Shape, string]> = [
-  ['task', 'Cose da fare'], ['recurring', 'Ricorrenti'], ['event', 'Eventi'], ['idea', 'Idee'], ['waiting', 'In attesa'], ['snoozed', 'Rimandate'],
+  ['task', 'Cose da fare'], ['event', 'Eventi'], ['recurring', 'Ricorrenti'], ['idea', 'Idee'], ['waiting', 'In attesa'], ['snoozed', 'Rimandate'],
 ];
 
 /**

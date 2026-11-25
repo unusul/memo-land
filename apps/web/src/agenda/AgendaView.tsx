@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { alertGoesTo, alertListOf, buildAgenda, can, needsAttention, outOfCalendar } from '@attivita/core';
+import { alertGoesTo, alertListOf, buildAgenda, bump, can, countOn, needsAttention, outOfCalendar } from '@attivita/core';
 import { nextTime, shortDay } from './when.js';
 import { RepeatHere, daysOf } from './RepeatHere.js';
 import { copyToDay } from './copyToDay.js';
@@ -51,7 +51,7 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   const ws = useWs();
   const sources = useAgendaSources();
   const attention = needsAttention(sources, account, today());
-  const agenda = buildAgenda(sources, `${from}T00:00`, `${addDays(from, shown - 1)}T23:59`);
+  const agenda = buildAgenda(sources, `${from}T00:00`, `${addDays(from, shown - 1)}T23:59`, today());
   const groupOf = (id: string | null) => (id === null ? undefined : ws.groups.find(g => g.id === id));
   const quick = useQuickActions(onOpen);
   const highlighted = useHighlighted(account);
@@ -91,8 +91,17 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   const rows = (day: LocalDate, items: AgendaItem[], copy = false) => items.map(it => (
     <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} shared={sharedGroup(groupOf(it.groupId))} info={infoIds.has(it.activityId)} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
       high={ws.activities.find(a => a.id === it.activityId)?.props.priority === 'high'}
-      onCopy={copy && copyable(it.activityId) ? () => { setOpenDay(null); setNotice(null); setCopying({ id: it.activityId, title: it.title }); } : undefined} /></SwipeRow></li>
+      onCopy={copy && copyable(it.activityId) ? () => { setOpenDay(null); setNotice(null); setCopying({ id: it.activityId, title: it.title }); } : undefined}
+      count={counterOn(it)} onPlus={() => void plusOne(it.activityId)} /></SwipeRow></li>
   ));
+  /** Today's count of a row with a counter (2026-11-25); undefined on any other row. */
+  const counterOn = (it: AgendaItem) => { const a = ws.activities.find(x => x.id === it.activityId); return a?.counter && it.start === today() ? countOn(a, today()) : undefined; };
+  /** + on the row: one more today, without opening the activity. */
+  async function plusOne(id: string) {
+    const a = ws.activities.find(x => x.id === id);
+    if (!a) return;
+    try { await ws.save(bump(a, today(), 1, instantNow())); } catch (e) { toast({ text: errorText(e) }); }
+  }
   /** The day tapped while copying: added to the same activity, or a new one for a series by a rule; then the month again. */
   async function copyOn(day: LocalDate) {
     const a = ws.activities.find(x => x.id === copying?.id);
@@ -237,7 +246,9 @@ const closedDays = new Set<LocalDate>();
 export const clearFolds = (): void => { folds.clear(); closedDays.clear(); };
 const foldKey = (it: AgendaItem) => `${it.activityId}|${it.start}`;
 
-function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy }: { it: AgendaItem; shared: boolean; info: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void; onCopy?: (() => void) | undefined }) {
+function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy, count, onPlus }: { it: AgendaItem; shared: boolean; info: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void; onCopy?: (() => void) | undefined;
+  /** A row with a counter: today's count and its + (2026-11-25). */
+  count?: number | undefined; onPlus?: (() => void) | undefined }) {
   useBarPrefs();
   const [, redraw] = useState(0);
   const who = it.assignee ? (it.assignee === me ? youName(me) : shortName(it.assignee)) : 'libera';
@@ -250,7 +261,7 @@ function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy }: { it:
   const toggle = () => { folds.set(foldKey(it), !small); redraw(n => n + 1); };
   const bell = rowAlerted(it, me);
   return (
-    <div className="item-row">
+    <div className={`item-row${count !== undefined ? ' counted' : ''}`}>
     {/* The row's own start opens it: a moved occurrence has two rows with one key. */}
     <button className={`item${struck(it) ? ' done' : ''}${small ? ' reduced' : ''}${info ? ' info' : ''}`} style={{ '--grp': info ? 'var(--muted)' : KIND_COLOR[kind] } as React.CSSProperties}
       data-take={info ? undefined : takeOf(it, kind, me)} onClick={() => onOpen({ activityId: it.activityId, occurrenceKey: it.start })}>
@@ -265,6 +276,9 @@ function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy }: { it:
         {movedNote(it) && <span className="pill">{movedNote(it)}</span>}
       </span>}
     </button>
+    {/* Right after the title, not at the end of the row (user's choice, 2026-11-25). */}
+    {count !== undefined && <span className="counter-row"><span className="counter-n" aria-label={`Oggi ${count}`}>{count}</span>
+      <button type="button" className="icon-choice small counter-plus" aria-label={`Uno in più a ${it.title}`} onClick={onPlus}><Icon name="plus" size={18} /></button></span>}
     {/* The time and the arrow are one button (user's choice, 2026-11-16): a tap on the time expands or reduces too. */}
     <button type="button" className="fold" aria-label={`${small ? 'Espandi' : 'Riduci'} ${it.title}`} aria-expanded={!small} onClick={toggle}>
       <span className={it.start.length > 10 ? 'time' : 'time allday'}>{it.start.length > 10 ? `${it.start.slice(11)}${it.end ? `–${it.end.slice(11)}` : ''}` : 'giorno'}</span>

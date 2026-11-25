@@ -720,3 +720,18 @@ textarea { width: 100%; resize: vertical }
 .vault-keys summary { cursor: pointer; color: var(--muted); min-height: 36px; display: flex; align-items: center }
 .vault-keys ul { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px }
 .vault-keys li { display: flex; align-items: center; justify-content: space-between; gap: 12px }
+/* The counter (2026-11-25): in the Agenda row today's count and its +; in the detail the count, − and +, and the bars. */
+.item-row .counter-row { flex: none; display: inline-flex; align-items: center; gap: 6px; margin-left: 8px }
+/* The count right after the title (user's choice, 2026-11-25): the title takes only its width, the time goes right. */
+.item-row.counted > .item { flex: 0 1 auto }
+.item-row.counted > .fold { margin-left: auto }
+.counter-n { min-width: 1.5em; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums }
+.counter-today { display: flex; align-items: center; gap: 12px }
+.counter-big { min-width: 2ch; font-size: 2rem; text-align: center; font-variant-numeric: tabular-nums }
+.counter-today .link.quiet { margin-left: auto }
+.counter-sum { margin: 0 }
+.counter-bars { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; height: 140px; align-items: end }
+.counter-bars li { display: grid; grid-template-rows: auto 1fr auto; height: 100%; justify-items: center; gap: 2px; min-width: 0 }
+.counter-bars .bar { align-self: end; width: 70%; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--accent) }
+.counter-bars .n, .counter-bars .l { font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums }
+.counter-remove { justify-self: start; padding: 0 }

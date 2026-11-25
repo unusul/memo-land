@@ -30,14 +30,21 @@ const HIDDEN: ReadonlySet<Shape> = new Set<Shape>(['archived', 'done', 'snoozed'
  */
 const OFF_DAYS: ReadonlySet<Shape> = new Set<Shape>(['archived', 'snoozed', 'draft']);
 
-/** Merges several groups (possibly from different engines and accounts) into one agenda. */
-export function buildAgenda(sources: AgendaSource[], from: LocalDateTime, to: LocalDateTime): Agenda {
+/**
+ * Merges several groups (possibly from different engines and accounts) into one agenda. With `today`, an open activity
+ * with a counter is one row on today, whatever its dates (user's choice, 2026-11-25: a count is kept every day, with no
+ * repeat to set), and nowhere else.
+ */
+export function buildAgenda(sources: AgendaSource[], from: LocalDateTime, to: LocalDateTime, today?: LocalDate): Agenda {
   const items: AgendaItem[] = [];
   const waiting: Activity[] = [];
   for (const { group, activities } of sources) {
     for (const a of activities) {
       const shape = shapeOf(a, group.id);
       if (shape === 'waiting') waiting.push(a);
+      else if (a.counter && today !== undefined) {
+        if (a.status === 'open' && !OFF_DAYS.has(shape) && from.slice(0, 10) <= today && today <= to.slice(0, 10)) items.push(toItem({ activityId: a.id, key: today, start: today }, a, group, shape));
+      }
       else if (!OFF_DAYS.has(shape)) items.push(...occurrencesBetween(a, from, to).map(o => toItem(o, a, group, shape)));
     }
   }
