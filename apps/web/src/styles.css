@@ -171,6 +171,11 @@ button.d { background: none; border: 0; padding-left: 0; padding-right: 0; font-
 .pill.cover { color: var(--warn); background: var(--warn-soft) }
 .pill.ok { color: var(--ok); background: var(--ok-soft) }
 .pill.high { color: var(--bad); background: var(--bad-soft) }
+/* A label (2026-11-26): a small grey word, no fill, so it does not compete with «alta» or «info». */
+.pill.tag { background: none; border: 1px solid var(--line); font-weight: 500 }
+.group-labels .pills { list-style: none; margin: 0; padding: 0 }
+.group-labels .pill.tag { margin-left: 0; display: inline-flex; align-items: center; gap: 4px; font-size: .85rem }
+.group-labels .pill.tag .link { padding: 0 2px; text-decoration: none; color: var(--muted) }
 /* An information (2026-11-17): grey, to know and not to do. */
 .pill.info { color: var(--muted); background: var(--surface-2) }
 /* Under Ripeti's mode, what it means with the numbers written (2026-11-17). */
@@ -735,3 +740,6 @@ textarea { width: 100%; resize: vertical }
 .counter-bars .bar { align-self: end; width: 70%; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--accent) }
 .counter-bars .n, .counter-bars .l { font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums }
 .counter-remove { justify-self: start; padding: 0 }
+/* A new label from the activity's menu (2026-11-26), as a new alert in the bell's: a field and a + under the labels. */
+.label-new { display: flex; align-items: center; gap: 4px; padding: 4px 6px 2px; border-top: 1px solid var(--line); margin-top: 4px }
+.label-new input { flex: 1; min-width: 0; min-height: 32px; width: 8em }

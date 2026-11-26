@@ -174,6 +174,10 @@ export interface Activity {
   checklist?: Checklist;
   /** A count kept day by day (2026-11-25): «Bicchieri d'acqua», + adds one to today's. */
   counter?: Counter;
+  /** Labels from the group's list (2026-11-26), one word in lower case each. */
+  labels?: string[];
+  /** Set on a group's list of labels only: the activity is hidden everywhere and holds the list (see labels.ts). */
+  labelSet?: { labels: string[] };
   /** Set on a list model only: the activity is hidden everywhere and holds the model (see ListModel). */
   model?: ListModel;
   /**

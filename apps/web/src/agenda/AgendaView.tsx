@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { alertGoesTo, alertListOf, buildAgenda, bump, can, countOn, needsAttention, outOfCalendar } from '@attivita/core';
+import { alertGoesTo, alertListOf, buildAgenda, bump, can, countOn, groupLabels, labelsIn, needsAttention, outOfCalendar } from '@attivita/core';
 import { nextTime, shortDay } from './when.js';
 import { RepeatHere, daysOf } from './RepeatHere.js';
 import { copyToDay } from './copyToDay.js';
@@ -92,8 +92,10 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
     <li key={`${it.activityId}|${it.start}`}><SwipeRow {...quick(it.activityId, it.start)}><Item it={it} shared={sharedGroup(groupOf(it.groupId))} info={infoIds.has(it.activityId)} kind={groupOf(it.groupId)?.kind ?? 'personal'} group={groupOf(it.groupId)?.name ?? ''} me={account} onOpen={onOpen}
       high={ws.activities.find(a => a.id === it.activityId)?.props.priority === 'high'}
       onCopy={copy && copyable(it.activityId) ? () => { setOpenDay(null); setNotice(null); setCopying({ id: it.activityId, title: it.title }); } : undefined}
-      count={counterOn(it)} onPlus={() => void plusOne(it.activityId)} /></SwipeRow></li>
+      count={counterOn(it)} onPlus={() => void plusOne(it.activityId)} tags={tagsOf(it)} /></SwipeRow></li>
   ));
+  /** The row's labels, in the group's order (2026-11-26): a small grey word after the title. */
+  const tagsOf = (it: AgendaItem) => { const a = ws.activities.find(x => x.id === it.activityId); return a?.labels ? labelsIn(a, groupLabels(ws.labelSets, it.groupId)) : []; };
   /** Today's count of a row with a counter (2026-11-25); undefined on any other row. */
   const counterOn = (it: AgendaItem) => { const a = ws.activities.find(x => x.id === it.activityId); return a?.counter && it.start === today() ? countOn(a, today()) : undefined; };
   /** + on the row: one more today, without opening the activity. */
@@ -220,6 +222,9 @@ const High = () => <span className="pill high">alta</span>;
 /** A group of two or more: there, who takes what is worth seeing at once (user's choice, 2026-11-17). */
 const sharedGroup = (g: Group | undefined): boolean => g !== undefined && g.kind !== 'personal' && Object.keys(g.members).length > 1;
 
+/** A label of the activity (2026-11-26), small and grey. */
+const Tag = ({ label }: { label: string }) => <span className="pill tag">{label}</span>;
+
 /** An information (2026-11-17): to know, not to do. */
 const Info = () => <span className="pill info">info</span>;
 
@@ -250,9 +255,9 @@ const closedDays = new Set<LocalDate>();
 export const clearFolds = (): void => { folds.clear(); closedDays.clear(); };
 const foldKey = (it: AgendaItem) => `${it.activityId}|${it.start}`;
 
-function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy, count, onPlus }: { it: AgendaItem; shared: boolean; info: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void; onCopy?: (() => void) | undefined;
+function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy, count, onPlus, tags = [] }: { it: AgendaItem; shared: boolean; info: boolean; kind: GroupKind; group: string; me: string; high: boolean; onOpen(t: OpenTarget): void; onCopy?: (() => void) | undefined;
   /** A row with a counter: today's count and its + (2026-11-25). */
-  count?: number | undefined; onPlus?: (() => void) | undefined }) {
+  count?: number | undefined; onPlus?: (() => void) | undefined; tags?: string[] }) {
   useBarPrefs();
   const [, redraw] = useState(0);
   const who = it.assignee ? (it.assignee === me ? youName(me) : shortName(it.assignee)) : 'libera';
@@ -270,8 +275,8 @@ function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy, count, 
     <button className={`item${struck(it) ? ' done' : ''}${small ? ' reduced' : ''}${info ? ' info' : ''}`} style={{ '--grp': info ? 'var(--muted)' : KIND_COLOR[kind] } as React.CSSProperties}
       data-take={info ? undefined : takeOf(it, kind, me)} onClick={() => onOpen({ activityId: it.activityId, occurrenceKey: it.start })}>
       <span className="bar" />
-      {small ? <span className="t">{it.title}{info && <Info />}{bell && <Bell />}</span> : <span>
-        <span className="t">{it.title}</span>{info && <Info />}{high && <High />}{bell && <Bell />}<br />
+      {small ? <span className="t">{it.title}{info && <Info />}{tags.map(l => <Tag key={l} label={l} />)}{bell && <Bell />}</span> : <span>
+        <span className="t">{it.title}</span>{info && <Info />}{tags.map(l => <Tag key={l} label={l} />)}{high && <High />}{bell && <Bell />}<br />
         {/* In the personal group «libera» would say nothing: everything there is the person's own. */}
         {/* Who covers for whom reads in the row's grey, after the names (user's choice, 2026-11-18): an orange pill was too much. */}
         <span className="meta">{kind === 'personal' ? group : `${group} · ${who}`}{it.coveredFor && ` · copre ${shortName(it.coveredFor)}`}</span>

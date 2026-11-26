@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { addMember, can, groupTypeOf, leaveGroup, reopen, roleIn } from '@attivita/core';
-import { anchorOf, shapeOf } from '@attivita/core';
+import { anchorOf, sectionLabelOf, shapeOf } from '@attivita/core';
 import type { Activity, Group, GroupType, Role, Shape } from '@attivita/core';
 import { waitingIn } from './listGroup.js';
 import { KIND_COLOR } from '../agenda/AgendaView.js';
@@ -24,6 +24,7 @@ import { SwipeRow } from '../shell/SwipeRow.js';
 import { MenuChoice, PopMenu } from '../shell/PopMenu.js';
 import { PanelActions } from '../shell/PanelActions.js';
 import { GoogleGroupWizard, InviteLink, appBase } from './GoogleGroupWizard.js';
+import { GroupLabels, useGroupLabels } from './GroupLabels.js';
 
 export const groupName = (g: Group) => (g.kind === 'personal' ? 'Personale' : g.name);
 
@@ -270,6 +271,7 @@ function GroupManage({ group: g, onBack, onArchive, bar, problem: outer }: { gro
         </PopMenu>
       )}
       {google && can(g, account, 'invite') && <InviteLink link={inviteLink(google, appBase())} />}
+      <GroupLabels group={g} />
       <p className="label">Barra in basso</p>
       {bar.at >= 0 ? (
         <div className="kv-row">
@@ -330,20 +332,30 @@ function listMeta(a: Activity, shape: Shape, g: Group, me: string): string {
 /** Every open activity of the group, dated or not, by form: the way to reach ideas and tasks with no date. */
 export function GroupList({ label, group: g, activities, onOpen }: { label: string; group: Group; activities: Activity[]; onOpen(t: OpenTarget): void }) {
   const { account } = useSession();
+  // An activity with a label goes under its first label, in the group's order, and there only (user's choices,
+  // 2026-11-26); the others under their form, as before.
+  const labels = useGroupLabels(g.id);
   const byShape = new Map<Shape, Activity[]>();
+  const byLabel = new Map<string, Activity[]>();
   for (const a of activities) {
+    const label = sectionLabelOf(a, labels);
+    if (label !== undefined) { byLabel.set(label, [...(byLabel.get(label) ?? []), a]); continue; }
     const shape = shapeOf(a, g.id);
     byShape.set(shape, [...(byShape.get(shape) ?? []), a]);
   }
+  const sections: Array<[string, string, Activity[]]> = [
+    ...labels.filter(l => byLabel.has(l)).map(l => [`label:${l}`, l, byLabel.get(l)!] as [string, string, Activity[]]),
+    ...LIST_SECTIONS.filter(([shape]) => byShape.has(shape)).map(([shape, title]) => [shape, title, byShape.get(shape)!] as [string, string, Activity[]]),
+  ];
   return (
     <section aria-label={`Elenco di ${label}`} className="group-list">
       {activities.length === 0 && <p className="muted small">Nessuna attività aperta.</p>}
-      {LIST_SECTIONS.filter(([shape]) => byShape.has(shape)).map(([shape, title]) => (
-        <div key={shape} className="attention">
+      {sections.map(([key, title, list]) => (
+        <div key={key} className="attention">
           <h4>{title}</h4>
           <ul className="items">
-            {byShape.get(shape)!.map(a => {
-              const meta = listMeta(a, shape, g, account);
+            {list.map(a => {
+              const meta = listMeta(a, shapeOf(a, g.id), g, account);
               // An information as in the Agenda: grey, with its label, not whose it is.
               return (
                 <li key={a.id}>

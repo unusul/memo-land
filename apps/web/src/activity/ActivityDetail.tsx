@@ -6,11 +6,11 @@ import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, acceptCover, addCounter, addItem, askCover, refuseCover, withdrawCover, anchorOf, removeAttachment, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, resumeIfDue, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, acceptCover, addCounter, addItem, addLabel, askCover, groupLabels, labelOf as labelWord, labelsIn, toggleLabel, withGroupLabels, refuseCover, withdrawCover, anchorOf, removeAttachment, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, resumeIfDue, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, rebase, setClosesItself, undoTo, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
-import { instantNow, localNow } from '../dates.js';
+import { instantNow, localNow, newId } from '../dates.js';
 import { PRIORITY_LABEL, PROP_LABEL, ROLE_LABEL, SHAPE_LABEL, errorText, historyText, shortName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { loadUsage, noteUse } from '../usage/usageStore.js';
@@ -522,6 +522,15 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
             )))}
             {!a.checklist && !listOpen && !asGroupList && <button className="chip" onClick={() => setListOpen(true)}>+ Lista</button>}
             {!a.counter && !asGroupList && <button className="chip" onClick={() => void run(() => addCounter(a, instantNow()))}>+ Contatore</button>}
+            {a.groupId !== null && !asGroupList && <LabelChip activity={a} labels={groupLabels(ws.labelSets, a.groupId)} onToggle={l => void run(() => toggleLabel(a, l, instantNow()))}
+              onAdd={async text => {
+                // A new label from here (user's request, 2026-11-26, «come avvisi»): into the group's list, and on at once.
+                const gid = a.groupId!;
+                const label = labelWord(text);
+                try { await ws.save(withGroupLabels(ws.labelSets, gid, addLabel(groupLabels(ws.labelSets, gid), label), newId(), ws.engineOf(gid)?.account ?? me, instantNow())); } catch (e) { setProblem(errorText(e)); return false; }
+                await run(() => toggleLabel(a, label, instantNow()));
+                return true;
+              }} />}
             <AttachMenu disabled={saving} onFiles={f => { setProblem(null); void addFiles(f); }} onProblem={setProblem} />
           </div>
           {!editingSet && !PANEL.has(form as Chip) && propForm}
@@ -727,4 +736,26 @@ function AssignChoices({ current, me, members, outside, onMember, onPropose, onN
       </form>
     ) : <button type="button" className="who-other" onClick={() => setTyping(true)}>Altro nome…</button>}
   </>;
+}
+
+/**
+ * The activity's labels (user's choices, 2026-11-26): a chip, «+ Etichetta» or the labels it has, opening the group's
+ * list to switch them on and off.
+ */
+function LabelChip({ activity: a, labels, onToggle, onAdd }: { activity: Activity; labels: string[]; onToggle(label: string): void; onAdd(text: string): Promise<boolean> }) {
+  const on = labelsIn(a, labels);
+  const [text, setText] = useState('');
+  const taken = labels.includes(text);
+  return (
+    <PopMenu className="chip" buttonLabel="Etichette" label={on.length > 0 ? on.join(' · ') : '+ Etichetta'} menuLabel="Etichette">
+      {() => <>
+        {labels.map(l => <MenuChoice key={l} label={l} checked={on.includes(l)} onChoose={() => onToggle(l)} />)}
+        {/* A new one here too, as a new alert in the bell's menu (user's request, 2026-11-26); the list stays in Noi. */}
+        <form className="label-new" onSubmit={e => { e.preventDefault(); if (text && !taken) void onAdd(text).then(ok => { if (ok) setText(''); }); }}>
+          <input aria-label="Nuova etichetta" placeholder="nuova" value={text} maxLength={30} onChange={e => setText(labelWord(e.target.value))} />
+          <button type="submit" className="icon-choice small" aria-label="Aggiungi l'etichetta" disabled={!text || taken}><Icon name="plus" size={16} /></button>
+        </form>
+      </>}
+    </PopMenu>
+  );
 }

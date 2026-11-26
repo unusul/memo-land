@@ -34,7 +34,7 @@ test('testMoreOpensTheGroupsPage', async () => {
   }
   expect(within(page).getByRole('radiogroup', { name: 'Tipo di developers' })).toBeTruthy();
   expect(within(page).getByText('tu: proprietario')).toBeTruthy();
-  expect(within(page).getAllByRole('listitem').map(li => li.textContent)).toEqual(['tuproprietario', 'plutomembro', 'ospiteospite']);
+  expect(within(page.querySelector('ul.people') as HTMLElement).getAllByRole('listitem').map(li => li.textContent)).toEqual(['tuproprietario', 'plutomembro', 'ospiteospite']);
   userClick('Indietro');
   expect(await groupRow('developers')).toBeTruthy();
   expect(within(await manage('altereos.com')).getByRole('button', { name: 'Esci da altereos.com' })).toBeTruthy();

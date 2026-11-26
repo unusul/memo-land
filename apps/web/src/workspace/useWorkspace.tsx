@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { DomainError, EngineUnavailableError, archive, fail, isModel } from '@attivita/core';
+import { DomainError, EngineUnavailableError, archive, fail, isLabelSet, isModel } from '@attivita/core';
 import type { Activity, ActivityId, AttachmentRef, AttachmentUpload, Engine, Group, GroupId } from '@attivita/core';
 import { instantNow } from '../dates.js';
 import { errorText } from '../labels.js';
@@ -14,6 +14,8 @@ export interface Workspace {
   drafts: Activity[];
   /** The list models of the groups the account is in, open ones only (2026-11-16). */
   models: Activity[];
+  /** The groups' lists of labels (2026-11-26), hidden as the models. */
+  labelSets: Activity[];
   loaded: boolean;
   error: string | null;
   /** One line per engine that cannot be reached right now; the others stay usable. */
@@ -202,8 +204,9 @@ export function useWorkspace(engineList: Engine[]): Workspace {
     engineOf: (groupId: GroupId) => { try { return view.router.forGroup(groupId); } catch { return undefined; } },
     notices: [...new Set([...down].map(unreachableText))],
     // The one place where the models leave the activities: agenda, counts, group pages, Sposta, Scomponi never see them.
-    activities: view.all.filter(a => a.groupId !== null && !isModel(a)),
+    activities: view.all.filter(a => a.groupId !== null && !isModel(a) && !isLabelSet(a)),
     models: view.all.filter(a => a.groupId !== null && isModel(a) && a.status === 'open'),
+    labelSets: view.all.filter(a => a.groupId !== null && isLabelSet(a)),
     drafts: view.all.filter(a => a.groupId === null && a.accountId === primary.account),
   };
 }
