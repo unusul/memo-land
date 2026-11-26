@@ -1,5 +1,6 @@
 import { occurrencesBetween } from '@attivita/core';
-import type { Activity, LocalDate, LocalDateTime, Occurrence } from '@attivita/core';
+import type { Activity, CoverAsk, LocalDate, LocalDateTime, Occurrence } from '@attivita/core';
+import { shortName } from '../labels.js';
 import { shortDay } from './DatePicker.js';
 
 /** «ven 6 nov alle 20:00», or «ven 6 nov» for a day. */
@@ -12,6 +13,12 @@ export function movedNote(o: Occurrence): string | undefined {
   if (o.movedTo !== undefined) return `spostata a ${whenText(o.movedTo)}`;
   if (o.movedFrom !== undefined) return `spostata da ${shortDay(o.movedFrom.slice(0, 10))}`;
   return undefined;
+}
+
+/** «Copri tu questa» (2026-11-26): «chiesta a Marco» while it waits, «Marco non può» (with the reason) once refused. */
+export function askedNote(ask: CoverAsk, withReason = true): string {
+  if (!ask.refused) return `chiesta a ${shortName(ask.to)}`;
+  return `${shortName(ask.to)} non può${withReason && ask.reason ? `: ${ask.reason}` : ''}`;
 }
 
 /**

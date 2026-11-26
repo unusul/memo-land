@@ -4,7 +4,7 @@ import type { Group } from './groups.js';
 import { occurrencesBetween } from './occurrences.js';
 import type { Occurrence } from './occurrences.js';
 import { shapeOf } from './shape.js';
-import type { AccountId, Activity, GroupId, LocalDate, LocalDateTime, Shape } from './types.js';
+import type { AccountId, Activity, GroupId, LocalDate, LocalDateTime, OccurrenceKey, Shape } from './types.js';
 
 export interface AgendaItem extends Occurrence {
   groupId: GroupId;
@@ -83,9 +83,16 @@ export interface Attention {
   overdue: Overdue[];
   /** Assignments proposed to the account, waiting for accept or reject. */
   proposed: Array<{ activity: Activity; groupId: GroupId }>;
-  /** Activities that need the account, each counted once even when both overdue and proposed. */
+  /**
+   * «Copri tu questa» (2026-11-26): times of a series someone asked the account to cover, not answered, from today on;
+   * nearest first.
+   */
+  coverAsks: CoverAskRow[];
+  /** Activities that need the account, each counted once even when both overdue and proposed, plus each request to cover. */
   count: number;
 }
+
+export interface CoverAskRow { activity: Activity; groupId: GroupId; key: OccurrenceKey; by: AccountId }
 
 /**
  * What waits for the account: overdue tasks and proposals to answer. A calendar series is never overdue, its past
@@ -94,6 +101,7 @@ export interface Attention {
 export function needsAttention(sources: AgendaSource[], me: AccountId, today: LocalDate): Attention {
   const overdue: Overdue[] = [];
   const proposed: Attention['proposed'] = [];
+  const coverAsks: CoverAskRow[] = [];
   for (const { group, activities } of sources) {
     for (const a of activities) {
       const shape = shapeOf(a, group.id);
@@ -101,13 +109,17 @@ export function needsAttention(sources: AgendaSource[], me: AccountId, today: Lo
       if (HIDDEN.has(shape) || shape === 'waiting') continue;
       const asg = a.props.assignment;
       if (asg?.state === 'proposed' && asg.assignee === me) proposed.push({ activity: a, groupId: group.id });
+      for (const [key, o] of Object.entries(a.overrides)) {
+        if (o.asked?.to === me && !o.asked.refused && key.slice(0, 10) >= today) coverAsks.push({ activity: a, groupId: group.id, key, by: o.asked.by });
+      }
       const since = dueDateOf(a, today);
       if (since !== undefined && since < today && (asg === undefined || asg.assignee === me)) overdue.push({ activity: a, groupId: group.id, since });
     }
   }
   overdue.sort((x, y) => x.since.localeCompare(y.since));
-  const count = new Set([...overdue, ...proposed].map(x => x.activity.id)).size;
-  return { overdue, proposed, count };
+  coverAsks.sort((x, y) => x.key.localeCompare(y.key));
+  const count = new Set([...overdue, ...proposed].map(x => x.activity.id)).size + coverAsks.length;
+  return { overdue, proposed, coverAsks, count };
 }
 
 function dueDateOf(a: Activity, today: LocalDate): LocalDate | undefined {

@@ -4,7 +4,7 @@ import { asDateTime, fromFloating, isDateOnly, toFloating } from './dates.js';
 import { fail } from './errors.js';
 import { touch } from './props.js';
 import type {
-  AccountId, Activity, ActivityId, DayTime, HistoryKind, Instant, LocalDate, LocalDateTime, OccurrenceKey, OccurrenceOverride, Role, Weekday,
+  AccountId, Activity, ActivityId, CoverAsk, DayTime, HistoryKind, Instant, LocalDate, LocalDateTime, OccurrenceKey, OccurrenceOverride, Role, Weekday,
 } from './types.js';
 
 export interface Occurrence {
@@ -15,6 +15,8 @@ export interface Occurrence {
   assignee?: AccountId;
   /** Set when someone else covers this occurrence for the series assignee. */
   coveredFor?: AccountId;
+  /** «Copri tu questa» (2026-11-26): the request on this time, waiting or refused. */
+  asked?: CoverAsk;
   /** Set when this occurrence of a calendar series has been completed. */
   done?: true;
   /** Set when this occurrence does not take place; it is still listed, struck through. */
@@ -83,7 +85,9 @@ export function takeOccurrence(a: Activity, key: OccurrenceKey, by: AccountId, b
   if (byRole === 'guest') fail('FORBIDDEN', 'guests cannot take occurrences');
   if (!isOccurrence(a, key)) fail('INVALID_INPUT', `"${key}" is not an occurrence of this activity`);
   // Added to what the time already holds, a move or a skip (2026-11-17): before, it was written anew and a move was lost.
-  const overrides = { ...a.overrides, [key]: { ...a.overrides[key], assignee: by, takenBy: by } };
+  // Whoever takes it, a request on it goes: the time is no longer the asker's (2026-11-26).
+  const { asked: _asked, ...was } = a.overrides[key] ?? {};
+  const overrides = { ...a.overrides, [key]: { ...was, assignee: by, takenBy: by } };
   return touch({ ...a, overrides }, { kind: 'occurrenceTaken', detail: { key } }, by, now);
 }
 
@@ -95,7 +99,8 @@ export function leaveOccurrence(a: Activity, key: OccurrenceKey, by: AccountId, 
   const current = a.overrides[key];
   if (!current?.takenBy) fail('INVALID_STATE', 'nobody covered this occurrence');
   if (current.takenBy !== by) fail('FORBIDDEN', 'only who covered the occurrence gives it back');
-  const { assignee: _a, takenBy: _t, ...rest } = current;
+  // A request the coverer made goes with the time it gives back (2026-11-26).
+  const { assignee: _a, takenBy: _t, asked: _q, ...rest } = current;
   const { [key]: _gone, ...others } = a.overrides;
   const overrides = Object.keys(rest).length > 0 ? { ...others, [key]: rest } : others;
   return touch({ ...a, overrides }, { kind: 'occurrenceLeft', detail: { key } }, by, now);
@@ -165,6 +170,7 @@ function toOccurrence(a: Activity, key: OccurrenceKey, start: LocalDate | LocalD
   if (assignee !== undefined) occ.assignee = assignee;
   if (override?.assignee !== undefined && seriesAssignee !== undefined && override.assignee !== seriesAssignee) occ.coveredFor = seriesAssignee;
   if (override?.skipped) occ.skipped = true;
+  if (override?.asked) occ.asked = override.asked;
   const movedAway = override?.moved !== undefined && start === key;
   if (movedAway) occ.movedTo = override.moved;
   if (override?.moved !== undefined && start !== key) occ.movedFrom = key;

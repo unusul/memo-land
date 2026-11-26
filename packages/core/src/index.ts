@@ -9,6 +9,7 @@ export * from './occurrences.js';
 export * from './completion.js';
 export * from './checklist.js';
 export * from './counter.js';
+export * from './cover-request.js';
 export * from './model.js';
 export * from './closes-itself.js';
 export * from './calendar-flags.js';

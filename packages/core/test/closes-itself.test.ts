@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { closeByItself, completedKeys, setClosesItself, skipOccurrence } from '../src/index.js';
+import { closeByItself, completedKeys, reopen, setClosesItself, skipOccurrence } from '../src/index.js';
 import type { Activity } from '../src/index.js';
 import { base, series, t1, t2 } from './fixtures.js';
 
@@ -70,4 +70,18 @@ test('testFromCompletionClosesOneAfterTheOther', () => {
   const closed = closeByItself(setClosesItself(daily, true, '2026-11-20T07:00', 'u1', t1), '2026-11-22T10:00', 'u1', t2);
   expect(closed.history.filter(h => h.kind === 'completed').map(h => h.detail?.['closedAt'])).toEqual(['2026-11-20T09:00', '2026-11-21T09:00', '2026-11-22T09:00']);
   expect(closed.status).toBe('open');
+});
+
+/**
+ * Riapri on an event that closed by itself (user's bug, 2026-11-26): the switch moves to the reopening, so its time
+ * already ended does not close it again. Before, it went back to done at once and Riapri seemed to do nothing.
+ */
+test('testAReopenedEventStaysOpen', () => {
+  const event: Activity = { ...base, groupId: 'g1', props: { schedule: { start: '2026-11-26T07:00', end: '2026-11-26T20:00' } } };
+  const closed = closeByItself(setClosesItself(event, true, '2026-11-26T06:00', 'u1', t1), '2026-11-26T21:00', 'u1', t2);
+  expect(closed.status).toBe('done');
+  const back = reopen(closed, 'u1', t2, '2026-11-26T21:05');
+  expect(back.closesItself).toEqual({ since: '2026-11-26T21:05' });
+  expect(closeByItself(back, '2026-11-26T21:10', 'u1', t2).status).toBe('open');
+  expect(closeByItself(reopen(closed, 'u1', t2), '2026-11-26T21:10', 'u1', t2).status).toBe('done');
 });

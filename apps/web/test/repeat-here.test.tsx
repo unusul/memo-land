@@ -78,3 +78,12 @@ test('testASearchWhenThereAreMoreThanSix', async () => {
   fireEvent.change(within(list).getByRole('searchbox', { name: 'Cerca un evento' }), { target: { value: 'cena 2' } });
   expect([...list.querySelectorAll('.pick .t')].map(t => t.textContent)).toEqual(['Cena 2']);
 });
+
+/**
+ * A done event is in the list too, an archived one is not (user's bug, 2026-11-26: done events were missing, as the
+ * Copia icon on their rows).
+ */
+test('testADoneEventCanBeRepeated', () => {
+  const events: Activity[] = [{ ...mk('done', '2026-11-18'), status: 'done' }, { ...mk('gone', '2026-11-18'), status: 'archived' }];
+  expect(repeatableOn('2026-11-20', events, () => group, () => PIPPO).map(a => a.id)).toEqual(['done']);
+});

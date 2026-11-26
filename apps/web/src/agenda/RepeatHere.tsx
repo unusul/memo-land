@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { anchorOf, can, chosenStarts, outOfCalendar, setProp, shapeOf } from '@attivita/core';
+import { anchorOf, can, chosenStarts, outOfCalendar, shapeOf } from '@attivita/core';
 import type { Activity, Group, LocalDate } from '@attivita/core';
 import { dayParts, instantNow } from '../dates.js';
 import { errorText } from '../labels.js';
@@ -7,6 +7,7 @@ import { useSession } from '../session/SessionContext.js';
 import { Icon } from '../shell/icons.js';
 import { useToast } from '../shell/toast.js';
 import { useWs } from '../workspace/useWorkspace.js';
+import { copyToDay } from './copyToDay.js';
 
 /** How many events the list shows; with more, a search on top (user's choice, 2026-11-17). */
 export const SHOWN_EVENTS = 6;
@@ -25,8 +26,9 @@ export function daysOf(a: Activity): LocalDate[] {
 }
 
 /**
- * The events a day can be added to (user's choices, 2026-11-17): open, in a group the person edits, with a date, without
- * a rule or already «a date scelte», in the Calendar (not waiting nor put off), not on that day yet; the nearest first.
+ * The events a day can be added to (user's choices, 2026-11-17): open or done (user's bug, 2026-11-26: a done one was
+ * missing; it is copied, see `copyToDay`), not archived, in a group the person edits, with a date, without a rule or
+ * already «a date scelte», in the Calendar (not waiting nor put off), not on that day yet; the nearest first.
  */
 export function repeatableOn(day: LocalDate, activities: Activity[], groupOf: (id: string) => Group | undefined, meOf: (groupId: string) => string): Activity[] {
   const distance = (a: Activity) => Math.min(...daysOf(a).map(d => Math.abs(at(d) - at(day)) / MS_PER_DAY));
@@ -34,7 +36,7 @@ export function repeatableOn(day: LocalDate, activities: Activity[], groupOf: (i
     .filter(a => {
       const group = a.groupId === null ? undefined : groupOf(a.groupId);
       const repeat = a.props.repeat;
-      return a.status === 'open' && group !== undefined && !group.archived && can(group, meOf(group.id), 'editActivity')
+      return a.status !== 'archived' && group !== undefined && !group.archived && can(group, meOf(group.id), 'editActivity')
         && (repeat === undefined || repeat.mode === 'dates') && !outOfCalendar(a) && !OFF_CALENDAR.has(shapeOf(a, group.id)) && daysOf(a).length > 0 && !daysOf(a).includes(day);
     })
     .sort((x, y) => distance(x) - distance(y) || x.title.localeCompare(y.title, 'it'));
@@ -57,9 +59,10 @@ export function RepeatHere({ day }: { day: LocalDate }) {
   const wanted = query.trim().toLowerCase();
   const shown = all.filter(a => !wanted || a.title.toLowerCase().includes(wanted)).slice(0, SHOWN_EVENTS);
   async function choose(a: Activity) {
-    const dates = a.props.repeat?.mode === 'dates' ? a.props.repeat.dates : [];
+    const result = copyToDay(a, day, meOf(a.groupId!), instantNow());
+    if (result.kind === 'there') return;
     try {
-      await ws.save(setProp(a, 'repeat', { mode: 'dates', dates: [...dates, day].sort() }, meOf(a.groupId!), instantNow()));
+      await ws.save(result.activity);
       setOpen(false);
       setQuery('');
     } catch (e) {

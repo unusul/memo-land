@@ -83,3 +83,20 @@ test('testASeriesByARuleGetsANewActivity', () => {
   expect(copy.checklist?.items).toEqual([{ id: 'i1', text: 'asciugamano', done: false }]);
   expect(copy.history.map(h => h.kind)).toEqual(['created']);
 });
+
+/**
+ * A done event copied (user's bug, 2026-11-26) gets a new activity, open, on the day: the day added to the done one
+ * would be born done. Before, a done event had no Copia and was not in «Ripeti qui un evento».
+ */
+test('testADoneEventGetsANewActivity', () => {
+  const done: Activity = {
+    ...newActivity({ id: 'roma', accountId: PIPPO, title: 'Andare a Roma', groupId: 'inv:developers' }, '2026-11-01T08:00:00Z'),
+    props: { schedule: { start: '2026-11-03T07:00', end: '2026-11-03T20:00' } }, status: 'done',
+  };
+  const result = copyToDay(done, '2026-11-28', PIPPO, '2026-11-05T08:00:00Z');
+  expect(result.kind).toBe('created');
+  if (result.kind !== 'created') return;
+  expect(result.activity.status).toBe('open');
+  expect(result.activity.props).toEqual({ schedule: { start: '2026-11-28T07:00', end: '2026-11-28T20:00' } });
+  expect(copyToDay(done, '2026-11-03', PIPPO, '2026-11-05T08:00:00Z').kind).toBe('there');
+});

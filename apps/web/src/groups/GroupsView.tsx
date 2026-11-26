@@ -14,7 +14,7 @@ import { ManagedBy } from './ManagedBy.js';
 import { Icon } from '../shell/icons.js';
 import { IconGrid } from './IconGrid.js';
 import { ModelPage, ModelRows } from './Models.js';
-import { instantNow, newId } from '../dates.js';
+import { instantNow, localNow, newId } from '../dates.js';
 import { KIND_LABEL, ROLE_LABEL, errorText, shortName, youName } from '../labels.js';
 import { useSession } from '../session/SessionContext.js';
 import { configFromInvite, googleConfigOf, inviteLink } from '../session/google-config.js';
@@ -373,7 +373,7 @@ export function ClosedLists({ activities, canReopen, onOpen }: { activities: Act
   const recent = [...activities].sort((x, y) => y.updatedAt.localeCompare(x.updatedAt));
   const sections: Array<[string, Activity[]]> = [['Fatte', recent.filter(a => a.status === 'done')], ['Archiviate', recent.filter(a => a.status === 'archived')]];
   const back = async (a: Activity) => {
-    try { await ws.save(reopen(a, ws.engineOf(a.groupId ?? '')?.account ?? account, instantNow())); setProblem(null); } catch (e) { setProblem(errorText(e)); }
+    try { await ws.save(reopen(a, ws.engineOf(a.groupId ?? '')?.account ?? account, instantNow(), localNow())); setProblem(null); } catch (e) { setProblem(errorText(e)); }
   };
   return (
     <>

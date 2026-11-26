@@ -60,6 +60,10 @@ export function historyText(h: HistoryEntry): string {
     case 'completed': return d['auto'] ? `fatta da sola alle ${String(d['closedAt'] ?? '').slice(11, 16)}` : `${who} l'ha segnata come fatta`;
     case 'occurrenceTaken': return `${who} copre l'occorrenza ${String(d['key']).replace('T', ' ')}`;
     case 'occurrenceLeft': return `${who} lascia l'occorrenza ${String(d['key']).replace('T', ' ')}`;
+    case 'coverAsked': return `${who} ha chiesto a ${short(String(d['to']))} di coprire ${shortDay(String(d['key']).slice(0, 10))}`;
+    case 'coverAccepted': return `${who} copre ${shortDay(String(d['key']).slice(0, 10))} per ${short(String(d['for']))}`;
+    case 'coverRefused': return `${who} non può coprire ${shortDay(String(d['key']).slice(0, 10))}${d['reason'] ? `: ${d['reason']}` : ''}`;
+    case 'coverWithdrawn': return `${who} ha ritirato la richiesta per ${shortDay(String(d['key']).slice(0, 10))}`;
     case 'occurrenceSkipped': return `${who} ha saltato ${shortDay(String(d['key']).slice(0, 10))}`;
     case 'occurrenceMoved': return `${who} ha spostato ${shortDay(String(d['key']).slice(0, 10))} a ${whenText(String(d['to']))}`;
     case 'occurrenceRestored': return `${who} ha rimesso ${shortDay(String(d['key']).slice(0, 10))} al suo giorno`;

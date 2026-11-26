@@ -67,12 +67,23 @@ export interface OccurrenceOverride {
   skipped?: true;
   /** The new start (a day for a series of whole days); the duration stays the series'. */
   moved?: LocalDateTime | LocalDate;
+  /** «Copri tu questa» (2026-11-26): who has the time asked someone to cover it. */
+  asked?: CoverAsk;
+}
+
+/** A request to cover one time: to whom, by whom; refused with an optional reason until the asker clears it. */
+export interface CoverAsk {
+  to: AccountId;
+  by: AccountId;
+  refused?: true;
+  reason?: string;
 }
 
 export type HistoryKind =
   | 'created' | 'propSet' | 'propRemoved' | 'assigned' | 'accepted' | 'rejected' | 'released'
   | 'claimed' | 'conditionMet' | 'completed' | 'occurrenceTaken' | 'occurrenceLeft' | 'unassignedOnLeave'
   | 'occurrenceSkipped' | 'occurrenceMoved' | 'occurrenceRestored' | 'occurrenceReopened'
+  | 'coverAsked' | 'coverAccepted' | 'coverRefused' | 'coverWithdrawn'
   | 'snoozed' | 'resumed' | 'archived' | 'reopened' | 'movedToGroup' | 'movedToDrafts' | 'decomposed' | 'textEdited'
   | 'attachmentRemoved';
 

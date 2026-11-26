@@ -9,12 +9,15 @@ export type CopyResult = { kind: 'added' | 'created'; activity: Activity } | { k
 /**
  * «Copia su un altro giorno», from a row of a day in the Calendar (user's choices, 2026-11-17). Without a rule, or with
  * days chosen already, the day joins the same activity's days («seleziona date»): one activity, one history, each day
- * its own state. A series by a rule cannot take a day more, so a new activity is born on that day, on its own.
+ * its own state. A series by a rule cannot take a day more, so a new activity is born on that day, on its own. So does
+ * a done activity (user's bug, 2026-11-26): the day added to it would be born done; before, a done one could not be
+ * copied at all.
  */
 export function copyToDay(a: Activity, day: LocalDate, by: AccountId, now: Instant): CopyResult {
   const repeat = a.props.repeat;
   if (repeat !== undefined && repeat.mode !== 'dates') return { kind: 'created', activity: copyOf(a, day, by, now) };
   if (daysOf(a).includes(day)) return { kind: 'there' };
+  if (a.status !== 'open') return { kind: 'created', activity: copyOf(a, day, by, now) };
   const dates = repeat?.mode === 'dates' ? repeat.dates : [];
   return { kind: 'added', activity: setProp(a, 'repeat', { mode: 'dates', dates: [...dates, day].sort() }, by, now) };
 }

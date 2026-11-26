@@ -3,6 +3,7 @@ import type { AccountId, Activity, Group, Occurrence } from '@attivita/core';
 
 export type ActionKind =
   | 'accept' | 'reject' | 'release' | 'claim' | 'cover' | 'leaveOccurrence' | 'complete' | 'reopenOccurrence' | 'met'
+  | 'acceptCover' | 'refuseCover' | 'askCover' | 'withdrawCover'
   | 'skip' | 'moveOccurrence' | 'restore'
   | 'moveToGroup' | 'decompose' | 'snooze' | 'archive' | 'toDraft';
 
@@ -26,6 +27,12 @@ export function availableActions(a: Activity, occ: Occurrence | null, group: Gro
   if (one && !off && group.kind !== 'personal' && one.assignee !== me && !one.done && can(group, me, 'takeOccurrence')) out.push('cover');
   // The way back from cover (user's bug, 2026-11-17): who covered an occurrence gives it back.
   if (one && !one.done && a.overrides[one.key]?.takenBy === me) out.push('leaveOccurrence');
+  // «Copri tu questa» (2026-11-26): the one asked answers; who has the time asks a member, or takes the request back.
+  const ask = one && !off && !one.done ? one.asked : undefined;
+  if (ask && !ask.refused && ask.to === me) out.push('acceptCover', 'refuseCover');
+  const others = Object.entries(group.members).some(([m, r]) => m !== me && r !== 'guest');
+  if (one && !off && !one.done && group.kind !== 'personal' && one.assignee === me && (!ask || ask.refused) && others && can(group, me, 'takeOccurrence')) out.push('askCover');
+  if (ask && ask.by === me) out.push('withdrawCover');
   const waiting = shapeOf(a, group.id) === 'waiting';
   const completes = can(group, me, 'editActivity') || (mine && can(group, me, 'completeOwn'));
   if (!waiting && !off && !occ?.done && completes) out.push('complete');

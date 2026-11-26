@@ -6,7 +6,7 @@ import { AttachMenu } from '../capture/AttachMenu.js';
 import { enqueueDraft, linkAttachments } from '../offline/outbox.js';
 import type { QueuedFile } from '../offline/outbox.js';
 import {
-  accept, addCounter, addItem, anchorOf, removeAttachment, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, resumeIfDue, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
+  accept, acceptCover, addCounter, addItem, askCover, refuseCover, withdrawCover, anchorOf, removeAttachment, archive, assign, assignToName, backToDraft, can, claim, complete, moveBetweenGroups, moveToGroup, resumeIfDue, setProp, editText, markConditionMet, nextDue, occurrencesBetween, rankProps,
   moveOccurrence, leaveOccurrence, reject, release, removeProp, reopen, reopenOccurrence, restoreOccurrence, roleIn, rebase, setClosesItself, undoTo, setInfo, setOffCalendar, shapeOf, skipOccurrence, snooze, takeOccurrence,
 } from '@attivita/core';
 import type { Activity, PropKey } from '@attivita/core';
@@ -16,7 +16,7 @@ import { useSession } from '../session/SessionContext.js';
 import { loadUsage, noteUse } from '../usage/usageStore.js';
 import { useWs } from '../workspace/useWorkspace.js';
 import { availableActions } from './actions.js';
-import { movedNote, occurrenceAt } from './occurrence.js';
+import { askedNote, movedNote, occurrenceAt } from './occurrence.js';
 import { MoveOccurrenceForm } from './MoveOccurrenceForm.js';
 import { shortDay } from './DatePicker.js';
 import { isHighlighted, rowSizeOf, setRowSize, toggleHighlight, useBarPrefs } from '../groups/barPrefs.js';
@@ -56,13 +56,14 @@ const ACTION_LABEL: Record<ActionKind, string> = {
   skip: 'Salta questa volta', moveOccurrence: 'Sposta questa volta…', restore: 'Rimetti',
   met: 'Segna avverata', moveToGroup: 'Sposta in un gruppo', decompose: 'Scomponi…',
   snooze: 'Rimanda…', archive: 'Archivia', toDraft: 'Torna bozza',
+  acceptCover: 'La copro io', refuseCover: 'Non posso…', askCover: 'Chiedi a qualcuno…', withdrawCover: 'Ritira la richiesta',
 };
 /**
  * One action highlighted, never two (user's remark, 2026-11-20, «molto brutto due bottoni evidenziati»): «Accetta» where
  * someone waits for the person's answer, otherwise «Fatto». Before, «Accetta» only; for a moment both.
  */
 export const primaryOf = (actions: readonly ActionKind[]): ActionKind | undefined =>
-  actions.includes('accept') ? 'accept' : actions.includes('complete') ? 'complete' : undefined;
+  actions.includes('accept') ? 'accept' : actions.includes('acceptCover') ? 'acceptCover' : actions.includes('complete') ? 'complete' : undefined;
 /** The highlighted action always first (user's request, 2026-11-20), the others in their order. */
 export const mainFirst = (actions: readonly ActionKind[]): ActionKind[] => {
   const main = primaryOf(actions);
@@ -310,6 +311,9 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
       case 'claim': return run(() => claim(it, me, role, now));
       case 'cover': return run(() => takeOccurrence(it, occ!.key, me, role, now));
       case 'leaveOccurrence': return run(() => leaveOccurrence(it, occ!.key, me, now));
+      case 'acceptCover': return run(() => acceptCover(it, occ!.key, me, now));
+      case 'withdrawCover': return run(() => withdrawCover(it, occ!.key, me, now));
+      case 'askCover': case 'refuseCover': return undefined;
       case 'complete': return run(() => complete(it, me, occ?.key ?? localNow(), now, occ?.key));
       case 'reopenOccurrence': return run(() => reopenOccurrence(it, occ!.key, me, now));
       case 'skip': return run(() => skipOccurrence(it, occ!.key, me, role, now));
@@ -333,6 +337,17 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
   /**
    * Where it can go, as a menu: from the «+ Gruppo» chip of a draft, the Dove row and «Sposta in un gruppo» (2026-11-16).
    */
+  /** «Chiedi a qualcuno…» (2026-11-26): the group's members but the person and the guests. */
+  function askChoices(close: () => void) {
+    const it = a!;
+    const members = group ? Object.entries(group.members).filter(([m, r]) => m !== me && r !== 'guest').map(([m]) => m) : [];
+    return members.map(m => (
+      <MenuChoice key={m} label={shortName(m)} onChoose={() => {
+        close();
+        void run(() => askCover(it, occ!.key, m, me, role, group!.members[m], instantNow()));
+      }} />
+    ));
+  }
   function groupChoices(close: () => void) {
     const it = a!;
     const targets = moveTargets(ws.groups, me, it.groupId);
@@ -408,7 +423,7 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
           offCalendar={a.groupId !== null && canEdit ? on => void run(() => setOffCalendar(a, on, instantNow())) : undefined} />}
       </header>}
       {asGroupList && closed && group && can(group, me, 'editActivity') && (
-        <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow()))}>Riapri la lista</button>
+        <button className="btn primary" onClick={() => void ws.save(reopen(a, me, instantNow(), localNow()))}>Riapri la lista</button>
       )}
       {/* A list group's page starts with the list: it is what the group is for. */}
       {asGroupList && <ChecklistView activity={a} me={me} editable={canEdit} change={next => run(next)} members={listMembers} modelChoice copy={!isNew && <CopyButton activity={a} />} />}
@@ -442,13 +457,25 @@ export function ActivityDetail({ activityId, occurrenceKey, fresh, asGroupList =
             note={editable(k) && startsTheSeries(k) ? 'per toglierla, togli prima Ripeti' : undefined} />
         ))}
         {!isNew && !asGroupList && <AlertRow activity={a} me={me} onOpen={() => setAlertsOpen(true)} />}
-        {occ && <><dt>Occorrenza</dt><dd>{when(occ.start)} · {occ.assignee ? shortName(occ.assignee) : 'libera'}{occ.coveredFor ? ` (copre ${shortName(occ.coveredFor)})` : ''}{occ.done ? ' · fatta' : ''}{occ.skipped ? ' · saltata' : ''}{movedNote(occ) ? ` · ${movedNote(occ)}` : ''}</dd></>}
+        {occ && <><dt>Occorrenza</dt><dd>{when(occ.start)} · {occ.assignee ? shortName(occ.assignee) : 'libera'}{occ.coveredFor ? ` (copre ${shortName(occ.coveredFor)})` : ''}{occ.done ? ' · fatta' : ''}{occ.skipped ? ' · saltata' : ''}{movedNote(occ) ? ` · ${movedNote(occ)}` : ''}{occ.asked && !occ.done ? ` · ${askedNote(occ.asked)}` : ''}</dd></>}
       </dl>
       {editingSet && !PANEL.has(form as Chip) && propForm}
 
       {!isNew && actions.length > 0 && (
         <div className="btns">
           {mainFirst(actions).map(k => (k === 'moveToGroup' ? <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Gruppo">{groupChoices}</PopMenu>
+            : k === 'askCover' ? <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Chiedi a">{askChoices}</PopMenu>
+            : k === 'refuseCover' && occ ? (
+              // The reason is optional (user's choice, 2026-11-26): for one time «non posso» is enough.
+              <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Non posso" panel>
+                {close => (
+                  <form className="form" onSubmit={e => { e.preventDefault(); close(); void run(() => refuseCover(a, occ.key, me, reason, instantNow()), () => setReason('')); }}>
+                    <input aria-label="Motivo" autoFocus placeholder="Perché? (facoltativo)" value={reason} onChange={e => setReason(e.target.value)} />
+                    <PanelActions applyLabel="Non posso" onCancel={close} />
+                  </form>
+                )}
+              </PopMenu>
+            )
             : k === 'snooze' ? (
               <PopMenu key={k} className="btn" label={labelOf(k)} menuLabel="Rimanda" panel>
                 {close => <SnoozeForm me={me} onCancel={close} onSnooze={until => { close(); void run(() => snooze(a, until, me, instantNow()), () => onClose()); }} />}

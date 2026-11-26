@@ -37,10 +37,15 @@ export function archive(a: Activity, by: AccountId, now: Instant): Activity {
   return touch({ ...a, status: 'archived' }, { kind: 'archived' }, by, now);
 }
 
-/** Brings an archived or done activity back among the open ones. */
-export function reopen(a: Activity, by: AccountId, now: Instant): Activity {
+/**
+ * Brings an archived or done activity back among the open ones. With «Si chiude da sola», `nowLocal` moves the switch
+ * to the reopening (user's bug, 2026-11-26): only the times ending after it close by themselves. Before, a time already
+ * ended closed it again at once, and Riapri seemed to do nothing.
+ */
+export function reopen(a: Activity, by: AccountId, now: Instant, nowLocal?: LocalDateTime): Activity {
   if (a.status === 'open') fail('INVALID_STATE', 'the activity is already open');
-  return touch({ ...a, status: 'open' }, { kind: 'reopened' }, by, now);
+  const switched = a.closesItself && nowLocal !== undefined ? { closesItself: { since: nowLocal } } : {};
+  return touch({ ...a, ...switched, status: 'open' }, { kind: 'reopened' }, by, now);
 }
 
 /**

@@ -17,7 +17,7 @@ import { useWs } from '../workspace/useWorkspace.js';
 import { useAgendaSources } from './sources.js';
 import { useQuickActions } from './quickActions.js';
 import { SwipeRow } from '../shell/SwipeRow.js';
-import { movedNote } from '../activity/occurrence.js';
+import { askedNote, movedNote, whenText } from '../activity/occurrence.js';
 import { Icon } from '../shell/icons.js';
 import { useBackLayer } from '../shell/back.js';
 import { MonthView, dayLabel, monthDays } from './MonthView.js';
@@ -85,7 +85,7 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
   const copyable = (id: string) => {
     const a = ws.activities.find(x => x.id === id);
     const group = a?.groupId ? groupOf(a.groupId) : undefined;
-    return a !== undefined && group !== undefined && !group.archived && a.status === 'open' && can(group, meIn(group.id), 'editActivity') && daysOf(a).length > 0;
+    return a !== undefined && group !== undefined && !group.archived && a.status !== 'archived' && can(group, meIn(group.id), 'editActivity') && daysOf(a).length > 0;
   };
   // `copy`: the rows of a day of the Calendar, the only ones with «Copia su un altro giorno».
   const rows = (day: LocalDate, items: AgendaItem[], copy = false) => items.map(it => (
@@ -131,8 +131,12 @@ export function AgendaView({ from = today(), days = 14, onOpen, onAddOn }: {
         <AttentionList label="Scadute" rows={attention.overdue.map(o => ({ activity: o.activity, groupId: o.groupId, note: `scaduta ${onDay(o.since)}`, when: shortDay(o.since) }))}
           kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} me={account} onOpen={onOpen} quick={quick} />
       )}
-      {attention.proposed.length > 0 && mode === 'list' && (
-        <AttentionList label="Proposte a te" rows={attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}`, when: nextTime(p.activity) }))}
+      {attention.proposed.length + attention.coverAsks.length > 0 && mode === 'list' && (
+        // A time someone asks the person to cover (2026-11-26) beside the activities proposed: «copri tu? · da Anna».
+        <AttentionList label="Proposte a te" rows={[
+          ...attention.proposed.map(p => ({ ...p, note: `da ${shortName(p.activity.props.assignment!.assignedBy)}`, when: nextTime(p.activity) })),
+          ...attention.coverAsks.map(c => ({ activity: c.activity, groupId: c.groupId, occurrenceKey: c.key, note: `copri tu ${whenText(c.key)}? · da ${shortName(c.by)}`, when: shortDay(c.key.slice(0, 10)) })),
+        ]}
           kindOf={id => groupOf(id)?.kind} nameOf={id => groupOf(id)?.name} me={account} onOpen={onOpen} quick={quick} />
       )}
       {monthAgenda && copying && (
@@ -274,6 +278,7 @@ function Item({ it, shared, info, kind, group, me, high, onOpen, onCopy, count, 
         {it.done && <span className="pill ok">fatta</span>}
         {it.skipped && <span className="pill">saltata</span>}
         {movedNote(it) && <span className="pill">{movedNote(it)}</span>}
+        {it.asked && !struck(it) && <span className="pill">{askedNote(it.asked, false)}</span>}
       </span>}
     </button>
     {/* Right after the title, not at the end of the row (user's choice, 2026-11-25). */}
@@ -335,7 +340,7 @@ function DaySheet({ day, onClose, children }: { day: LocalDate; onClose(): void;
   );
 }
 
-interface AttentionRow { activity: Activity; groupId: string | null; note?: string; when?: string | undefined }
+interface AttentionRow { activity: Activity; groupId: string | null; note?: string; when?: string | undefined; occurrenceKey?: string }
 
 /** A titled card of rows for what waits for the account (in view, overdue, proposals), above the days. */
 function AttentionList({ label, rows, kindOf, nameOf, me, onOpen, quick }: {
@@ -347,8 +352,8 @@ function AttentionList({ label, rows, kindOf, nameOf, me, onOpen, quick }: {
       <h3>{label}</h3>
       <ul className="items" aria-label={label}>
         {rows.map(r => (
-          <li key={r.activity.id}>
-            <SwipeRow {...quick(r.activity.id)}>
+          <li key={`${r.activity.id}|${r.occurrenceKey ?? ''}`}>
+            <SwipeRow {...quick(r.activity.id, r.occurrenceKey)}>
               <AttentionItem row={r} section={label} kind={kindOf(r.groupId) ?? 'personal'} group={nameOf(r.groupId)} me={me} onOpen={onOpen} />
             </SwipeRow>
           </li>
@@ -367,12 +372,12 @@ function AttentionItem({ row, section, kind, group, me, onOpen }: { row: Attenti
   useBarPrefs();
   const [, redraw] = useState(0);
   const a = row.activity;
-  const key = `${section}|${a.id}`;
+  const key = `${section}|${a.id}|${row.occurrenceKey ?? ''}`;
   const small = folds.get(key) ?? rowSizeOf(me, a.id) === 'reduced';
   const toggle = () => { folds.set(key, !small); redraw(n => n + 1); };
   return (
     <div className="item-row">
-      <button className={`item${small ? ' reduced' : ''}`} style={{ '--grp': KIND_COLOR[kind] } as React.CSSProperties} onClick={() => onOpen({ activityId: a.id })}>
+      <button className={`item${small ? ' reduced' : ''}`} style={{ '--grp': KIND_COLOR[kind] } as React.CSSProperties} onClick={() => onOpen(row.occurrenceKey ? { activityId: a.id, occurrenceKey: row.occurrenceKey } : { activityId: a.id })}>
         <span className="bar" />
         {small ? <span className="t">{a.title}</span>
           : <span><span className="t">{a.title}</span>{a.props.priority === 'high' && <High />}<br /><span className="meta">{[row.note, group].filter(Boolean).join(' · ')}</span></span>}
